@@ -1,0 +1,7 @@
+services:               # 管理するコンテナのリスト
+  backend:              # サービス名
+    build: ./backend    # `./backend/Dockerfile` を使ってイメージをビルド
+    ports:              # ポートマッピング
+      - "8000:8000"     # コンテナの8000番ポート --> `http://localhost:8000` でアクセスできる
+    volumes:            # ボリュームマウント
+      - ./backend:/app  # ホストの `./backend` --> コンテナの `/app` --> ホストのコードを変更すると、即座にコンテナに反映される
