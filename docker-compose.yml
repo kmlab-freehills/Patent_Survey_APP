@@ -19,6 +19,7 @@ services:               # 管理するコンテナのリスト
     environment:
       - NODE_ENV=development  # 開発環境を明示
       - NEXT_PUBLIC_API_URL=http://backend:8000
+      - WATCHPACK_POLLING=true # ホットリロードの安定化
     depends_on:
       - backend               # `backend` コンテナを起動してから `frontend` を起動する
     command: npm run dev      # 実行コマンドを明示

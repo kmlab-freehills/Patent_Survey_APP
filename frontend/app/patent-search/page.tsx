@@ -1,6 +1,7 @@
 "use client";
 
 import { PatentCard } from "./PatentCard";
+import ReportGenerator from "./ReportGenerator";
 
 
 
@@ -18,6 +19,8 @@ export default function ReportPage() {
             <a href="#elements" className="block px-3 py-2 text-sm text-slate-600 rounded-md hover:bg-slate-50">構成要素分解</a>
             
             <div className="my-4 border-t border-slate-100"></div>
+            <ReportGenerator />
+            
             
             <p className="text-xs font-semibold text-slate-400 mb-2 uppercase">Search Results</p>
             <a href="#result-1" className="flex items-center justify-between px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md">
