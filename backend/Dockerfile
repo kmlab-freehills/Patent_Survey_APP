@@ -18,6 +18,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ホストの backend/ ディレクトリの全ファイルを、コンテナ内の /app/ にコピー（main.pyなどがコピーされる）
 COPY . .
 
+## FastAPI 開発サーバーのポート（明示的） ##
+EXPOSE 8000
+
 ## コンテナ起動時に実行するコマンド ##
 # FastAPIサーバーを起動するコマンド
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

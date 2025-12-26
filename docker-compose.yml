@@ -1,7 +1,24 @@
 services:               # 管理するコンテナのリスト
-  backend:              # サービス名
+  backend:              # サービス名 `backend`
     build: ./backend    # `./backend/Dockerfile` を使ってイメージをビルド
     ports:              # ポートマッピング
       - "8000:8000"     # コンテナの8000番ポート --> `http://localhost:8000` でアクセスできる
     volumes:            # ボリュームマウント
       - ./backend:/app  # ホストの `./backend` --> コンテナの `/app` --> ホストのコードを変更すると、即座にコンテナに反映される
+    environment:
+      - ENV=development
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:                   # サービス名 `frontend`
+    build: ./frontend         # `./frontend/Dockerfile` を使ってイメージをビルド
+    ports:
+      - "3000:3000"           # コンテナの3000番ポート --> `http://localhost:3000` でアクセスできる
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules     # コンテナ内の`node_modules`を参照
+    environment:
+      - NODE_ENV=development  # 開発環境を明示
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend               # `backend` コンテナを起動してから `frontend` を起動する
+    command: npm run dev      # 実行コマンドを明示
