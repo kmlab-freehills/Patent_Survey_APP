@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
+import type { components } from '@/types/schema'; // 自動生成型定義
 import {
   UploadCloud,
   FileText,
@@ -9,12 +10,26 @@ import {
   Send,
 } from 'lucide-react';
 
+
+// 特許PDFレスポンスの型
+type PatentResponse = components['schemas']['PatentUploadResponse'];
+type PatentContent = components['schemas']['PatentContent'];
+
+// ファイルの型
 interface FileItem {
   name: string;
   size: string;
 }
 
-export default function PatentUploadUI() {
+// Props
+interface UploadUIProps {
+  setScreen: (state: "upload" | "generating" | "result") => void;
+  setFileName: (fileName: string) => void;
+  setPatentId: (patentId: string) => void;
+  setPatentData: (data: PatentContent) => void;
+}
+
+export const PatentUploadUI  = ({ setScreen, setFileName, setPatentId, setPatentData }: UploadUIProps) => {
   const [isDragging, setIsDragging] = useState(false);
   // ファイル変数
   const [fileInfo, setFileInfo] = useState<FileItem | null>(null);
@@ -81,19 +96,32 @@ export default function PatentUploadUI() {
   };
 
   // 送信処理
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     if (!rawFile) return;
 
     const formData = new FormData();
     formData.append('file', rawFile);
 
-    const res = await fetch('http://localhost:8000/upload', {
-      method: 'POST',
-      body: formData,
-    });
+    try {
+      const res = await fetch('http://localhost:8000/patent/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-    const data = await res.json();
-    console.log(data);
+      if (!res.ok) throw new Error('Upload failed');
+
+      // ▼ 型を指定しておくことで、dataの中身が補完されるようになる
+      const data: PatentResponse = await res.json();
+
+      // Stateの更新
+      setFileName(data.filename);
+      setPatentId(data.patent_id);
+      setPatentData(data.patent_data); // Pydanticモデル通りのキー名でアクセス
+      setScreen("generating");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("アップロードに失敗しました");
+    }
   };
 
   return (
