@@ -1,0 +1,13 @@
+/* グローバルCSSやmodule.cssに追加 */
+textarea::-webkit-scrollbar {
+  right: 10px;
+  width: 8px;
+  background: #f0f0f0;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: #b3c6ff;
+  border-radius: 4px;
+}
+textarea::-webkit-scrollbar-thumb:hover {
+  background: #5b8cff;
+}

@@ -1,4 +1,6 @@
-fastapi==0.127.1
-uvicorn==0.40.0
-google-genai==1.56.0
-dotenv==0.9.9
+fastapi==0.127.1 # FastAPI
+uvicorn==0.40.0 # サーバー起動
+google-genai==1.56.0 # Gemini
+dotenv==0.9.9 # 環境変数
+pypdf==6.5.0 # PDF処理
+python-multipart==0.0.21 # pypdfの依存関係

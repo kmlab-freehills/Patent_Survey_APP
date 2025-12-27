@@ -1,15 +1,12 @@
-export default async function Home() {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/health`,
-    { cache: "no-store" } // 常に最新を取得
-  );
+import Link from "next/link";
 
-  const data = await res.json();
+export default async function Home() {
+
 
   return (
-    <main style={{ padding: 20 }}>
-      <h1>Health Check</h1>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
+    <main className="p-10">
+      <h1>Hello Next.js</h1>
+        <Link href="/portal" className="hover:text-blue-600 whitespace-nowrap">ダッシュボード</Link>
     </main>
   );
 }
