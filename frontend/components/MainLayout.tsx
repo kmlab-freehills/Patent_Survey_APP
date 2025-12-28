@@ -1,29 +1,40 @@
+// MainLayout.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Search, Shield, House, Settings,
   Menu, User, ChevronRight, Lightbulb, Building2, X
 } from 'lucide-react';
+  
+// ナビゲーション定義
+const navigation =  [
+  { id: 'home', name: 'ホーム', icon: <House size={20} />, href: '/home' },
+  { id: 'search', name: '特許検索', icon: <Search size={20} />, href: '/home/search' },
+  { id: 'idea', name: 'アイデア生成', icon: <Lightbulb size={20} />, href: '/home/idea' },
+  { id: 'watchlist', name: '知財マッチング', icon: <Building2 size={20} />, href: '/watchlist' },
+]
+
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
-
-
+  // サイドバー開閉
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  const navigation = [
-    { id: 'home', name: 'ホーム', icon: <House size={20} />, href: '/home' },
-    { id: 'search', name: '特許検索', icon: <Search size={20} />, href: '/home/search' },
-    { id: 'idea', name: 'アイデア生成', icon: <Lightbulb size={20} />, href: '/home/idea' },
-    { id: 'watchlist', name: '知財マッチング', icon: <Building2 size={20} />, href: '/watchlist' },
-  ];
 
   // 現在のページ名を取得
   const currentPageName = navigation.find(n => n.href === pathname)?.name || 'Home';
+
+  // サイドバーのスタイル定義
+  const sidebarClasses = `
+    fixed inset-y-0 left-0 z-30 h-full
+    bg-slate-900 text-slate-300 shadow-xl
+    flex flex-col transition-all duration-300 ease-in-out
+    md:relative
+    ${isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'}
+  `;
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
@@ -37,35 +48,29 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       )}
 
       {/* サイドバー */}
-      <aside
-        className={`
-          fixed inset-y-0 left-0 z-30 h-full
-          bg-slate-900 text-slate-300 shadow-xl
-          flex flex-col transition-all duration-300 ease-in-out
-          md:relative
-          ${isSidebarOpen
-            ? 'translate-x-0 w-64'
-            : '-translate-x-full md:translate-x-0 md:w-20'
-          }
-        `}
-      >
-        {/* ロゴ */}
-        <div onClick={toggleSidebar} className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
+      <aside className={sidebarClasses}>
+        {/* ロゴエリア */}
+        <div onClick={toggleSidebar} className="h-16 flex items-center justify-between px-4 border-b border-slate-800 cursor-pointer md:cursor-default">
           <div className={`flex items-center gap-1 font-bold text-white text-xl ${!isSidebarOpen && 'md:justify-center md:w-full'}`}>
             <Shield className="text-blue-400 shrink-0" size={24} />
+            {/* サイドバー展開時またはモバイル表示時にテキストを表示 */}
             <span className={`tracking-wide whitespace-nowrap ${!isSidebarOpen && 'md:hidden'}`}>
               Patent Survey App
             </span>
           </div>
+          {/* モバイル用閉じるボタン */}
           <button
-            onClick={() => setIsSidebarOpen(false)}
+            onClick={(e) => {
+              e.stopPropagation(); // 親のdivクリックイベントへの伝播を防ぐ
+              setIsSidebarOpen(false);
+            }}
             className="text-slate-400 hover:text-white md:hidden"
           >
             <X size={24} />
           </button>
         </div>
 
-        {/* ナビゲーション */}
+        {/* ナビゲーションリスト */}
         <nav className="flex-1 py-6 space-y-2 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = pathname === item.href;
@@ -76,13 +81,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 onClick={() => {
                   if (window.innerWidth < 768) setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 transition-colors duration-200 group
-                  ${isActive
-                    ? 'bg-blue-600 text-white border-r-4 border-blue-300'
+                className={`
+                  w-full flex items-center gap-3 px-4 py-3 transition-colors duration-200 group
+                  ${isActive 
+                    ? 'bg-blue-600 text-white border-r-4 border-blue-300' 
                     : 'hover:bg-slate-800 hover:text-white'
                   }
                   ${!isSidebarOpen && 'md:justify-center'}
                 `}
+                title={!isSidebarOpen ? item.name : undefined} // 縮小時にツールチップ的に名前を表示
               >
                 <div className={`${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'} shrink-0`}>
                   {item.icon}
@@ -95,7 +102,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           })}
         </nav>
 
-        {/* 設定 */}
+        {/* 設定エリア */}
         <div className="p-4 border-t border-slate-800">
           <button className={`flex items-center gap-3 w-full px-2 py-2 text-slate-400 hover:text-white transition-colors ${!isSidebarOpen && 'md:justify-center'}`}>
             <Settings size={20} className="shrink-0" />
@@ -122,6 +129,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               <span className='font-semibold text-slate-700'>{currentPageName}</span>
             </div>
           </div>
+          
           <div className="flex items-center gap-3 pl-1">
             <div className="text-right hidden sm:block">
               <div className="text-sm font-medium text-slate-700">特許 太郎</div>
@@ -131,13 +139,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               <User size={18} />
             </button>
           </div>
-
         </header>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
+        <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
           {children}
-        </main>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import MainLayout from "../../components/MainLayout"; // パスは環境に合わせて調整してください
+import MainLayout from "../../components/MainLayout";
 
 export default function Layout({ children, }: Readonly<{
     children: React.ReactNode;

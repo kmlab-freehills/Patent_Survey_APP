@@ -1,3 +1,4 @@
+// page.tsx
 "use client"
 
 import { useState } from "react";
@@ -5,30 +6,42 @@ import { PatentUploadUI } from "./PatentUploadUI";
 import { GeneratingScreen } from "./GeneratingScreen";
 import type { components } from '@/types/schema'; // 自動生成型定義
 
-type PatentResponse = components['schemas']['PatentUploadResponse'];
 type PatentContent = components['schemas']['PatentContent'];
 
+// 画面状態の型定義
+type ScreenState = "upload" | "generating" | "result";
+
 export default function IdeaPage() {
-    type ScreenState = "upload" | "generating" | "result";
-    const [screen, setScreen] = useState<ScreenState>("upload")
-    // 特許PDF情報
-    const [patentId, setPatentId] = useState<string>("") 
-    const [fileName, setFileName] = useState<string>("")
-    const [patentData, setPatentData] = useState<PatentContent | null>(null);
+  const [screen, setScreen] = useState<ScreenState>("upload");
+  
+  // 特許PDF情報 & 解析データ
+  const [patentId, setPatentId] = useState<string>("");
+  const [fileName, setFileName] = useState<string>("");
+  const [patentData, setPatentData] = useState<PatentContent | null>(null);
 
+  return (
+    <>
+      {/* アップロード画面 */}
+      {screen === "upload" && (
+        <PatentUploadUI 
+          setScreen={setScreen} 
+          setPatentId={setPatentId} 
+          setFileName={setFileName} 
+          setPatentData={setPatentData} 
+        />
+      )}
 
-    return (
-        <>
-            {screen === "upload" && <PatentUploadUI setScreen={setScreen} setPatentId={setPatentId} setFileName={setFileName} setPatentData={setPatentData} />}
-            {screen === "generating" && (
-                <GeneratingScreen 
-                    fileName={fileName} 
-                    patentId={patentId}
-                    abstract={patentData?.abstract || ""} // 型安全にアクセス可能
-                />
-            )}
-            {screen === "result" && <div>Result</div>}
-        </>
+      {/* 生成・解析画面 (データが存在する場合のみ表示) */}
+      {screen === "generating" && patentData && (
+        <GeneratingScreen 
+          fileName={fileName} 
+          patentId={patentId}
+          patentData={patentData}
+        />
+      )}
 
-    )
+      {/* 結果画面 (将来拡張用) */}
+      {screen === "result" && <div>Result</div>}
+    </>
+  );
 }

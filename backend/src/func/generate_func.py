@@ -6,7 +6,7 @@ from google.genai.types import GenerateContentConfig
 # テキスト生成実行関数
 # ============================================================
 
-def generate_content(prompt, client, tool_mode: str):
+def generate_content(prompt, client, tool_mode: str, system_instruction=None):
     """
     tool_mode:
         "text"       : ツールなし（純粋なテキスト生成）
@@ -37,12 +37,16 @@ def generate_content(prompt, client, tool_mode: str):
     else:
         raise ValueError(f"Unknown tool_mode: {tool_mode}")
 
-    # config はツールがある場合のみ生成
-    config = None
+    # config生成ツールがある場合のみ生成
     if tools is not None:
         config = GenerateContentConfig(
             tools=tools,
+            system_instruction=system_instruction,
         )
+    else:
+        config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+    )
 
     response = client.models.generate_content_stream(
         model="gemini-2.5-flash",
@@ -69,7 +73,7 @@ def stream(response_stream):
             # 思考テキスト
             if getattr(part, "thought", False):
                 if not thoughts:
-                    yield "**【思考の要約】**\n\n"
+                    yield ""
                 thoughts += part.text
                 full_text += part.text
                 yield part.text
@@ -77,7 +81,7 @@ def stream(response_stream):
             # 回答テキスト
             else:
                 if not answer:
-                    yield "**【回答】**\n\n"
+                    yield ""
                 answer += part.text
                 full_text += part.text
                 yield part.text

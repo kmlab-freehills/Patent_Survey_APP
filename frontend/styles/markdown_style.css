@@ -13,7 +13,7 @@
 /* リスト */
 .markdown ul { padding-left: 1.6875rem; margin: 0.5rem 0 1rem; }
 .markdown ol { padding-left: 1.6875rem; margin: 0.5rem 0 1rem; }
-.markdown li { padding-left: 0.25rem; margin-bottom: 0.5rem; }
+.markdown li { padding-left: 0.25rem; margin-bottom: 0.5rem; list-style: inside; list-style-position: outside;}
 .markdown ul li p { padding-left: 0.025rem; margin: 0.5rem 0; }
 /* コードブロック */
 .markdown pre, .markdown code {
@@ -29,3 +29,17 @@
 .markdown table { border-collapse: collapse;}
 .markdown th { padding: 0.5rem; font-weight: 700; border: 1px solid #d6e3ed; background-color: #edf2f7; }
 .markdown td { padding: 0.5rem; border: 1px solid #d6e3ed; background-color: #fff;}
+
+.citation {
+  font-size: 0.75em;
+  color: #6b7280; /* gray-500 */
+  opacity: 0.65;
+  margin-left: 0.25em;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.citation:hover {
+  opacity: 1;
+  color: #2563eb; /* blue-600 */
+}
