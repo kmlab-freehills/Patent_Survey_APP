@@ -1,15 +1,51 @@
+import os
 import config
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from src.routers import generate_api, patent_process_api
+from src.storage.patent_store import STATIC_BASE_PATH, cleanup_temp_files
+
+# ============================================================
+# ライフサイクルイベント（起動・終了時の処理）
+# ============================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    アプリケーションのライフサイクル管理
+    - yield前: アプリ起動時の処理
+    - yield後: アプリ終了時の処理
+    """
+    # --- 起動時の処理 ---
+    print("アプリケーションを起動しています...")
+    if not os.path.exists(STATIC_BASE_PATH):
+        os.makedirs(STATIC_BASE_PATH, exist_ok=True)
+    
+    yield  # ← ここでアプリケーションが実行される
+    
+    # --- 終了時の処理 ---
+    print("アプリケーションを終了しています...")
+    cleanup_temp_files() # ファイル削除
+
 
 # ============================================================
 # アプリケーションのセットアップ
 # ============================================================
 
-app = FastAPI()
+app = FastAPI(
+    title="Patent Survey App",
+    description="フリーヒルズラボ",
+    version="1.0.0",
+    lifespan=lifespan  # ← lifespanを指定
+)
+
 FRONTEND_URL = config.FRONTEND_URL or ""
 
+# 特許画像保存先
+os.makedirs(STATIC_BASE_PATH, exist_ok=True) # マウント前に確実にディレクトリを作成
+app.mount("/static/patents", StaticFiles(directory=STATIC_BASE_PATH), name="static")
 
 # ============================================================
 # CORS設定（フロントエンドとの通信を許可）
@@ -44,3 +80,5 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+# uvicorn main:app --host 0.0.0.0 --port 8000 --reload

@@ -3,6 +3,12 @@
 from typing import Dict
 from uuid import uuid4
 
+# ==========================================
+# 1. 特許テキストデータ（idで管理）
+# ==========================================
+
+# サーバ再起動で消える一時ストレージ（DBを使わず変数をアプリ内で共有する）
+
 patent_store: Dict[str, object] = {}
 
 def save_patent(patent_doc) -> str:
@@ -13,4 +19,37 @@ def save_patent(patent_doc) -> str:
 def get_patent(patent_id: str):
     return patent_store.get(patent_id)
 
-# サーバ再起動で消える一時ストレージ（DBを使わず変数をアプリ内で共有する）
+
+# ==========================================
+# 2. 特許画像データ（一時フォルダで管理）
+# ==========================================
+
+# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
+
+import os
+import shutil
+from pathlib import Path
+
+# .parent.parent.parent で src -> storage -> backend へ遡る
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# 2. プロジェクトルート直下に一時フォルダを作成
+STATIC_DIR_NAME = "temp_patents"
+STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
+
+STATIC_BASE_URL = "/static/patents"
+
+def get_patent_figure_dir(patent_id: str) -> str:
+    # Pathオブジェクトを使って結合し、文字列で返す
+    path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
+    return str(path)
+
+def build_figure_url(patent_id: str, filename: str) -> str:
+    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
+
+# アプリ終了時に呼ばれるクリーンアップ関数
+def cleanup_temp_files():
+    if os.path.exists(STATIC_BASE_PATH):
+        # フォルダの中身ごと完全に削除
+        shutil.rmtree(STATIC_BASE_PATH)
+        print(f"Cleanup: Deleted {STATIC_BASE_PATH}")

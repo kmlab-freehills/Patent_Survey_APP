@@ -1,7 +1,9 @@
+import os
 from fastapi import APIRouter, UploadFile, File
-from src.storage.patent_store import save_patent
-from src.func import patentpdf
+from src.func.patent_pdf import patent_text_extraction
+from src.func.patent_images import extract_figures_from_pdf_bytes
 from src.schemas import patent_schemas
+from src.storage.patent_store import save_patent, get_patent_figure_dir, build_figure_url
 
 ## upload_api.py / 特許PDFを処理するエンドポイント ##
 
@@ -14,11 +16,31 @@ router = APIRouter(prefix="/patent", tags=["PDF処理"])
 @router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
 async def upload_pdf(file: UploadFile = File(...)):
     pdf_bytes = await file.read() # PDF を bytes として取得
-    patent_doc = patentpdf.patent_text_extraction(pdf_bytes) # テキスト抽出＆整形＆オブジェクト化
-    patent_id = save_patent(patent_doc) # 一時的なIDを保存
+
+    # テキスト抽出＆整形&クラスオブジェクト化
+    patent_doc = patent_text_extraction(pdf_bytes)
+
+    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
+    patent_id = save_patent(patent_doc)
+
+    # 図の抽出 & 保存
+    figure_dir = get_patent_figure_dir(patent_id)
+    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
+
+    # 図にメタデータを付与（URLなど）
+    images = [
+        {
+            "id": fig["id"],
+            "label": fig["label"],
+            "page": fig["page"],
+            "url": build_figure_url(patent_id, os.path.basename(fig["path"])),
+        }
+        for fig in figures
+    ]
 
     return {
         "filename": file.filename,
         "patent_id": patent_id,
         "patent_data": patent_doc.__dict__,
+        "images": images,
     }
