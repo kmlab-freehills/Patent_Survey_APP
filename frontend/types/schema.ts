@@ -41,6 +41,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/generate/idea": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Idea */
+        post: operations["generate_idea_generate_idea_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patent/upload": {
         parameters: {
             query?: never;
@@ -103,6 +120,13 @@ export interface components {
              * Format: binary
              */
             file: string;
+        };
+        /** GenerateIdeaRequest */
+        GenerateIdeaRequest: {
+            /** Patent Id */
+            patent_id: string;
+            /** Explanation Text */
+            explanation_text: string;
         };
         /** GeneratePatentRequest */
         GeneratePatentRequest: {
@@ -195,6 +219,17 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** PatentImage */
+        PatentImage: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Page */
+            page: number;
+            /** Url */
+            url: string;
+        };
         /** PatentUploadResponse */
         PatentUploadResponse: {
             /** Filename */
@@ -202,6 +237,8 @@ export interface components {
             /** Patent Id */
             patent_id: string;
             patent_data: components["schemas"]["PatentContent"];
+            /** Images */
+            images: components["schemas"]["PatentImage"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -264,6 +301,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["GeneratePatentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_idea_generate_idea_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateIdeaRequest"];
             };
         };
         responses: {

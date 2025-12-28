@@ -14,6 +14,8 @@ import {
 // 特許PDFの型
 type PatentResponse = components['schemas']['PatentUploadResponse'];
 type PatentContent = components['schemas']['PatentContent'];
+type PatentImage = components['schemas']['PatentImage']
+
 
 interface FileItem {
   name: string;
@@ -25,9 +27,10 @@ interface UploadUIProps {
   setFileName: (fileName: string) => void;
   setPatentId: (patentId: string) => void;
   setPatentData: (data: PatentContent) => void;
+  setPatentImages: (data: PatentImage[]) => void;
 }
 
-export const PatentUploadUI = ({ setScreen, setFileName, setPatentId, setPatentData }: UploadUIProps) => {
+export const PatentUploadUI = ({ setScreen, setFileName, setPatentId, setPatentData, setPatentImages }: UploadUIProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [fileInfo, setFileInfo] = useState<FileItem | null>(null);
   const [rawFile, setRawFile] = useState<File | null>(null);
@@ -109,6 +112,7 @@ export const PatentUploadUI = ({ setScreen, setFileName, setPatentId, setPatentD
       setFileName(data.filename);
       setPatentId(data.patent_id);
       setPatentData(data.patent_data);
+      setPatentImages(data.images)
       setScreen("generating");
 
     } catch (error) {

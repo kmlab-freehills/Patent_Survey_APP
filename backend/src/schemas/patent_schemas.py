@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 # 特許文書の中身そのもののスキーマ
 class PatentContent(BaseModel):
@@ -16,8 +16,15 @@ class PatentContent(BaseModel):
     industrial_applicability: str = Field("", description="産業上の利用可能性")
     others: Dict[str, str] = Field(default_factory=dict, description="その他のセクション")
 
+class PatentImage(BaseModel):
+    id: str
+    label: str # 図1
+    page: int
+    url: str
+
 # APIが返す全体のレスポンススキーマ
 class PatentUploadResponse(BaseModel):
     filename: str
     patent_id: str
     patent_data: PatentContent  # ここで上記のクラスをネストする
+    images: list[PatentImage]

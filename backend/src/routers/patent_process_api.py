@@ -33,7 +33,7 @@ async def upload_pdf(file: UploadFile = File(...)):
             "id": fig["id"],
             "label": fig["label"],
             "page": fig["page"],
-            "url": build_figure_url(patent_id, os.path.basename(fig["path"])),
+            "url": build_figure_url(patent_id, fig["filename"]),
         }
         for fig in figures
     ]

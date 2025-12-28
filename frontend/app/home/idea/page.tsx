@@ -7,6 +7,7 @@ import { GeneratingScreen } from "./GeneratingScreen";
 import type { components } from '@/types/schema'; // 自動生成型定義
 
 type PatentContent = components['schemas']['PatentContent'];
+type PatentImage = components['schemas']['PatentImage']
 
 // 画面状態の型定義
 type ScreenState = "upload" | "generating" | "result";
@@ -18,6 +19,7 @@ export default function IdeaPage() {
   const [patentId, setPatentId] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
   const [patentData, setPatentData] = useState<PatentContent | null>(null);
+  const [patentImages, setPatentImages] = useState<PatentImage[]>([])
 
   return (
     <>
@@ -28,6 +30,7 @@ export default function IdeaPage() {
           setPatentId={setPatentId} 
           setFileName={setFileName} 
           setPatentData={setPatentData} 
+          setPatentImages={setPatentImages}
         />
       )}
 
@@ -37,6 +40,7 @@ export default function IdeaPage() {
           fileName={fileName} 
           patentId={patentId}
           patentData={patentData}
+          patentImages={patentImages}
         />
       )}
 

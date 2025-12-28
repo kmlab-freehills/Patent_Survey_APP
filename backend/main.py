@@ -1,11 +1,14 @@
 import os
 import config
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from src.routers import generate_api, patent_process_api
 from src.storage.patent_store import STATIC_BASE_PATH, cleanup_temp_files
+
+load_dotenv()
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -27,7 +30,8 @@ async def lifespan(app: FastAPI):
     
     # --- 終了時の処理 ---
     print("アプリケーションを終了しています...")
-    cleanup_temp_files() # ファイル削除
+    if os.getenv("CREANUP_ON_EXIT") == "true":
+        cleanup_temp_files() # 一時ファイル削除実行
 
 
 # ============================================================

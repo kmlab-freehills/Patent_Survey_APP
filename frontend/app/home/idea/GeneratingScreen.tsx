@@ -2,29 +2,33 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Bot, Loader2, FileText, Sparkles, Lightbulb, ArrowRight, PanelRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import "@/styles/markdown_style.css";
 import { MarkdownRenderer } from './util/MarkdownRenderer';
-import { SourceSidebar } from './SourceSidebar';
+import { SourceSidebar } from './components/SourceSidebar';
 import { parseSourceText } from './util/parseSourceText';
 import { formatPatentToString } from './util/patentFormatter';
-import type { components } from '@/types/schema';
+import "@/styles/markdown_style.css";
+import { Bot, Loader2, FileText, Sparkles, Lightbulb, ArrowRight, PanelRight } from 'lucide-react';
 
+import type { components } from '@/types/schema';
 type PatentContent = components['schemas']['PatentContent'];
+type PatentImage = components['schemas']['PatentImage']
 
 interface GeneratingScreenProps {
   fileName: string;
   patentId: string;
   patentData: PatentContent;
+  patentImages: PatentImage[];
 }
 
-export const GeneratingScreen = ({ fileName, patentId, patentData }: GeneratingScreenProps) => {
+export const GeneratingScreen = ({ fileName, patentId, patentData, patentImages }: GeneratingScreenProps) => {
   // 原文参照サイドバーの開閉
   const [isSourceOpen, setIsSourceOpen] = useState(false);
   const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null);
 
+  // 画像選択状態
+  const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null);
 
   // ステータス管理（共通）
   const [isGenerating, setIsGenerating] = useState(false);
@@ -154,7 +158,7 @@ export const GeneratingScreen = ({ fileName, patentId, patentData }: GeneratingS
           <div className="flex justify-center py-8">
             <button
               onClick={handleGenerate}
-              className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-liner-to-r bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
             >
               <Sparkles size={20} />
               <span>特許解析を実行</span>
@@ -180,7 +184,7 @@ export const GeneratingScreen = ({ fileName, patentId, patentData }: GeneratingS
               <SourceSidebarButton setIsSourceOpen={setIsSourceOpen} />
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-[200px]">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-50">
               {error ? (
                 <div className="text-red-500 bg-red-50 p-4 rounded-lg flex items-center gap-2">
                   <span className="font-bold">Error:</span> {error}
@@ -253,8 +257,10 @@ export const GeneratingScreen = ({ fileName, patentId, patentData }: GeneratingS
           fileName={fileName}
           sourceBlocks={sourceBlocks}
           activeParagraphId={activeParagraphId}
+          patentImages={patentImages}
+          selectedImage={selectedImage}
+          setSelectedImage={setSelectedImage}
         />
-
       )}
     </div>
   );
