@@ -56,6 +56,7 @@ backend/src/routers/generate_api.py
 backend/src/routers/patent_process_api.py
 backend/src/schemas/patent_schemas.py
 backend/src/storage/patent_store.py
+Coding_Guideline_for_LLM.md
 docker-compose.yml
 frontend/.gitignore
 frontend/app/chat-ui/ChatInput.tsx
@@ -115,6 +116,135 @@ SETUP.md
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="Coding_Guideline_for_LLM.md">
+# コーディングガイドライン（LLM 向け）
+
+## UI デザインガイドライン
+
+本アプリケーションは、特許という堅牢な情報を扱いながらも、AI による創造的な示唆を与えるツールです。
+「信頼性（Trust）」と「先進性（Innovation）」を両立するデザインシステムを採用します。
+
+### 1. 基本スタンス (Core Principles)
+
+-   **Clean Professional**: 情報量は多いが、余白と区切り線を適切に用い、圧迫感を与えない。
+-   **Traceable UI**: AI の回答と情報源（特許原文）の繋がりを視覚的に明確にする。
+-   **Motion for Wait**: 生成待ち時間を「処理中」のポジティブな体験に変えるアニメーションを採用する。
+
+### 2. 基本スタイル (Foundation)
+
+-   **フレームワーク**: Tailwind CSS
+-   **アイコン**: Lucide React
+    -   基本サイズ: `size={20}` (ボタン・メニュー), `size={16}` (補足情報), `size={24}` (強調・ロゴ)
+-   **フォント**: `Noto Sans JP` (Google Fonts)
+    -   ウェイト: 本文 `400`, 強調 `500`, 見出し `700`
+
+### 3. カラーパレット (Color System)
+
+ベースの `Slate` に加え、機能ごとに意味を持たせた 3 つのメインカラーを使い分けます。
+
+**A. ベースカラー (Structure)**
+
+画面の骨格となる無彩色です。
+
+-   **背景**: `bg-slate-50` (アプリ背景), `bg-white` (コンテナ・カード)
+-   **テキスト**: `text-slate-800` (主要テキスト), `text-slate-500` (サブテキスト), `text-slate-400` (プレースホルダー・メタ情報)
+-   **ボーダー**: `border-slate-200` (基本), `border-slate-300` (入力フォーム等)
+
+**B. 機能別アクセント (Functional Colors)**
+
+| **色系統**  | **Tailwind Class** | **用途・意味**        | **実装例**                                                                              |
+| ----------- | ------------------ | --------------------- | --------------------------------------------------------------------------------------- |
+| **Blue**    | `blue-600`         | **プライマリ / 操作** | 信頼、確定、リンク、アップロード、 送信ボタン、選択状態、リンクテキスト                 |
+| **Indigo**  | `indigo-600`       | **AI 解析 / 知性**    | AI による思考、解析プロセス、ボット発言、 AI、 アイコン背景(`indigo-100`)、ローディング |
+| **Emerald** | `emerald-600`      | **アイデア / 成果**   | 生成されたアイデア、成功、完了、アイデアセクション、完了バッジ、生成ボタン              |
+
+**C. 状態色 (State)**
+
+-   **Error**: `red-500` / `bg-red-50` (エラーメッセージ)
+-   **Highlight**: `yellow-100` (原文参照時のハイライト演出)
+
+## 4. レイアウト構造 (Layout)
+
+**ナビゲーション (Sidebar)**
+
+-   **背景**: `bg-slate-900`
+-   **文字**: `text-slate-400` (通常), `text-white` (ホバー/アクティブ)
+-   **アクティブ表現**: `bg-blue-600` + **右端にアクセント線** (`border-r-4 border-blue-300`)
+-   **レスポンシブ**: モバイル時はオーバーレイ表示 (`backdrop-blur-sm`)
+
+**右サイドバー (Source Sidebar)**
+
+-   **用途**: 特許原文や図面の参照用
+-   **スタイル**: 白背景、左ボーダー (`border-l`), 幅固定 (`w-105`), 画面右端に固定 (`fixed right-0`)
+-   **挙動**: 原文参照ボタンクリックでスライドイン (`translate-x-0`)
+
+## 5. コンポーネントパターン (Components)
+
+**カード・コンテナ (Cards)**
+
+-   **基本**: `bg-white rounded-xl shadow-sm border border-slate-200`
+-   **アイデアカード**: `ring-1 ring-emerald-50 border-emerald-100 shadow-lg` (アイデア生成結果の強調)
+
+**ボタン (Buttons)**
+
+-   **Primary**: `bg-blue-600 text-white hover:bg-blue-700 rounded-lg shadow-sm`
+-   **Secondary**: `bg-white text-slate-600 border border-slate-300 hover:bg-slate-50`
+-   **Action (Idea)**: `bg-emerald-600 text-white hover:bg-emerald-700` (解析からアイデア生成へ進む際など)
+
+### 生成テキスト (Markdown Output)
+
+AI 出力（Markdown）は `markdown_style.css` に基づき整形します。
+
+-   **見出し**: 太字 (`font-bold`) + マージン確保
+-   **リスト**: インデント確保 (`padding-left`) + マーカー色調整
+-   **引用/参照**:
+    -   通常: `text-slate-400 text-xs` (`[段落: 0013]`など)
+    -   インタラクティブ: `hover:text-blue-700 hover:underline cursor-pointer` (クリック可能な場合)
+
+### アニメーション (Micro Interactions)
+
+ユーザーを待たせないための演出を積極的に採用します。
+
+-   **出現**: `animate-in fade-in slide-in-from-bottom-4 duration-500` (生成結果の表示)
+-   **待機**: `animate-pulse` (生成中のカーソル点滅、ローディングテキスト)
+-   **回転**: `animate-spin` (ローディングアイコン)
+
+---
+
+## コーディング規約とコメントのガイドライン
+
+コードを出力する際は、以下のコメントスタイルに則ってください。
+また、以下のガイドラインに限らず、私のコードベースから観察できるスタイルを参考にしてください。
+
+### 基本原則
+
+-   視認性（Visibility）
+-   教育的（Educational）
+
+### 1. **セクションの明示**:
+
+処理の塊ごとに、以下のような装飾コメントで区切りを入れてください。
+
+```text
+# ============================================================
+# [処理名]
+# ============================================================
+```
+
+### 2. **「なぜ」と「具体例」を書く**:
+
+単に処理内容（What）を書くのではなく、「なぜそうするのか（Why）」や可能であれば「どうなるのか（Example）」を書いてください。
+
+### 3. **正規表現や複雑なロジック**:
+
+必ず「変換前」と「変換後」の具体例をコメントに併記してください。
+
+### 4. **省略禁止**:
+
+変数名や関数名は省略しない。（悪い例: data --> d）
+「// ... existing code」のような省略はせず、コメントも含めて丁寧に記述してください。（※ ただし、ファイル全体ではなく一部分の修正であれば該当部分のみで構いません。）
+</file>
 
 <file path="frontend/app/MainLayout.tsx">
 // Patent_Survey_APP/frontend/app/MainLayout.tsx
@@ -3587,6 +3717,178 @@ async def generate_idea(data: GenerateIdeaRequest):
     return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
 </file>
 
+<file path="frontend/eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+    ...nextVitals,
+    ...nextTs,
+    // Override default ignores of eslint-config-next.
+    globalIgnores([
+        // Default ignores of eslint-config-next:
+        ".next/**",
+        "out/**",
+        "build/**",
+        "next-env.d.ts",
+    ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="frontend/next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+    /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="frontend/postcss.config.mjs">
+const config = {
+    plugins: {
+        "@tailwindcss/postcss": {},
+    },
+};
+
+export default config;
+</file>
+
+<file path="frontend/README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+-   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+-   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+    "compilerOptions": {
+        "target": "ES2017",
+        "lib": ["dom", "dom.iterable", "esnext"],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "noEmit": true,
+        "esModuleInterop": true,
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "jsx": "react-jsx",
+        "incremental": true,
+        "plugins": [
+            {
+                "name": "next"
+            }
+        ],
+        "paths": {
+            "@/*": ["./*"]
+        }
+    },
+    "include": [
+        "next-env.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        ".next/types/**/*.ts",
+        ".next/dev/types/**/*.ts",
+        "**/*.mts"
+    ],
+    "exclude": ["node_modules"]
+}
+</file>
+
+<file path="backend/requirements.txt">
+fastapi==0.127.1 # FastAPI
+uvicorn==0.40.0 # サーバー起動
+google-genai==1.56.0 # Gemini
+dotenv==0.9.9 # 環境変数
+pypdf==6.5.0 # PDF処理
+python-multipart==0.0.21 # pypdfの依存関係
+matplotlib==3.10.8 # PDFから画像を抽出する際に使用
+</file>
+
+<file path="frontend/app/globals.css">
+/* Patent_Survey_APP/frontend/app/grobals.css */
+
+@import "tailwindcss";
+
+:root {
+    --background: #ffffff;
+    --foreground: #171717;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-family: var(--font-noto-sans-jp);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0a0a0a;
+        --foreground: #ededed;
+    }
+}
+
+/* 参照 */
+.ref {
+    @apply text-slate-400 inline-flex items-center text-xs font-medium;
+}
+
+.ref-paragraph {
+    @apply hover:underline hover:text-blue-700 cursor-default;
+}
+
+.ref-meta {
+    @apply cursor-default;
+}
+
+body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
+}
+</file>
+
 <file path="frontend/app/home/idea/GeneratingScreen.tsx">
 // Patent_Survey_APP/frontend/app/home/idea/GeneratingScreen.tsx
 
@@ -3922,242 +4224,6 @@ const SourceSidebarButton = ({
 };
 </file>
 
-<file path="frontend/eslint.config.mjs">
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-
-const eslintConfig = defineConfig([
-    ...nextVitals,
-    ...nextTs,
-    // Override default ignores of eslint-config-next.
-    globalIgnores([
-        // Default ignores of eslint-config-next:
-        ".next/**",
-        "out/**",
-        "build/**",
-        "next-env.d.ts",
-    ]),
-]);
-
-export default eslintConfig;
-</file>
-
-<file path="frontend/next.config.ts">
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-    /* config options here */
-};
-
-export default nextConfig;
-</file>
-
-<file path="frontend/postcss.config.mjs">
-const config = {
-    plugins: {
-        "@tailwindcss/postcss": {},
-    },
-};
-
-export default config;
-</file>
-
-<file path="frontend/README.md">
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-</file>
-
-<file path="frontend/tsconfig.json">
-{
-    "compilerOptions": {
-        "target": "ES2017",
-        "lib": ["dom", "dom.iterable", "esnext"],
-        "allowJs": true,
-        "skipLibCheck": true,
-        "strict": true,
-        "noEmit": true,
-        "esModuleInterop": true,
-        "module": "esnext",
-        "moduleResolution": "bundler",
-        "resolveJsonModule": true,
-        "isolatedModules": true,
-        "jsx": "react-jsx",
-        "incremental": true,
-        "plugins": [
-            {
-                "name": "next"
-            }
-        ],
-        "paths": {
-            "@/*": ["./*"]
-        }
-    },
-    "include": [
-        "next-env.d.ts",
-        "**/*.ts",
-        "**/*.tsx",
-        ".next/types/**/*.ts",
-        ".next/dev/types/**/*.ts",
-        "**/*.mts"
-    ],
-    "exclude": ["node_modules"]
-}
-</file>
-
-<file path="backend/requirements.txt">
-fastapi==0.127.1 # FastAPI
-uvicorn==0.40.0 # サーバー起動
-google-genai==1.56.0 # Gemini
-dotenv==0.9.9 # 環境変数
-pypdf==6.5.0 # PDF処理
-python-multipart==0.0.21 # pypdfの依存関係
-matplotlib==3.10.8 # PDFから画像を抽出する際に使用
-</file>
-
-<file path="backend/src/routers/patent_process_api.py">
-# Patent_Survey_APP/backend/src/routers/patent_process_api.py
-
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from src.func.patent_images import extract_figures_from_pdf_bytes
-from src.func.patent_pdf import patent_text_extraction
-from src.schemas import patent_schemas
-from src.storage.patent_store import (
-    build_figure_url,
-    get_patent_figure_dir,
-    save_patent,
-)
-
-## upload_api.py / 特許PDFを処理するエンドポイント ##
-
-router = APIRouter(prefix="/patent", tags=["PDF処理"])
-
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-
-# ============================================================
-# エンドポイント
-# ============================================================
-
-
-@router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
-    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
-    pdf_bytes = await file.read()  # PDF を bytes として取得
-
-    if len(pdf_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"ファイルサイズが上限({MAX_FILE_SIZE / 1024 / 1024}MB)を超えています",
-        )
-
-    # テキスト抽出＆整形&クラスオブジェクト化
-    patent_doc = patent_text_extraction(pdf_bytes)
-
-    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
-    patent_id = save_patent(patent_doc)
-
-    # 図の抽出 & 保存
-    figure_dir = get_patent_figure_dir(patent_id)
-    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
-
-    # 図にメタデータを付与（URLなど）
-    images = [
-        {
-            "id": fig["id"],
-            "label": fig["label"],
-            "page": fig["page"],
-            "url": build_figure_url(patent_id, fig["filename"]),
-        }
-        for fig in figures
-    ]
-
-    return {
-        "filename": file.filename,
-        "patent_id": patent_id,
-        "patent_data": patent_doc.__dict__,
-        "images": images,
-    }
-</file>
-
-<file path="frontend/app/globals.css">
-/* Patent_Survey_APP/frontend/app/grobals.css */
-
-@import "tailwindcss";
-
-:root {
-    --background: #ffffff;
-    --foreground: #171717;
-}
-
-@theme inline {
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --font-family: var(--font-noto-sans-jp);
-    --font-sans: var(--font-geist-sans);
-    --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0a0a0a;
-        --foreground: #ededed;
-    }
-}
-
-/* 参照 */
-.ref {
-    @apply text-slate-400 inline-flex items-center text-xs font-medium;
-}
-
-.ref-paragraph {
-    @apply hover:underline hover:text-blue-700 cursor-default;
-}
-
-.ref-meta {
-    @apply cursor-default;
-}
-
-body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
-}
-</file>
-
 <file path="frontend/app/home/idea/page.tsx">
 // Patent_Survey_APP/frontend/app/home/idea/page.tsx
 
@@ -4458,6 +4524,70 @@ function FileRow({ file, onRemove }: { file: FileItem; onRemove: () => void }) {
 }
 </file>
 
+<file path="backend/src/routers/patent_process_api.py">
+# Patent_Survey_APP/backend/src/routers/patent_process_api.py
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from src.func.patent_images import extract_figures_from_pdf_bytes
+from src.func.patent_pdf import patent_text_extraction
+from src.schemas import patent_schemas
+from src.storage.patent_store import (
+    build_figure_url,
+    get_patent_figure_dir,
+    save_patent,
+)
+
+## upload_api.py / 特許PDFを処理するエンドポイント ##
+
+router = APIRouter(prefix="/patent", tags=["PDF処理"])
+
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# ============================================================
+# エンドポイント
+# ============================================================
+
+
+@router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
+async def upload_pdf(file: UploadFile = File(...)):
+    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
+    pdf_bytes = await file.read()  # PDF を bytes として取得
+
+    if len(pdf_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"ファイルサイズが上限({MAX_FILE_SIZE / 1024 / 1024}MB)を超えています",
+        )
+
+    # テキスト抽出＆整形&クラスオブジェクト化
+    patent_doc = patent_text_extraction(pdf_bytes)
+
+    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
+    patent_id = save_patent(patent_doc)
+
+    # 図の抽出 & 保存
+    figure_dir = get_patent_figure_dir(patent_id)
+    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
+
+    # 図にメタデータを付与（URLなど）
+    images = [
+        {
+            "id": fig["id"],
+            "label": fig["label"],
+            "page": fig["page"],
+            "url": build_figure_url(patent_id, fig["filename"]),
+        }
+        for fig in figures
+    ]
+
+    return {
+        "filename": file.filename,
+        "patent_id": patent_id,
+        "patent_data": patent_doc.__dict__,
+        "images": images,
+    }
+</file>
+
 <file path="docker-compose.yml">
 services: # 管理するコンテナのリスト
     backend: # サービス名 `backend`
@@ -4530,6 +4660,42 @@ import { redirect } from "next/navigation";
 // リダイレクト専用ページ
 export default function Page() {
     redirect("/home");
+}
+</file>
+
+<file path="frontend/package.json">
+{
+    "name": "frontend",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint",
+        "api:gen": "openapi-typescript http://127.0.0.1:8000/openapi.json --output ./types/schema.ts"
+    },
+    "dependencies": {
+        "@ai-sdk/react": "^3.0.3",
+        "lucide-react": "^0.562.0",
+        "next": "16.1.1",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
+        "react-markdown": "^10.1.0",
+        "remark-gfm": "^4.0.1",
+        "zod": "^4.2.1"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "eslint": "^9",
+        "eslint-config-next": "16.1.1",
+        "openapi-typescript": "^7.10.1",
+        "tailwindcss": "^4",
+        "typescript": "^5.9.3"
+    }
 }
 </file>
 
@@ -4625,42 +4791,6 @@ def read_root():
 
 # 実行コマンド:
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-</file>
-
-<file path="frontend/package.json">
-{
-    "name": "frontend",
-    "version": "0.1.0",
-    "private": true,
-    "scripts": {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start",
-        "lint": "eslint",
-        "api:gen": "openapi-typescript http://127.0.0.1:8000/openapi.json --output ./types/schema.ts"
-    },
-    "dependencies": {
-        "@ai-sdk/react": "^3.0.3",
-        "lucide-react": "^0.562.0",
-        "next": "16.1.1",
-        "react": "19.2.3",
-        "react-dom": "19.2.3",
-        "react-markdown": "^10.1.0",
-        "remark-gfm": "^4.0.1",
-        "zod": "^4.2.1"
-    },
-    "devDependencies": {
-        "@tailwindcss/postcss": "^4",
-        "@types/node": "^20",
-        "@types/react": "^19",
-        "@types/react-dom": "^19",
-        "eslint": "^9",
-        "eslint-config-next": "16.1.1",
-        "openapi-typescript": "^7.10.1",
-        "tailwindcss": "^4",
-        "typescript": "^5.9.3"
-    }
-}
 </file>
 
 <file path="README.md">
