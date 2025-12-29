@@ -15,7 +15,7 @@ services: # 管理するコンテナのリスト
             - "3000:3000" # コンテナの3000番ポート --> `http://localhost:3000` でアクセスできる
         volumes:
             - ./frontend:/app
-            - ./frontend/node_modules:/app/node_modules # node_modulesをホストと共有
+            - /app/node_modules # ホストのパスを指定せず、コンテナ専用のボリュームにする --> ホスト側でnpm installが必要 （Anonymous Volume 訳: 匿名ボリューム）
         environment:
             - NODE_ENV=development # 開発環境を明示
             - NEXT_PUBLIC_API_URL=http://backend:8000

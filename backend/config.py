@@ -14,4 +14,4 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 # 終了時に一時ファイルを削除するかどうか
-CLEANUP_ON_EXIT = os.getenv("CREANUP_ON_EXIT")
+CLEANUP_ON_EXIT = os.getenv("CLEANUP_ON_EXIT")

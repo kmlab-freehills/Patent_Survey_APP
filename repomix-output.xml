@@ -1,0 +1,4667 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+backend/.env.example
+backend/config.py
+backend/Dockerfile
+backend/main.py
+backend/requirements.txt
+backend/src/func/gemini_client.py
+backend/src/func/generate_func.py
+backend/src/func/patent_images.py
+backend/src/func/patent_pdf.py
+backend/src/prompt/idea_prompt.py
+backend/src/prompt/system_prompt.py
+backend/src/routers/generate_api.py
+backend/src/routers/patent_process_api.py
+backend/src/schemas/patent_schemas.py
+backend/src/storage/patent_store.py
+docker-compose.yml
+frontend/.gitignore
+frontend/app/chat-ui/ChatInput.tsx
+frontend/app/chat-ui/KnowledgeTypes.ts
+frontend/app/chat-ui/MessageList.tsx
+frontend/app/chat-ui/page.tsx
+frontend/app/favicon.ico
+frontend/app/globals.css
+frontend/app/home/idea/components/FigureList.tsx
+frontend/app/home/idea/components/PatentImageModal.tsx
+frontend/app/home/idea/components/SourceSidebar.tsx
+frontend/app/home/idea/GeneratingScreen.tsx
+frontend/app/home/idea/page.tsx
+frontend/app/home/idea/PatentUploadUI.tsx
+frontend/app/home/idea/util/FigureReference.tsx
+frontend/app/home/idea/util/MarkdownRenderer.tsx
+frontend/app/home/idea/util/parseSourceText.ts
+frontend/app/home/idea/util/patentFormatter.ts
+frontend/app/home/idea/util/ReferenceText.tsx
+frontend/app/home/layout.tsx
+frontend/app/home/page.tsx
+frontend/app/layout.tsx
+frontend/app/MainLayout.tsx
+frontend/app/page.tsx
+frontend/app/test/page.tsx
+frontend/Dockerfile
+frontend/eslint.config.mjs
+frontend/images/arrow_back.svg
+frontend/images/arrow_drop_down_icon.svg
+frontend/images/book_icon.svg
+frontend/images/check_icon.svg
+frontend/images/edit_document_icon.svg
+frontend/images/festival_icon.svg
+frontend/images/file.svg
+frontend/images/globe.svg
+frontend/images/group_icon.svg
+frontend/images/id_card_icon.svg
+frontend/images/info_icon.svg
+frontend/images/logout_icon.svg
+frontend/images/menu_icon.svg
+frontend/images/science.svg
+frontend/images/send_icon.svg
+frontend/images/setting_icon.svg
+frontend/images/side_icon.svg
+frontend/images/window.svg
+frontend/next.config.ts
+frontend/package.json
+frontend/postcss.config.mjs
+frontend/public/file.svg
+frontend/public/globe.svg
+frontend/public/next.svg
+frontend/public/vercel.svg
+frontend/public/window.svg
+frontend/README.md
+frontend/styles/chat_input_style.css
+frontend/styles/markdown_style.css
+frontend/tsconfig.json
+frontend/types/schema.ts
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="backend/.env.example">
+# 対応する環境変数を挿入し、.envと改名
+
+GEMINI_API_KEY = ""
+
+FRONTEND_URL = ""
+
+CREANUP_ON_EXIT = "" 
+# "true" or "false"
+</file>
+
+<file path="frontend/app/MainLayout.tsx">
+// Patent_Survey_APP/frontend/app/MainLayout.tsx
+
+"use client";
+
+import {
+    Building2,
+    ChevronRight,
+    House,
+    Lightbulb,
+    Menu,
+    Search,
+    Settings,
+    Shield,
+    User,
+    X,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import React, { useState } from "react";
+
+// ============================================================
+// Title
+// ============================================================
+
+// ナビゲーション定義
+const navigation = [
+    { id: "home", name: "ホーム", icon: <House size={20} />, href: "/home" },
+    {
+        id: "search",
+        name: "特許検索",
+        icon: <Search size={20} />,
+        href: "/home/search",
+    },
+    {
+        id: "idea",
+        name: "アイデア生成",
+        icon: <Lightbulb size={20} />,
+        href: "/home/idea",
+    },
+    {
+        id: "watchlist",
+        name: "知財マッチング",
+        icon: <Building2 size={20} />,
+        href: "/watchlist",
+    },
+];
+
+export default function MainLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const pathname = usePathname();
+    // サイドバー開閉
+    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+    // 現在のページ名を取得
+    const currentPageName =
+        navigation.find((n) => n.href === pathname)?.name || "Home";
+
+    // サイドバーのスタイル定義
+    const sidebarClasses = `
+    fixed inset-y-0 left-0 z-30 h-full
+    bg-slate-900 text-slate-300 shadow-xl
+    flex flex-col transition-all duration-300 ease-in-out
+    md:relative
+    ${
+        isSidebarOpen
+            ? "translate-x-0 w-64"
+            : "-translate-x-full md:translate-x-0 md:w-20"
+    }`;
+
+    return (
+        <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
+            {/* モバイル端末時のサイドバーオーバーレイ */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-400/50 z-20 md:hidden backdrop-blur-sm transition-opacity"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* サイドバー */}
+            <aside className={sidebarClasses}>
+                {/* ロゴエリア */}
+                <div
+                    onClick={toggleSidebar}
+                    className="h-16 flex items-center justify-between px-4 border-b border-slate-800 cursor-pointer md:cursor-default">
+                    <div
+                        className={`flex items-center gap-1 font-bold text-white text-xl ${
+                            !isSidebarOpen && "md:justify-center md:w-full"
+                        }`}>
+                        <Shield className="text-blue-400 shrink-0" size={24} />
+                        {/* サイドバー展開時またはモバイル表示時にテキストを表示 */}
+                        <span
+                            className={`tracking-wide whitespace-nowrap ${
+                                !isSidebarOpen && "md:hidden"
+                            }`}>
+                            Patent Survey App
+                        </span>
+                    </div>
+                    {/* モバイル用閉じるボタン */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation(); // 親のdivクリックイベントへの伝播を防ぐ
+                            setIsSidebarOpen(false);
+                        }}
+                        className="text-slate-400 hover:text-white md:hidden">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                {/* ナビゲーションリスト */}
+                <nav className="flex-1 py-6 space-y-2 overflow-y-auto">
+                    {navigation.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.id}
+                                href={item.href}
+                                onClick={() => {
+                                    if (window.innerWidth < 768)
+                                        setIsSidebarOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 transition-colors duration-200 group
+                                    ${
+                                        isActive
+                                            ? "bg-blue-600 text-white border-r-4 border-blue-300"
+                                            : "hover:bg-slate-800 hover:text-white"
+                                    }${!isSidebarOpen && "md:justifFy-center"}`}
+                                title={!isSidebarOpen ? item.name : undefined} // 縮小時にツールチップ的に名前を表示
+                            >
+                                <div
+                                    className={`${
+                                        isActive
+                                            ? "text-white"
+                                            : "text-slate-400 group-hover:text-white"
+                                    } shrink-0`}>
+                                    {item.icon}
+                                </div>
+                                <span
+                                    className={`font-medium text-sm whitespace-nowrap ${
+                                        !isSidebarOpen && "md:hidden"
+                                    }`}>
+                                    {item.name}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {/* 設定エリア */}
+                <div className="p-4 border-t border-slate-800">
+                    <button
+                        className={`flex items-center gap-3 w-full px-2 py-2 text-slate-400 hover:text-white transition-colors ${
+                            !isSidebarOpen && "md:justify-center"
+                        }`}>
+                        <Settings size={20} className="shrink-0" />
+                        <span
+                            className={`text-sm whitespace-nowrap ${
+                                !isSidebarOpen && "md:hidden"
+                            }`}>
+                            設定
+                        </span>
+                    </button>
+                </div>
+            </aside>
+
+            {/* コンテンツエリア */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
+                {/* ヘッダー */}
+                <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm z-10 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={toggleSidebar}
+                            className="p-2 rounded-md text-slate-500 hover:bg-slate-100 focus:outline-none">
+                            <Menu size={20} />
+                        </button>
+
+                        <div className="hidden md:flex items-center text-sm text-slate-500">
+                            <ChevronRight size={14} className="mr-2" />
+                            <span className="font-semibold text-slate-700">
+                                {currentPageName}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pl-1">
+                        <div className="text-right hidden sm:block">
+                            <div className="text-sm font-medium text-slate-700">
+                                特許 太郎
+                            </div>
+                            <div className="text-xs text-slate-500">
+                                知財部 マネージャー
+                            </div>
+                        </div>
+                        <button className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200">
+                            <User size={18} />
+                        </button>
+                    </div>
+                </header>
+
+                {/* メインコンテンツ */}
+                <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="frontend/Dockerfile">
+# イメージ
+FROM node:20-alpine
+
+# 作業
+WORKDIR /app
+
+# package.json と lock ファイルを先にコピー
+COPY package*.json ./
+
+# 依存関係をインストール（package-lock.jsonがあればそちらを参照）
+RUN npm install
+
+# ソースコードをコピー
+COPY . .
+
+# Next.js 開発サーバーのポート
+EXPOSE 3000
+
+# 開発モード起動
+CMD ["npm", "run", "dev"]
+</file>
+
+<file path="frontend/images/arrow_back.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
+</file>
+
+<file path="frontend/images/arrow_drop_down_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M480-360 280-560h400L480-360Z"/></svg>
+</file>
+
+<file path="frontend/images/book_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M300-80q-59 0-99.5-40.5T160-220v-520q0-58 40.5-99t99.5-41h500v600q-26 0-43 17.5T740-220q0 26 17 43t43 17v80H300Zm0-80h373q-6-14-9.5-28.5T660-220q0-16 3-31t10-29H300q-26 0-43 17.5T240-220q0 26 17 43t43 17Zm-60-187q14-7 28.5-10t31.5-3h420v-440H300q-26 0-43 17.5T240-740v393Zm109-93h49l25-71h113l25 71h49L504-720h-50L349-440Zm88-112 41-116h3l41 116h-85ZM240-347v-453 453Z"/></svg>
+</file>
+
+<file path="frontend/images/check_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="M378-246 154-470l43-43 181 181 384-384 43 43-427 427Z"/></svg>
+</file>
+
+<file path="frontend/images/edit_document_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z"/></svg>
+</file>
+
+<file path="frontend/images/festival_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M80-80q29-74 38.5-152.5T130-390q-39-15-64.5-50T40-520v-80q115-38 234.5-116T480-880q86 86 205.5 164T920-600v80q0 45-25.5 80T830-390q2 79 11.5 157.5T880-80H80Zm156-520h488q-78-44-140.5-90.5T480-772q-41 35-103.5 81.5T236-600Zm344 140q25 0 42.5-17.5T640-520H520q0 25 17.5 42.5T580-460Zm-200 0q25 0 42.5-17.5T440-520H320q0 25 17.5 42.5T380-460Zm-200 0q25 0 42.5-17.5T240-520H120q0 25 17.5 42.5T180-460Zm6 300h107q9-60 14-119t8-119q-9-5-18-10.5T280-422q-15 15-32.5 24.5T210-383q-2 57-7 112.5T186-160Zm188 0h212q-8-55-12.5-110T566-381q-26-2-47.5-12.5T480-421q-17 17-39.5 27.5T394-381q-3 56-7.5 111T374-160Zm293 0h107q-12-55-17-110.5T750-383q-20-5-38-14.5T680-422q-8 8-17 13.5T645-398q3 60 8.5 119T667-160Zm113-300q25 0 42.5-17.5T840-520H720q0 25 17.5 42.5T780-460Z"/></svg>
+</file>
+
+<file path="frontend/images/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="frontend/images/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="frontend/images/group_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="M0-240v-53q0-38.57 41.5-62.78Q83-380 150.38-380q12.16 0 23.39.5t22.23 2.15q-8 17.35-12 35.17-4 17.81-4 37.18v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-19.86-3.5-37.43T765-377.27q11-1.73 22.17-2.23 11.17-.5 22.83-.5 67.5 0 108.75 23.77T960-293v53H780Zm-480-60h360v-6q0-37-50.5-60.5T480-390q-79 0-129.5 23.5T300-305v5ZM149.57-410q-28.57 0-49.07-20.56Q80-451.13 80-480q0-29 20.56-49.5Q121.13-550 150-550q29 0 49.5 20.5t20.5 49.93q0 28.57-20.5 49.07T149.57-410Zm660 0q-28.57 0-49.07-20.56Q740-451.13 740-480q0-29 20.56-49.5Q781.13-550 810-550q29 0 49.5 20.5t20.5 49.93q0 28.57-20.5 49.07T809.57-410ZM480-480q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm.35-60Q506-540 523-557.35t17-43Q540-626 522.85-643t-42.5-17q-25.35 0-42.85 17.15t-17.5 42.5q0 25.35 17.35 42.85t43 17.5ZM480-300Zm0-300Z"/></svg>
+</file>
+
+<file path="frontend/images/id_card_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-440h200v-80H560v80Zm0-120h200v-80H560v80ZM200-320h320v-22q0-45-44-71.5T360-440q-72 0-116 26.5T200-342v22Zm160-160q33 0 56.5-23.5T440-560q0-33-23.5-56.5T360-640q-33 0-56.5 23.5T280-560q0 33 23.5 56.5T360-480ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-480H160v480Zm0 0v-480 480Z"/></svg>
+</file>
+
+<file path="frontend/images/info_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
+</file>
+
+<file path="frontend/images/logout_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></svg>
+</file>
+
+<file path="frontend/images/menu_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/></svg>
+</file>
+
+<file path="frontend/images/science.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-51 0-72.5-45.5T138-250l222-270v-240h-40q-17 0-28.5-11.5T280-800q0-17 11.5-28.5T320-840h320q17 0 28.5 11.5T680-800q0 17-11.5 28.5T640-760h-40v240l222 270q32 39 10.5 84.5T760-120H200Zm0-80h560L520-492v-268h-80v268L200-200Zm280-280Z"/></svg>
+</file>
+
+<file path="frontend/images/send_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M120-160v-640l760 320-760 320Zm80-120 474-200-474-200v140l240 60-240 60v140Zm0 0v-400 400Z"/></svg>
+</file>
+
+<file path="frontend/images/setting_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>
+</file>
+
+<file path="frontend/images/side_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z"/></svg>
+</file>
+
+<file path="frontend/images/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path=".gitignore">
+# .gitignore
+# Gitでバージョン管理の対象から除外したいファイルやディレクトリを指定するための設定ファイル。
+# リポジトリに含める必要のないものを誤ってコミットするのを防ぐ。
+
+# ==================================================
+# プロジェクト固有の指定
+# ==================================================
+
+# 特許PDFから抽出された画像
+temp_patents/
+
+# ↓GitHubのテンプレート由来↓
+# ==================================================
+# Next.js
+# ==================================================
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# ==================================================
+# Python
+# ==================================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# UV
+#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#uv.lock
+
+# poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+#poetry.lock
+#poetry.toml
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
+#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
+#pdm.lock
+#pdm.toml
+.pdm-python
+.pdm-build/
+
+# pixi
+#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
+#pixi.lock
+#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
+#   in the .venv directory. It is recommended not to include this directory in version control.
+.pixi
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#  and can be added to the global gitignore or merged into this file.  For a more nuclear
+#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+#.idea/
+
+# Abstra
+# Abstra is an AI-powered process automation framework.
+# Ignore directories containing user credentials, local state, and settings.
+# Learn more at https://abstra.io/docs
+.abstra/
+
+# Visual Studio Code
+#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
+#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
+#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
+#  you could uncomment the following to ignore the entire vscode folder
+# .vscode/
+
+# Ruff stuff:
+.ruff_cache/
+
+# PyPI configuration file
+.pypirc
+
+# Cursor
+#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
+#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
+#  refer to https://docs.cursor.com/context/ignore-files
+.cursorignore
+.cursorindexingignore
+
+# Marimo
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+</file>
+
+<file path="backend/src/func/gemini_client.py">
+# Patent_Survey_APP/backend/src/func/gemini_client.py
+
+# Gemini-APIのクライアント認証を実行する --> clientをインポートして利用
+
+import config
+from google import genai
+
+client = genai.Client(api_key=config.GEMINI_API_KEY)
+</file>
+
+<file path="backend/src/func/patent_pdf.py">
+# Patent_Survey_APP/backend/src/func/patent_pdf.py
+
+import io
+import re
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+from pypdf import PdfReader
+
+"""
+# J-PlatPat特許広報PDF テキスト整形コード
+
+目的: LLMによる分析で与える際のテキスト処理
+原則: わずかなトークンコストで得られる明確性は、常に優先すべき
+理由: 特許文書という高精度が求められるドメインであるため
+補足: 前処理…J-PlatPatからダウンロードした特許PDFについて、pypdfでテキストを抽出→そのテキストに対する処理/作成中
+"""
+
+
+# ============================================================
+# PDFファイル読み込み処理
+# ============================================================
+
+
+def read_pdf(pdf_bytes):
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    full_text = ""
+    for page_num in range(len(reader.pages)):
+        page = reader.pages[page_num]
+        full_text += page.extract_text()
+
+    return full_text
+
+
+# ============================================================
+# [1] 初期整形
+# ============================================================
+
+
+def patent_text_cleanup(text):
+    """PDFから抽出されたテキストを整形・置換するラッパー関数"""
+
+    # ------------------------------------------------------------
+    # 整形メイン関数
+    # ------------------------------------------------------------
+
+    def clean_text(text):
+        """特許テキスト整形関数"""
+
+        ## Step.1 PDF特有のレイアウトを除去 ##
+        text = re.sub(
+            r"—{10,}.*", "", text, flags=re.DOTALL
+        )  # 区切り線（—が10個以上）以降を削除（フロントページの続き...は不要）
+        text = re.sub(
+            r"^\d+\n", "", text, flags=re.MULTILINE
+        )  # 行番号除去① 例)10\n20\n30\n40\n50
+        text = re.sub(
+            r"^\d+(\(\d+\))", r"\1", text, flags=re.MULTILINE
+        )  # 行番号除去② 例:50(30)→(30)
+        text = re.sub(r"JP .*?\d{4}\.\d{1,2}\.\d{1,2}\s*\n", "", text)  # 文書情報を除去
+        text = re.sub(r"\(\d+\)", "", text)  # (50)のような表記を除去
+        text = re.sub(
+            r"[ \t]*\n[ \t]*", "", text
+        )  # 全ての改行と周辺の空白を一旦削除（PDFの幅に合わせて改行されているため）
+
+        ## Step.2 【見出し】の構造化 ##
+        # 先に見出しの前後に改行を入れておくことで、後続の正規表現（範囲指定）を安全にする
+        text = re.sub(r"【", "\n【", text)  # 【見出し】の前に改行を挿入
+        text = re.sub(r"】", "】\n", text)  # 【見出し】の後に改行を挿入
+
+        ## Step.3 【要約】に対する処理 ##
+        text = re.sub(r"【課題】", r"[課題]\n", text)
+        text = re.sub(r"【解決手段】", r"[解決手段]\n", text)
+        text = re.sub(r"【選択図】", r"[選択図]\n", text)
+
+        ## Step.4 【符号の説明】に対する処理 ##
+        text = format_symbol_section_safe(
+            text
+        )  # 当該セクション内のみに限定して置換を行う
+
+        ## Step. 5 【図面の簡単な説明】に対する処理 ##
+        text = format_draw_section(text)
+
+        ## Step.6 【段落番号】に対する処理 ##
+        text = re.sub(
+            r"【(\d{4})】", r"\n[段落: \1]\n", text
+        )  # 【数字4桁】を [段落:数字] + 改行に変換
+        text = re.sub(
+            r"(【符号の説明】)\s*\[段落: \d+\]\n", r"\1\n", text
+        )  # 【符号の説明】の段落番号は除去
+        text = re.sub(
+            r"(【図面の簡単な説明】)\s*\[段落: \d+\]\n", r"\1", text
+        )  # 【図面の簡単な説明】の段落番号は除去
+        text = re.sub(
+            r"(【特許文献】)\s*\[段落: \d+\]\n", r"\1", text
+        )  # 【特許文献】の段落番号は除去
+        text = re.sub(
+            r"【特許文献(\d)】", r"[特許文献: \1]\n", text
+        )  # 【特許文献X】を段落番号のフォーマットと合わせる
+        text = re.sub(
+            r"【請求項(\d+)】", r"[請求項: \1]\n", text
+        )  # 【請求項X】を段落番号のフォーマットと合わせる
+
+        ## Step.7 最終レイアウト調整 ##
+        text = re.sub(r"　", "", text)  # すべての全角空白を削除
+        text = re.sub(r"\n{2,}", "\n", text)  # 連続する改行を1つにまとめる
+        text = re.sub(r"。", "。\n", text)  # 「。」の後に改行を挿入して可読性を向上
+        text = re.sub(
+            r"【", "\n【", text
+        )  # 【見出し】の前に改行を挿入（段落番号の処理で行が詰まった見出しへの対応）
+        text = re.sub(r"\n\n\n", r"\n\n", text)  # 2連続の空白行を1つに
+
+        return text.strip()
+
+    def replacement_cleanup(text):
+        """特許テキスト置換関数"""
+
+        ## Step.1 置換準備 ##
+        def full_number_to_half(match):
+            """全角数字を半角数字に変換する関数"""
+            char = match.group(0)  # マッチした全角数字を1文字取得
+            return chr(
+                ord(char) - ord("０") + ord("0")
+            )  # Unicodeの差を利用して半角に変換
+
+        def full_alphabet_to_half(match):
+            """全角英字を半角に変換する関数"""
+            char = match.group(0)
+            return chr(ord(char) - ord("Ａ") + ord("A"))
+
+        # 全角記号から半角記号への置換マップ {'全角': '半角'}
+        replace_map = {
+            "（": "(",
+            "）": ")",
+            "「": '"',
+            "」": '"',
+            "『": '"',
+            "』": '"',
+            "《": '"',
+            "》": '"',
+            "〈": '"',
+            "〉": '"',
+            "〔": "[",
+            "〕": "]",
+            "［": "[",
+            "］": "]",
+            "｛": "{",
+            "｝": "}",
+            "‘": "`",
+            "’": "`",
+            "“": '"',
+            "”": '"',
+            "′": "`",
+            "．": ".",
+            "／": "/",
+            "：": ":",
+            "；": ";",
+            "＜": "<",
+            "＞": ">",
+            "％": "%",
+        }
+
+        ## Step.2 置換実行 ##
+        # 全角英数を半角に変換（全角英数 ０〜９・Ａ～Ｚ・ａ～ｚ → 半角英数 0〜9・A～Z・a～z）
+        text = re.sub(r"[０-９]", full_number_to_half, text)
+        text = re.sub(r"[Ａ-Ｚ]", full_alphabet_to_half, text)
+        text = re.sub(r"[ａ-ｚ]", full_alphabet_to_half, text)
+
+        # 全角記号や句読点をまとめて置換（replace_map参照）
+        for full, half in replace_map.items():
+            text = text.replace(full, half)
+
+        return text.strip()
+
+    # ------------------------------------------------------------
+    # 補助関数
+    # ------------------------------------------------------------
+
+    def format_draw_section(text):
+        """【図面の簡単な説明】を整形/【図面の簡単な説明】内の【図◯】とそれ以外の【図◯】を区別/clean_text()内で使用"""
+
+        def replace_figures(match):
+            header = match.group(1)  # 【図面の簡単な説明】
+            content = match.group(2)  # セクションの中身
+
+            content = re.sub(
+                r"【図(.+?)】", r"[図: \1]\n", content
+            )  # 【図X】を[図: X]に置換
+            content = re.sub(
+                r" \[図(.+?)\]", r"[図\1]", content
+            )  # [図X]前に存在する半角スペースを除去
+            return header + content
+
+        # 表記ゆれ対応
+        header_regex = r"(【(?:図面の簡単な説明|図面の説明|図面の概略説明)】)"
+        # 上記見出しから、次の「主要なセクション開始」または文末($) までを対象にする(肯定先読み)
+        pattern = header_regex + r"(.*?)(?=(?:【(?!(?:図|[0-9０-９])).+?】|$))"
+
+        # re.DOTALL: . が改行にもマッチするようにする（改行が含まれていても対応可能に）
+        return re.sub(pattern, replace_figures, text, flags=re.DOTALL)
+
+    def format_symbol_section_safe(text):
+        """【符号の説明】セクションのみを抽出して整形処理を行う"""
+
+        def process_content(match):
+            content = match.group(0)
+
+            content = re.sub(
+                r"(\d+)　", r"\1： ", content
+            )  # 全角数字+全角空白→全角数字+：に置換
+            content = re.sub(
+                r"、(\d+)", r"\n\1", content
+            )  # 「、」+全角数字→改行＋全角数字に置換（※ここでだけ実行）
+            content = re.sub(
+                r"([\dＡ-Ｚａ-ｚ]+)　", r"  \1： ", content
+            )  # 英数の場合はインデント(階層構造)を付与
+            content = re.sub(
+                r"([\dＡ-Ｚａ-ｚ]+：)", r"- \1", content
+            )  # 箇条書きリスト付与
+            return content
+
+        # 【符号の説明】の見出し後から、次の【見出し】が来るまでをターゲットにする（前処理で見出しの前後に改行(\n)を入れているため、それを区切りとして利用）
+        pattern = r"(?<=【符号の説明】\n)(.*?)(?=\n【|$)"
+
+        return re.sub(pattern, process_content, text, flags=re.DOTALL)
+
+    # ------------------------------------------------------------
+    # 実行部分
+    # ------------------------------------------------------------
+
+    cleaned_text = clean_text(text)
+    cleaned_text = replacement_cleanup(cleaned_text)
+
+    return cleaned_text
+
+
+# ============================================================
+# [2] クラスオブジェクト化
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. 設定・マッピング定義（クラスより先に定義）
+# ------------------------------------------------------------
+
+
+SECTION_MAPPING = {
+    "abstract": ["要約"],
+    "claims": ["特許請求の範囲", "請求の範囲"],
+    "tech_field": ["技術分野"],
+    "background": ["背景技術", "従来の技術"],
+    "problem_to_solve": ["発明が解決しようとする課題"],
+    "means_to_solve": ["課題を解決するための手段"],
+    "effect": ["発明の効果"],
+    "drawings_desc": ["図面の簡単な説明", "図面の説明"],
+    "embodiments": [
+        "発明を実施するための形態",
+        "発明を実施するための最良の形態",
+        "実施例",
+    ],
+    "symbols_desc": ["符号の説明"],
+    "industrial_applicability": ["産業上の利用可能性"],
+}
+
+# 完全に無視する見出し
+IGNORE_HEADERS = {"特許文献", "先行技術文献", "非特許文献"}
+
+# パース用逆引きマップ（【見出し】 -> 属性）
+HEADER_TO_ATTR = {}
+for attr, headers in SECTION_MAPPING.items():
+    for h in headers:
+        HEADER_TO_ATTR[h] = attr
+
+# 表示・判定用逆引きマップ（属性名 -> 【代表見出し】）
+ATTR_TO_HEADER = {attr: headers[0] for attr, headers in SECTION_MAPPING.items()}
+
+
+# ------------------------------------------------------------
+# 2. データ構造の定義
+# ------------------------------------------------------------
+
+
+@dataclass
+class PatentDocument:
+    """特許文書の構造化データクラス"""
+
+    # 主要セクション
+    abstract: str = ""  # 要約
+    claims: str = ""  # 特許請求の範囲
+    tech_field: str = ""  # 技術分野
+    background: str = ""  # 背景技術
+    problem_to_solve: str = ""  # 発明が解決しようとする課題
+    means_to_solve: str = ""  # 課題を解決するための手段
+    effect: str = ""  # 発明の効果
+    drawings_desc: str = ""  # 図面の簡単な説明
+    embodiments: str = ""  # 発明を実施するための形態
+    symbols_desc: str = ""  # 符号の説明
+    industrial_applicability: str = ""  # 産業上の利用可能性
+
+    # その他（未知のセクション）
+    others: Dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self):
+        return {k: v for k, v in self.__dict__.items() if v}
+
+    def get_text(self, target_sections: Optional[List[str]] = None) -> str:
+        """
+        指定されたセクションを結合してテキストとして返します。
+
+        Args:
+            target_sections (list, optional): 取得したいセクション名のリスト。
+                Noneの場合は「中身が存在する全てのセクション」を結合します。
+                例: ['abstract', 'claims']
+                セクション一覧:
+                'claims'
+                'tech_field'
+                'background'
+                'problem_to_solve'
+                'means_to_solve'
+                'effect'
+                'drawings_desc'
+                'embodiments'
+                'symbols_desc'
+                'industrial_applicability'
+
+        Returns:
+            str: 整形済みの結合テキスト
+        """
+        parts = []
+
+        # 1. 取得対象の決定
+        if target_sections is None:
+            # 全属性を対象にする（othersは後で個別に処理）
+            targets = list(ATTR_TO_HEADER.keys())
+            include_others = True
+        else:
+            targets = target_sections
+            include_others = False  # 明示指定の場合はリストに含まれていれば処理する
+
+        # 2. 標準セクションの結合
+        for attr in targets:
+            # othersに含まれるキーが指定された場合の処理（例: '図1'など）
+            if attr in self.others:
+                header = f"【{attr}】"
+                content = self.others[attr]
+                parts.append(f"{header}\n{content}")
+                continue
+
+            # クラス属性として存在する場合
+            if hasattr(self, attr):
+                content = getattr(self, attr)
+                if content:  # 中身がある場合のみ追加
+                    # 属性名から日本語見出しに変換（見つからなければ属性名をそのまま使う）
+                    header_text = ATTR_TO_HEADER.get(attr, attr)
+                    header = f"【{header_text}】"
+                    parts.append(f"{header}\n{content}")
+            else:
+                # 属性もothersにもない場合（Typoなど）は無視またはWarn
+                pass
+
+        # 3. others（その他）の全結合（target_sectionsがNoneの場合のみ）
+        if include_others and self.others:
+            for header_key, content in self.others.items():
+                header = f"【{header_key}】"
+                parts.append(f"{header}\n{content}")
+
+        return "\n\n".join(parts)
+
+    def get_missing_sections(self) -> List[str]:
+        """
+        データクラスに定義されているが、解析結果に含まれなかった（空の）セクション名のリストを返す。
+
+        Returns:
+            List[str]: 欠損しているセクションの日本語見出しリスト
+            例: ['産業上の利用可能性', '発明の効果']
+        """
+        missing = []
+        # 自身の属性を走査
+        for attr, value in self.__dict__.items():
+            # 'others' は動的辞書なので欠損チェックの対象外
+            if attr == "others":
+                continue
+
+            # 値が空文字の場合、欠損とみなす
+            if not value:
+                # 属性名を日本語の見出しに変換してリストに追加
+                # マップにない場合（まずありえないが）は属性名をそのまま使う
+                header_name = ATTR_TO_HEADER.get(attr, attr)
+                missing.append(header_name)
+
+        return missing
+
+
+# ------------------------------------------------------------
+# 3. パース処理関数
+# ------------------------------------------------------------
+
+
+def parse_patent_text(text: str) -> PatentDocument:
+    """整形済みテキストを解析してPatentDocumentオブジェクトを返す"""
+
+    doc = PatentDocument()
+
+    # 「改行」または「文頭」の直後にある【見出し】で分割する
+    parts = re.split(r"((?:^|\n)【.*?】)", text)
+
+    # parts[0] は最初の見出しより前のテキスト（ゴミ or 書誌情報）のため無視
+    # parts[1]が見出し, parts[2]が中身... の順で処理
+    for i in range(1, len(parts), 2):
+        if i + 1 >= len(parts):
+            break
+
+        header_raw = parts[i].strip()  # 【見出し】
+        content = parts[i + 1].strip()  # 本文
+
+        # 見出しから余計な文字（【】や改行）を除去してキー化
+        header_key = re.sub(r"[【】\n]", "", header_raw)
+
+        # 中身が空の場合はスキップ（例: 【発明の詳細な説明】の直後に【技術分野】が来る場合など）
+        if not content:
+            continue
+
+        # 除外リストに含まれるかチェック（保存せずにスキップ）
+        if header_key in IGNORE_HEADERS:
+            continue
+
+        # マッピング処理
+        if header_key in HEADER_TO_ATTR:
+            attr_name = HEADER_TO_ATTR[header_key]
+            current_val = getattr(doc, attr_name)
+            # 同じセクションが分散している場合は結合
+            new_val = (
+                (current_val + "\n\n" + content).strip() if current_val else content
+            )
+            setattr(doc, attr_name, new_val)
+        else:
+            doc.others[header_key] = content
+
+    return doc
+
+
+# ============================================================
+# [3] メイン処理
+# ============================================================
+
+
+def patent_text_extraction(pdf_bytes):
+    """特許PDFのテキストを抽出・整形しPatentDocumentに変換する関数"""
+    pdf_text = read_pdf(pdf_bytes)  # PDFのテキスト抽出
+    cleaned_text = patent_text_cleanup(pdf_text)  # 抽出されたテキストの整形・置換
+    patent_doc = parse_patent_text(cleaned_text)  # PatentDocumentオブジェクトに変換
+    missing_sections = patent_doc.get_missing_sections()  # 存在しないセクションの抽出
+    if missing_sections:
+        print("以下のセクションはこの文書に含まれていませんでした:")
+        for section in missing_sections:
+            print(f"- {section}")
+    else:
+        print("定義されたすべてのセクションが存在します。")
+    return patent_doc
+
+
+# 利用例
+# patent_doc = patent_text_extraction(pdf_bytes)
+# print(patent_doc.get_text(['abstract']))
+</file>
+
+<file path="backend/src/prompt/system_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/system_prompt.py
+
+SYSTEM_PROMPT_PATENT = """
+# システムプロンプト: 特許解析サポートAI
+
+## 第1章 基本原則
+
+### 1-1. あなたの役割
+
+あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
+ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
+
+### 1-2. 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2: 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3: 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 第2章 情報の3層構造
+
+あなたが扱う情報は、以下の3つの層に明確に分類されます：
+
+### 【第1層: 検証可能な事実】
+
+- 特許文書に明記された情報
+- 直接観測・引用できる内容
+- **必ず出典を明記**
+    - 例: [段落: xxxx]
+
+### 【第2層: 論理的推論】
+
+- 第1層の事実から導かれる推論
+- 特許文書内の複数情報の統合
+- **推論であることを明示**
+    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
+
+### 【第3層: 創造的応用】
+
+- 事実を新しい文脈に適用
+- 市場ニーズや応用可能性の想定
+- **明確に[推測]とマーク**
+    - 例: Xは、Zに応用できる可能性がある。[推測]
+
+---
+
+## 第3章 出典明記の標準規則
+
+### 3-1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 3-2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # 入れ子にしない
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+### 3-3. 複数出典の扱い
+
+同じ情報が複数箇所に記載されている場合：
+
+**原則: 代表的な1-2箇所のみを記載**
+
+ただし、以下の場合は複数出典が有益：
+
+- 異なる側面を示す場合（構造と機能）
+- 異なる情報源タイプ（請求項と実施例）
+
+### 3-4. 出典なしで記述してよい場合
+
+以下は出典を省略可：
+
+- 明らかに文書全体の前提となる基本概念
+""".strip()
+</file>
+
+<file path="frontend/app/chat-ui/ChatInput.tsx">
+// Patent_Survey_APP/frontend/app/chat-ui/ChatInput.tsx
+
+"use Client";
+
+import send_icon from "@/images/send_icon.svg";
+import "@/styles/chat_input_style.css";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+
+// プロンプト入力欄
+interface ChatInputProps {
+    onSubmit: (message: string) => void;
+}
+const ChatInput: React.FC<ChatInputProps> = ({ onSubmit }) => {
+    const [message, setMessage] = useState("");
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = "auto";
+            const scrollHeight = textarea.scrollHeight;
+            textarea.style.height = `${Math.min(scrollHeight, 200)}px`;
+        }
+    }, [message]);
+
+    const handleSubmit = () => {
+        if (!message.trim()) return;
+        onSubmit(message);
+        setMessage("");
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+        }
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto">
+            <div className="relative flex items-center">
+                <textarea
+                    ref={textareaRef}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="メッセージを入力..."
+                    rows={1}
+                    style={{ minHeight: "52px" }}
+                    className="chat w-full pl-4 pr-12 py-3 resize-none bg-white border-[#c4c7c5] border-2 rounded-2xl shadow-[0px_2px_8px_rgba(0,0,0,0.1)]
+                focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                    onClick={handleSubmit}
+                    disabled={!message.trim()}
+                    className="absolute right-6 p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 transition-colors">
+                    <Image src={send_icon} alt="送信" width={20} height={20} />
+                </button>
+            </div>
+        </div>
+    );
+};
+export default ChatInput;
+</file>
+
+<file path="frontend/app/chat-ui/KnowledgeTypes.ts">
+// Patent_Survey_APP/frontend/app/chat-ui/KnowledgeTypes.ts
+
+export type Message = {
+    role: "user" | "llm";
+    content: string;
+};
+
+export type DocumentFormat = "markdown" | "text";
+</file>
+
+<file path="frontend/app/chat-ui/MessageList.tsx">
+// Patent_Survey_APP/frontend/app/chat-ui/MessageList.tsx
+
+"use client";
+
+import aorun_normal from "@/images/aorun_normal.png";
+import "@/styles/markdown_style.css"; // Markdown用のCSS
+import Image from "next/image";
+import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Message } from "./KnowledgeTypes";
+
+interface MessageListProps {
+    messages: Message[];
+    isThinking: boolean;
+}
+
+// メッセージリスト表示
+const MessageList: React.FC<MessageListProps> = ({ messages, isThinking }) => {
+    const endOfMessagesRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    return (
+        <div className="p-4 md:p-6">
+            <div className="max-w-4xl mx-auto">
+                {messages.length === 0 ? (
+                    // 初期表示テキスト
+                    <div className="text-center text-gray-500-10">
+                        <p className="text-sm mt-2">
+                            下の入力欄から質問を開始してください。
+                        </p>
+                    </div>
+                ) : (
+                    // 対話内容
+                    messages.map((msg, idx) => (
+                        // ユーザーは右寄せ : LLMは左寄せ
+                        <div
+                            key={idx}
+                            className={`flex items-start gap-3 ${
+                                msg.role === "user" ? "justify-end" : ""
+                            }`}>
+                            {msg.role === "llm" && (
+                                // LLMのアイコン
+                                <div className="size-12.5 border-2 border-gray-400 rounded-full bg-white shrink-0 shadow-[0px_2px_8px_rgba(0,0,0,0.1)">
+                                    <Image
+                                        src={aorun_normal}
+                                        alt="あおるん"
+                                        width={50}
+                                        height={50}
+                                    />
+                                </div>
+                            )}
+                            <div
+                                className={`max-w-4xl px-4 py-3 rounded-2xl
+              ${
+                  msg.role === "user"
+                      ? // ユーザー側のスタイル
+                        "bg-blue-100/60 hover:bg-blue-100 shadow-sm ml-15"
+                      : // LLM側のスタイル
+                        "bg-white border border-gray-300 shadow-sm mr-15"
+              }`}>
+                                {msg.role === "user" ? (
+                                    // ユーザー側はプレーンテキストで表示
+                                    <div className="whitespace-break-spaces break-word">
+                                        {msg.content}
+                                    </div>
+                                ) : // LLM側で回答がまだの場合はスピナー
+                                msg.role === "llm" &&
+                                  msg.content === "" &&
+                                  isThinking ? (
+                                    <svg
+                                        className="animate-spin h-5 w-5 text-gray-400"
+                                        viewBox="0 0 24 24">
+                                        <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                            fill="none"
+                                        />
+                                        <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                        />
+                                    </svg>
+                                ) : msg.role === "llm" ? (
+                                    // LLM側はMarkdown形式で表示
+                                    <div className="markdown break-word">
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}>
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    ))
+                )}
+                <div ref={endOfMessagesRef} />
+            </div>
+        </div>
+    );
+};
+export default MessageList;
+</file>
+
+<file path="frontend/app/chat-ui/page.tsx">
+// Patent_Survey_APP/frontend/app/chat-ui/page.tsx
+
+"use client";
+
+import { useState } from "react";
+import ChatInput from "./ChatInput";
+import MessageList from "./MessageList";
+
+export type Message = {
+    role: "user" | "llm";
+    content: string;
+};
+
+// =========== メインページコンポーネント ===========
+export default function ChatPage() {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [isThinking, setIsThinking] = useState(false);
+
+    // 新しいメッセージをリストに追加する処理
+    const handleNewMessage = async (userMessage: string) => {
+        if (!userMessage.trim()) return;
+        setIsThinking(true); // スピナー表示フラグ
+
+        // 実際には userMessage と selectedDocs のIDリストを送信する
+        console.log("送信するメッセージ:", userMessage);
+
+        // UI上での表示を更新
+        // ユーザーメッセージを先に表示
+        setMessages((prev) => [
+            ...prev,
+            { role: "user", content: userMessage },
+        ]);
+        setMessages((prev) => [...prev, { role: "llm", content: "" }]);
+        // 処理例
+        const res = await fetch("http://localhost:8000/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: userMessage }),
+        });
+        if (!res.body) {
+            setIsThinking(false);
+            return;
+        }
+        const reader = res.body.getReader();
+        let llmText = ""; // 出力結果を保存する変数
+        let done = false;
+        while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            if (value) {
+                const chunk = new TextDecoder().decode(value);
+                llmText += chunk;
+                // LLM応答を都度更新
+                setMessages((prev) => {
+                    // 最後のllmメッセージだけ更新
+                    const updated = [...prev];
+                    const lastIdx = updated.length - 1;
+                    if (updated[lastIdx]?.role === "llm") {
+                        updated[lastIdx] = {
+                            ...updated[lastIdx],
+                            content: llmText,
+                        };
+                    }
+                    return updated;
+                });
+            }
+        }
+        setIsThinking(false); // メッセージが現れたらスピナー解除
+    };
+
+    return (
+        <div className="fixed bg-white inset-0 bg-opacity-50 overflow-y-auto">
+            <div className="flex flex-col">
+                {/* ヘッダー */}
+                <header className="absolute w-full bg-white border-b pt-20 p-4 text-center shadow-sm">
+                    <h1 className="text-xl font-bold">チャットUI</h1>
+                </header>
+
+                {/* メッセージリスト */}
+                <div className="pb-45 pt-30">
+                    <MessageList messages={messages} isThinking={isThinking} />
+                </div>
+
+                {/* プロンプト入力エリア */}
+                <div className="fixed bottom-0 w-full pb-22 pt-4">
+                    <ChatInput onSubmit={handleNewMessage} />
+                </div>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="frontend/app/home/idea/components/FigureList.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/components/FigureList.tsx
+
+import type { components } from "@/types/schema";
+type PatentImage = components["schemas"]["PatentImage"];
+
+type FigureListProps = {
+    images: PatentImage[];
+    onSelect: (img: PatentImage) => void;
+};
+
+// 画像GET用
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+export const FigureList = ({ images, onSelect }: FigureListProps) => {
+    if (images.length === 0) return null;
+
+    return (
+        <div className="border-t pt-4 mt-4">
+            <h3 className="text-sm font-semibold text-slate-600 mb-2">
+                図一覧
+            </h3>
+
+            <div className="grid grid-cols-2 gap-3">
+                {images.map((img) => (
+                    <button
+                        key={img.id}
+                        onClick={() => onSelect(img)}
+                        className="group rounded-lg border bg-white shadow-sm hover:shadow-md transition">
+                        <img
+                            src={`${API_BASE}${img.url}`}
+                            alt={img.label}
+                            loading="lazy"
+                            className="w-full h-24 object-contain bg-slate-50"
+                        />
+                        <div className="text-xs text-center py-1 text-slate-600">
+                            {img.label}
+                        </div>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+</file>
+
+<file path="frontend/app/home/idea/components/PatentImageModal.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/components/PatentImageModal.tsx
+
+import type { components } from "@/types/schema";
+type PatentImage = components["schemas"]["PatentImage"];
+
+type PatentImageModalProps = {
+    image: PatentImage | null;
+    onClose: () => void;
+};
+
+// 画像GET用
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+export const PatentImageModal = ({ image, onClose }: PatentImageModalProps) => {
+    if (!image) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+            onClick={onClose}>
+            <div
+                className="bg-white rounded-xl p-4 max-w-4xl w-full"
+                onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-2">
+                    <h2 className="font-semibold">{image.label}</h2>
+                    <button onClick={onClose}>✕</button>
+                </div>
+
+                <img
+                    src={`${API_BASE}${image.url}`}
+                    alt={image.label}
+                    className="w-full max-h-[80vh] object-contain"
+                />
+            </div>
+        </div>
+    );
+};
+</file>
+
+<file path="frontend/app/home/idea/components/SourceSidebar.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/components/SourceSidebar.tsx
+
+import { useEffect, useRef } from "react";
+import { FigureReference } from "../util/FigureReference";
+import { SourceBlock, parseFigureRefs } from "../util/parseSourceText";
+// 画像
+import { FigureList } from "./FigureList";
+import { PatentImageModal } from "./PatentImageModal";
+
+import type { components } from "@/types/schema";
+type PatentImage = components["schemas"]["PatentImage"];
+
+type SourceSidebarProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    fileName: string;
+    sourceBlocks: SourceBlock[];
+    activeParagraphId: string | null;
+    patentImages: PatentImage[];
+    selectedImage: PatentImage | null;
+    setSelectedImage: (img: PatentImage | null) => void;
+};
+
+// 特許原文サイドバー（右）
+export const SourceSidebar = ({
+    isOpen,
+    onClose,
+    fileName,
+    sourceBlocks,
+    activeParagraphId,
+    patentImages,
+    selectedImage,
+    setSelectedImage,
+}: SourceSidebarProps) => {
+    const paragraphRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+    useEffect(() => {
+        if (!isOpen || !activeParagraphId) return;
+
+        const el = paragraphRefs.current[activeParagraphId];
+        if (!el) return;
+
+        el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
+
+        el.classList.add("bg-yellow-100");
+        const timer = setTimeout(() => {
+            el.classList.remove("bg-yellow-100");
+        }, 2500);
+
+        return () => clearTimeout(timer);
+    }, [isOpen, activeParagraphId]);
+
+    // 画像参照
+    const renderTextWithFigures = (text: string) =>
+        parseFigureRefs(text).map((part, i) => {
+            if (part.type === "text") {
+                return <span key={i}>{part.text}</span>;
+            }
+
+            return (
+                <FigureReference
+                    key={i}
+                    figureNo={part.figureNo}
+                    images={patentImages}
+                    onSelect={setSelectedImage}
+                />
+            );
+        });
+
+    return (
+        <aside
+            className={`
+        fixed top-16 right-0 bottom-0 z-40
+        h-[calc(100vh-4rem)] shadow-2xl
+        w-105 max-w-[40vw] bg-white border-l border-gray-200
+        transform transition-transform duration-250 ease-out
+        flex flex-col
+        ${isOpen ? "translate-x-0" : "translate-x-full"}
+      `}>
+            {/* サイドバーヘッダー */}
+            <header className="flex justify-between items-center gap-4 py-3 px-4 border-b border-gray-200">
+                <h2 className="text-lg font-bold">原文</h2>
+                <span className="text-sm pt-0.5">{fileName}</span>
+                <button
+                    onClick={onClose}
+                    className="ml-auto cursor-pointer text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors"
+                    aria-label="閉じる">
+                    ✕
+                </button>
+            </header>
+
+            {/* 本文エリア */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {sourceBlocks.map((block, index) => {
+                    if (block.type === "paragraph") {
+                        return (
+                            <div
+                                key={index}
+                                ref={(el) => {
+                                    paragraphRefs.current[block.id] = el;
+                                }}
+                                data-paragraph-id={block.id}
+                                className="rounded px-2 py-1 transition-colors">
+                                <div className="text-xs text-slate-400 mb-1">
+                                    [段落: {block.id}]
+                                </div>
+                                <div className="whitespace-pre-wrap text-sm">
+                                    {renderTextWithFigures(block.text)}
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div
+                            key={index}
+                            className="whitespace-pre-wrap text-sm">
+                            {renderTextWithFigures(block.text)}
+                        </div>
+                    );
+                })}
+            </div>
+            <FigureList images={patentImages} onSelect={setSelectedImage} />
+
+            <PatentImageModal
+                image={selectedImage}
+                onClose={() => setSelectedImage(null)}
+            />
+        </aside>
+    );
+};
+</file>
+
+<file path="frontend/app/home/idea/util/FigureReference.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/util/FigureReference.tsx
+
+import type { components } from "@/types/schema";
+type PatentImage = components["schemas"]["PatentImage"];
+
+type FigureReferenceProps = {
+    figureNo: string;
+    images: PatentImage[];
+    onSelect: (img: PatentImage) => void;
+};
+
+export const FigureReference = ({
+    figureNo,
+    images,
+    onSelect,
+}: FigureReferenceProps) => {
+    const target = images.find((img) => img.label === `図${figureNo}`);
+
+    if (!target) {
+        return <span className="text-slate-400">[図:{figureNo}]</span>;
+    }
+
+    return (
+        <button
+            onClick={() => onSelect(target)}
+            className="inline text-blue-600 hover:underline">
+            [図:{figureNo}]
+        </button>
+    );
+};
+</file>
+
+<file path="frontend/app/home/idea/util/MarkdownRenderer.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/util/MarkdownRenderer.tsx
+
+import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { ReferenceText } from "./ReferenceText";
+
+type MarkdownRendererProps = {
+    content: string;
+    onClickParagraph?: (id: string) => void;
+};
+
+export const MarkdownRenderer = ({
+    content,
+    onClickParagraph,
+}: MarkdownRendererProps) => {
+    return (
+        <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+                p({ children }) {
+                    return (
+                        <p>
+                            {React.Children.map(children, (child) => (
+                                <ReferenceText>{child}</ReferenceText>
+                            ))}
+                        </p>
+                    );
+                },
+                li({ children }) {
+                    return (
+                        <li>
+                            {React.Children.map(children, (child) => (
+                                <ReferenceText
+                                    onClickParagraph={onClickParagraph}>
+                                    {child}
+                                </ReferenceText>
+                            ))}
+                        </li>
+                    );
+                },
+                blockquote({ children }) {
+                    return (
+                        <blockquote>
+                            {React.Children.map(children, (child) => (
+                                <ReferenceText>{child}</ReferenceText>
+                            ))}
+                        </blockquote>
+                    );
+                },
+            }}>
+            {content}
+        </ReactMarkdown>
+    );
+};
+</file>
+
+<file path="frontend/app/home/idea/util/patentFormatter.ts">
+// Patent_Survey_APP/frontend/app/home/idea/util/patentFormatter.ts
+
+import type { components } from "@/types/schema";
+
+type PatentContent = components["schemas"]["PatentContent"];
+
+// 表示順序と見出しの定義
+const SECTION_ORDER: {
+    key: keyof Omit<PatentContent, "others">;
+    header: string;
+}[] = [
+    { key: "abstract", header: "要約" },
+    { key: "claims", header: "特許請求の範囲" },
+    { key: "tech_field", header: "技術分野" },
+    { key: "background", header: "背景技術" },
+    { key: "problem_to_solve", header: "発明が解決しようとする課題" },
+    { key: "means_to_solve", header: "課題を解決するための手段" },
+    { key: "effect", header: "発明の効果" },
+    { key: "drawings_desc", header: "図面の簡単な説明" },
+    { key: "embodiments", header: "発明を実施するための形態" },
+    { key: "industrial_applicability", header: "産業上の利用可能性" },
+    { key: "symbols_desc", header: "符号の説明" },
+];
+
+/**
+ * PatentContentオブジェクトを整形された1つの文字列に変換する関数
+ */
+export const formatPatentToString = (data: PatentContent): string => {
+    const parts: string[] = [];
+
+    // 1. 定義済みセクションの処理
+    SECTION_ORDER.forEach((section) => {
+        const content = data[section.key];
+        // 中身が存在する場合のみ追加
+        if (content && content.trim() !== "") {
+            parts.push(`【${section.header}】\n${content}`);
+        }
+    });
+
+    // 2. 'others'（その他のセクション）の処理
+    if (data.others) {
+        Object.entries(data.others).forEach(([key, content]) => {
+            if (content && content.trim() !== "") {
+                // key自体が見出し名になっていることが多いのでそのまま使う
+                parts.push(`【${key}】\n${content}`);
+            }
+        });
+    }
+
+    // セクション間を改行2つで結合して返す
+    return parts.join("\n\n");
+};
+</file>
+
+<file path="frontend/app/home/idea/util/ReferenceText.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/util/ReferenceText.tsx
+
+import React from "react";
+
+const PATTERNS = {
+    paragraph: /^\[段落:\s*(\d{4})\]$/,
+    abstract: /^\[要約\]$/,
+    claim: /^\[請求項:\s*\d+\]$/,
+    figure: /^\[図:\s*\d+\]$/,
+    guess: /^\[推測\]$/,
+};
+
+type ReferenceTextProps = {
+    children: React.ReactNode;
+    onClickParagraph?: (id: string) => void;
+};
+
+export const ReferenceText = ({
+    children,
+    onClickParagraph,
+}: ReferenceTextProps) => {
+    if (typeof children !== "string") return <>{children}</>;
+
+    const parts = children.split(/(\[[^\]]+\])/g);
+
+    return (
+        <>
+            {parts.map((part, index) => {
+                // 段落（クリック可）
+                const paragraphMatch = part.match(PATTERNS.paragraph);
+                if (paragraphMatch) {
+                    const id = paragraphMatch[1];
+                    return (
+                        <button
+                            key={index}
+                            onClick={() => onClickParagraph?.(id)}
+                            className="ref ref-paragraph">
+                            {part}
+                        </button>
+                    );
+                }
+
+                // 装飾のみ
+                if (
+                    PATTERNS.abstract.test(part) ||
+                    PATTERNS.claim.test(part) ||
+                    PATTERNS.figure.test(part)
+                ) {
+                    return (
+                        <span key={index} className="ref ref-meta">
+                            {part}
+                        </span>
+                    );
+                }
+
+                return <React.Fragment key={index}>{part}</React.Fragment>;
+            })}
+        </>
+    );
+};
+</file>
+
+<file path="frontend/app/home/page.tsx">
+// Patent_Survey_APP/frontend/app/home/page.tsx
+
+export default function Home() {
+    return (
+        <>
+            <div className="max-w-7xl mx-auto space-y-6">ホーム画面</div>
+        </>
+    );
+}
+</file>
+
+<file path="frontend/app/test/page.tsx">
+// Patent_Survey_APP/frontend/app/test/page.tsx
+
+"use client";
+
+import { useState } from "react";
+
+export default function Home() {
+    const [input, setInput] = useState("");
+    const [output, setOutput] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    // /generate/content を呼び出してストリーミング受信
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setOutput("");
+        setLoading(true);
+
+        try {
+            const response = await fetch(
+                "http://localhost:8000/generate/content",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        prompt: input,
+                        tool_mode: "search", // ここを "text" / "search" / "search_url" に変えることも可能
+                    }),
+                }
+            );
+
+            if (!response.ok || !response.body) {
+                throw new Error("LLMからのストリームを取得できませんでした");
+            }
+
+            // ストリーム読み取り
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                fullText += chunk;
+                setOutput((prev) => prev + chunk); // 逐次チャンクを表示
+            }
+        } catch (err) {
+            console.error(err);
+            setOutput("エラーが発生しました。");
+            console.log(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
+            <h1>Gemini ストリーミング生成デモ</h1>
+
+            <form onSubmit={handleSubmit} style={{ marginBottom: "1rem" }}>
+                <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    rows={4}
+                    style={{
+                        width: "100%",
+                        fontSize: "1rem",
+                        padding: "0.5rem",
+                    }}
+                    placeholder="プロンプトを入力..."
+                />
+                <button
+                    type="submit"
+                    disabled={loading}
+                    style={{
+                        marginTop: "0.5rem",
+                        padding: "0.5rem 1rem",
+                        fontSize: "1rem",
+                        cursor: "pointer",
+                    }}>
+                    {loading ? "生成中..." : "送信"}
+                </button>
+            </form>
+
+            <div
+                style={{
+                    border: "1px solid #ccc",
+                    minHeight: "200px",
+                    padding: "1rem",
+                    whiteSpace: "pre-wrap",
+                    backgroundColor: "#fafafa",
+                }}>
+                {output ||
+                    (loading
+                        ? "応答を待っています..."
+                        : "ここに出力が表示されます")}
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="frontend/styles/chat_input_style.css">
+/* Patent_Survey_APP/frontend/styles/chat_input_style.css */
+
+/* グローバルCSSやmodule.cssに追加 */
+textarea::-webkit-scrollbar {
+    right: 10px;
+    width: 8px;
+    background: #f0f0f0;
+}
+textarea::-webkit-scrollbar-thumb {
+    background: #b3c6ff;
+    border-radius: 4px;
+}
+textarea::-webkit-scrollbar-thumb:hover {
+    background: #5b8cff;
+}
+</file>
+
+<file path="frontend/types/schema.ts">
+/**
+ * This file was auto-generated by openapi-typescript.
+ * Do not make direct changes to the file.
+ */
+
+export interface paths {
+    "/generate/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * テキスト生成
+         * @description Gemini APIを使用してテキストをストリーミング生成
+         */
+        post: operations["generate_generate_content_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/generate/patent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate From Patent */
+        post: operations["generate_from_patent_generate_patent_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/generate/idea": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Idea */
+        post: operations["generate_idea_generate_idea_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patent/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Pdf */
+        post: operations["upload_pdf_patent_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Root */
+        get: operations["read_root__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health Check */
+        get: operations["health_check_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
+export type webhooks = Record<string, never>;
+export interface components {
+    schemas: {
+        /** Body_upload_pdf_patent_upload_post */
+        Body_upload_pdf_patent_upload_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** GenerateIdeaRequest */
+        GenerateIdeaRequest: {
+            /** Patent Id */
+            patent_id: string;
+            /** Explanation Text */
+            explanation_text: string;
+        };
+        /** GeneratePatentRequest */
+        GeneratePatentRequest: {
+            /** Patent Id */
+            patent_id: string;
+        };
+        /** GenerateRequest */
+        GenerateRequest: {
+            /** Prompt */
+            prompt: string;
+            /** Tool Mode */
+            tool_mode: string;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** PatentContent */
+        PatentContent: {
+            /**
+             * Abstract
+             * @description 要約
+             */
+            abstract: string;
+            /**
+             * Claims
+             * @description 特許請求の範囲
+             */
+            claims: string;
+            /**
+             * Tech Field
+             * @description 技術分野
+             * @default
+             */
+            tech_field: string;
+            /**
+             * Background
+             * @description 背景技術
+             * @default
+             */
+            background: string;
+            /**
+             * Problem To Solve
+             * @description 解決しようとする課題
+             * @default
+             */
+            problem_to_solve: string;
+            /**
+             * Means To Solve
+             * @description 解決手段
+             * @default
+             */
+            means_to_solve: string;
+            /**
+             * Effect
+             * @description 発明の効果
+             * @default
+             */
+            effect: string;
+            /**
+             * Drawings Desc
+             * @description 図面の簡単な説明
+             * @default
+             */
+            drawings_desc: string;
+            /**
+             * Embodiments
+             * @description 実施形態
+             * @default
+             */
+            embodiments: string;
+            /**
+             * Symbols Desc
+             * @description 符号の説明
+             * @default
+             */
+            symbols_desc: string;
+            /**
+             * Industrial Applicability
+             * @description 産業上の利用可能性
+             * @default
+             */
+            industrial_applicability: string;
+            /**
+             * Others
+             * @description その他のセクション
+             */
+            others?: {
+                [key: string]: string;
+            };
+        };
+        /** PatentImage */
+        PatentImage: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Page */
+            page: number;
+            /** Url */
+            url: string;
+        };
+        /** PatentUploadResponse */
+        PatentUploadResponse: {
+            /** Filename */
+            filename: string;
+            /** Patent Id */
+            patent_id: string;
+            patent_data: components["schemas"]["PatentContent"];
+            /** Images */
+            images: components["schemas"]["PatentImage"][];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
+}
+export type $defs = Record<string, never>;
+export interface operations {
+    generate_generate_content_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_from_patent_generate_patent_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneratePatentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_idea_generate_idea_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateIdeaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_pdf_patent_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_pdf_patent_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatentUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_root__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    health_check_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+}
+</file>
+
+<file path="backend/config.py">
+# Patent_Survey_APP/backend/config.py
+
+import os
+
+from dotenv import load_dotenv
+
+# .envファイル読み込み
+load_dotenv()
+
+# Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# フロントエンド側のURL
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+# 終了時に一時ファイルを削除するかどうか
+CLEANUP_ON_EXIT = os.getenv("CREANUP_ON_EXIT")
+</file>
+
+<file path="backend/Dockerfile">
+# Patent_Survey_APP/backend/Dockerfile
+
+## ベースイメージ ##
+# Docker Hubから公式のPython 3.11イメージを取得（-slim --> 軽量版）
+FROM python:3.11-slim
+
+## 作業ディレクトリを設定 ##
+# コンテナ内の作業ディレクトリを /app に設定（以降の COPY、RUN はこのディレクトリで実行される）
+WORKDIR /app
+
+## requirements.txtをコピー ##
+# コンテナ内の /app/requirements.txt にコピー（. = 現在のディレクトリ（/app））
+COPY requirements.txt .
+
+## requirements.txtからパッケージをインストール ##
+# コンテナ内で pip install を実行（--no-cache-dir = キャッシュを残さない --> イメージサイズを小さくする）
+RUN pip install --no-cache-dir -r requirements.txt
+
+## applicationコードをコピー ##
+# ホストの backend/ ディレクトリの全ファイルを、コンテナ内の /app/ にコピー（main.pyなどがコピーされる）
+COPY . .
+
+## FastAPI 開発サーバーのポート（明示的） ##
+EXPOSE 8000
+
+## コンテナ起動時に実行するコマンド ##
+# FastAPIサーバーを起動するコマンド
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+</file>
+
+<file path="backend/src/func/generate_func.py">
+# Patent_Survey_APP/backend/src/func/generate_func.py
+
+from google.genai import types
+from google.genai.types import GenerateContentConfig
+
+# ============================================================
+# テキスト生成実行関数
+# ============================================================
+
+
+def generate_content(prompt, client, tool_mode: str, system_instruction=None):
+    """
+    tool_mode:
+        "text"       : ツールなし（純粋なテキスト生成）
+        "search"     : Google Search のみ
+        "search_url" : URL context + Google Search
+    """
+
+    tools = None
+
+    # テキスト生成のみ
+    if tool_mode == "text":
+        pass
+
+    # Google Searchのみ
+    elif tool_mode == "search":
+        grounding_tool = types.Tool(google_search=types.GoogleSearch())
+        tools = [grounding_tool]
+
+    # URL context + Google Search を両方指定
+    elif tool_mode == "search_url":
+        tools = [
+            {"url_context": {}},
+            {"google_search": {}},
+        ]
+
+    else:
+        raise ValueError(f"Unknown tool_mode: {tool_mode}")
+
+    # config生成ツールがある場合のみ生成
+    if tools is not None:
+        config = GenerateContentConfig(
+            tools=tools,
+            system_instruction=system_instruction,
+        )
+    else:
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+        )
+
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=config,
+    )
+
+    return response
+
+
+# ============================================================
+# ストリーミング生成補助関数
+# ============================================================
+
+
+def stream(response_stream):
+    full_text = ""
+    thoughts = ""
+    answer = ""
+
+    for chunk in response_stream:
+        if (
+            not chunk.candidates
+        ):  # ツール呼び出し中などで candidates が None の場合があるので防御的に
+            continue
+
+        for part in chunk.candidates[0].content.parts:
+            if not getattr(part, "text", None):
+                continue  # 何も送らない
+
+            # 思考テキスト
+            if getattr(part, "thought", False):
+                if not thoughts:
+                    yield ""
+                thoughts += part.text
+                full_text += part.text
+                yield part.text
+
+            # 回答テキスト
+            else:
+                if not answer:
+                    yield ""
+                answer += part.text
+                full_text += part.text
+                yield part.text
+
+    return
+</file>
+
+<file path="backend/src/func/patent_images.py">
+# Patent_Survey_APP/backend/src/func/patent_images.py
+
+import os
+from io import BytesIO
+
+from PIL import Image
+from pypdf import PdfReader
+
+
+def extract_figures_from_pdf_bytes(
+    pdf_bytes: bytes,
+    output_dir: str,
+    min_width=100,
+    min_height=100,
+):
+    os.makedirs(output_dir, exist_ok=True)
+
+    reader = PdfReader(BytesIO(pdf_bytes))
+    raw_figures = []
+
+    # ------------------------------------------------------------
+    # 画像のみ抽出（番号は後で付与※逆順に格納されるため）
+    # ------------------------------------------------------------
+
+    for page_index, page in enumerate(reader.pages):
+        if page_index == 0:  # 書誌情報ページは除外
+            continue
+
+        try:
+            images = page.images
+        except Exception:
+            continue
+
+        for img in images:
+            image_bytes = img.data
+
+            try:
+                with Image.open(BytesIO(image_bytes)) as im:
+                    width, height = im.size
+                    if width < min_width or height < min_height:
+                        continue
+
+                    raw_figures.append(
+                        {
+                            "page": page_index + 1,
+                            "image": im.copy(),  # 後で使う
+                        }
+                    )
+
+            except Exception:
+                continue
+
+    # ------------------------------------------------------------
+    # 逆順にして処理して番号を付与
+    # ------------------------------------------------------------
+
+    figures = []
+    for index, fig in enumerate(reversed(raw_figures), start=1):
+        fig_id = f"fig_{index:03d}"
+        filename = f"{fig_id}.png"
+        save_path = os.path.join(output_dir, filename)
+
+        fig["image"].save(save_path, format="PNG")
+
+        figures.append(
+            {
+                "id": fig_id,
+                "label": f"図{index}",
+                "page": fig["page"],
+                "filename": filename,
+            }
+        )
+
+    return figures
+</file>
+
+<file path="backend/src/schemas/patent_schemas.py">
+# Patent_Survey_APP/backend/src/schemas/patent_schemas.py
+
+from typing import Dict
+
+from pydantic import BaseModel, Field
+
+# ============================================================
+# 特許PDF処理時に使用するスキーマ
+# ============================================================
+
+
+# 特許文書の中身そのもののスキーマ
+class PatentContent(BaseModel):
+    abstract: str = Field(..., description="要約")
+    claims: str = Field(..., description="特許請求の範囲")
+    tech_field: str = Field("", description="技術分野")
+    background: str = Field("", description="背景技術")
+    problem_to_solve: str = Field("", description="解決しようとする課題")
+    means_to_solve: str = Field("", description="解決手段")
+    effect: str = Field("", description="発明の効果")
+    drawings_desc: str = Field("", description="図面の簡単な説明")
+    embodiments: str = Field("", description="実施形態")
+    symbols_desc: str = Field("", description="符号の説明")
+    industrial_applicability: str = Field("", description="産業上の利用可能性")
+    others: Dict[str, str] = Field(
+        default_factory=dict, description="その他のセクション"
+    )
+
+
+# 特許文書から抽出した図のスキーマ
+class PatentImage(BaseModel):
+    id: str  # 参照用
+    label: str  # 図1（表示用）
+    page: int
+    url: str  # フロントエンドからアクセス(GET)するためのURL
+
+
+# APIが返す全体のレスポンススキーマ
+class PatentUploadResponse(BaseModel):
+    filename: str
+    patent_id: str
+    patent_data: PatentContent  # ここで上記のクラスをネストする
+    images: list[PatentImage]
+</file>
+
+<file path="backend/src/storage/patent_store.py">
+# backend/src/storage/patent_store.py
+
+import os
+import shutil
+from pathlib import Path
+from typing import Dict # 辞書型
+from uuid import uuid4 # ID生成
+
+# ==========================================
+# 1. 特許テキストデータ（idで管理）
+# ==========================================
+
+# サーバ再起動で消える一時ストレージ（DBを使わず変数をアプリ内で共有する）
+
+patent_store: Dict[str, object] = {}
+
+
+# 保存用
+def save_patent(patent_doc) -> str:
+    patent_id = str(uuid4())
+    patent_store[patent_id] = patent_doc  # {id: 本文}
+    return patent_id
+
+
+# 取得用
+def get_patent(patent_id: str):
+    return patent_store.get(patent_id)
+
+
+# ==========================================
+# 2. 特許画像データ（一時フォルダで管理）
+# ==========================================
+
+# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
+
+
+# .parent.parent.parent で src -> storage -> backend へ遡る
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# 2. プロジェクトルート直下に一時フォルダを作成
+STATIC_DIR_NAME = "temp_patents"
+STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
+
+STATIC_BASE_URL = "/static/patents"
+
+
+def get_patent_figure_dir(patent_id: str) -> str:
+    # Pathオブジェクトを使って結合し、文字列で返す
+    path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
+    return str(path)
+
+
+# アクセス用URL作成
+def build_figure_url(patent_id: str, filename: str) -> str:
+    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
+
+
+# アプリ終了時に呼ばれるクリーンアップ関数
+def cleanup_temp_files():
+    if os.path.exists(STATIC_BASE_PATH):
+        # フォルダの中身ごと完全に削除
+        shutil.rmtree(STATIC_BASE_PATH)
+        print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
+</file>
+
+<file path="frontend/.gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="frontend/app/home/idea/util/parseSourceText.ts">
+// Patent_Survey_APP/frontend/app/home/idea/util/parseSourceText.ts
+
+// ============================================================
+// テキストのパース
+// ============================================================
+
+// パース結果の型定義
+export type SourceBlock =
+    | { type: "paragraph"; id: string; text: string } // 段落番号付き（アンカー対象）
+    | { type: "text"; text: string }; // 通常テキスト（見出しなど）
+
+export function parseSourceText(sourceText: string): SourceBlock[] {
+    const blocks: SourceBlock[] = [];
+
+    const regex = /\[段落:\s*(\d{4})\]/g;
+    const matches = [...sourceText.matchAll(regex)];
+
+    // 段落番号が1つもない場合
+    if (matches.length === 0) {
+        return [{ type: "text", text: sourceText.trim() }];
+    }
+
+    let lastIndex = 0;
+
+    matches.forEach((match, index) => {
+        const paragraphId = match[1];
+        const matchStart = match.index!;
+        const matchEnd = matchStart + match[0].length;
+
+        // 前のテキスト
+        if (matchStart > lastIndex) {
+            const beforeText = sourceText.slice(lastIndex, matchStart).trim();
+
+            if (beforeText) {
+                blocks.push({
+                    type: "text",
+                    text: beforeText,
+                });
+            }
+        }
+
+        // 段落本文
+        const nextMatch = matches[index + 1];
+        const paragraphText = sourceText
+            .slice(matchEnd, nextMatch ? nextMatch.index! : sourceText.length)
+            .trim();
+
+        blocks.push({
+            type: "paragraph",
+            id: paragraphId,
+            text: paragraphText,
+        });
+
+        lastIndex = nextMatch ? nextMatch.index! : sourceText.length;
+    });
+
+    return blocks;
+}
+
+// ============================================================
+// 画像のパース
+// ============================================================
+
+// 正規表現
+const FIGURE_REF_REGEX = /\[図:\s*(\d+)\]/g;
+// 1 / 12 / 001 などに対応可能
+
+type SourceInline =
+    | { type: "text"; text: string }
+    | { type: "figure-ref"; figureNo: string };
+
+// 画像のインライン分解
+export function parseFigureRefs(text: string): SourceInline[] {
+    const parts: SourceInline[] = [];
+    let lastIndex = 0;
+
+    for (const match of text.matchAll(FIGURE_REF_REGEX)) {
+        const start = match.index!;
+        const end = start + match[0].length;
+
+        if (start > lastIndex) {
+            parts.push({
+                type: "text",
+                text: text.slice(lastIndex, start),
+            });
+        }
+
+        parts.push({
+            type: "figure-ref",
+            figureNo: match[1],
+        });
+
+        lastIndex = end;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push({
+            type: "text",
+            text: text.slice(lastIndex),
+        });
+    }
+
+    return parts;
+}
+</file>
+
+<file path="frontend/app/home/layout.tsx">
+// Patent_Survey_APP/frontend/app/home/layout.tsx
+
+import MainLayout from "../MainLayout";
+
+export default function Layout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return (
+        <>
+            <MainLayout>{children}</MainLayout>
+        </>
+    );
+}
+</file>
+
+<file path="frontend/public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="frontend/public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="frontend/public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="frontend/public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="frontend/public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="frontend/styles/markdown_style.css">
+/* Patent_Survey_APP/frontend/styles/markdown_style.css */
+
+/*
+    ============================================================
+    LLMの出力テキストを整えるスタイルシート
+    ============================================================
+*/
+
+/* 見出し */
+.markdown h1 {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 1.75rem 0 1rem;
+}
+.markdown h2 {
+    font-size: 1.25rem;
+    font-weight: bold;
+    margin: 1.75rem 0 0.5rem;
+}
+.markdown h3 {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 1.75rem 0 0.5rem;
+}
+.markdown h4 {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 1.75rem 0 0.5rem;
+}
+.markdown h5 {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 1.75rem 0 0.5rem;
+}
+.markdown h6 {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 1.75rem 0 0.5rem;
+}
+/* 基本書式 */
+.markdown p {
+    margin-bottom: 1rem;
+}
+.markdown hr {
+    border-top: 1px solid #c4c7c5;
+    margin: 0.5rem 0;
+}
+/* リスト */
+.markdown ul {
+    padding-left: 1.6875rem;
+    margin: 0.5rem 0 1rem;
+}
+.markdown ol {
+    padding-left: 1.6875rem;
+    margin: 0.5rem 0 1rem;
+}
+.markdown li {
+    padding-left: 0.25rem;
+    margin-bottom: 0.5rem;
+    list-style: inside;
+    list-style-position: outside;
+}
+.markdown ul li p {
+    padding-left: 0.025rem;
+    margin: 0.5rem 0;
+}
+/* コードブロック */
+.markdown pre,
+.markdown code {
+    background: #f0f4f9;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    font-family: "Fira Mono", "Menlo", "Consolas", monospace;
+    font-size: 0.95em;
+}
+.markdown pre {
+    overflow-x: auto;
+}
+.markdown code {
+    padding: 0.2em 0.4em;
+}
+/* テーブル */
+.markdown table {
+    border-collapse: collapse;
+}
+.markdown th {
+    padding: 0.5rem;
+    font-weight: 700;
+    border: 1px solid #d6e3ed;
+    background-color: #edf2f7;
+}
+.markdown td {
+    padding: 0.5rem;
+    border: 1px solid #d6e3ed;
+    background-color: #fff;
+}
+
+.citation {
+    font-size: 0.75em;
+    color: #6b7280; /* gray-500 */
+    opacity: 0.65;
+    margin-left: 0.25em;
+    white-space: nowrap;
+    cursor: default;
+}
+
+.citation:hover {
+    opacity: 1;
+    color: #2563eb; /* blue-600 */
+}
+</file>
+
+<file path="backend/src/prompt/idea_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
+
+
+def build_patent_prompt(patent_doc):
+    prompt = f"""
+## 1. 指示
+
+### 1-1. 基本原則
+- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
+- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
+- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
+
+### 1-2. 該当記述がない場合の対応
+各項目について、以下の基準で判断してください：
+
+1. **明確な記述がある** → そのまま抽出
+2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
+3. **該当する記述が見当たらない** → 「該当記述なし」と明記
+
+### 1-3. 出典の明記
+可能な限り、抽出した情報の出典を明示してください：
+- 段落番号、図番号、表番号などを併記
+  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
+
+---
+
+## 2. 出力テンプレート
+
+### 項目1: 発明の技術分野
+【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
+
+---
+
+### 項目2: 技術の物理的構成
+
+#### 2-1. 構成要素（部材・部品）
+**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
+- 該当例: モーター、センサー筐体、フレーム、ギア、配線
+- 非該当例: ソフトウェア、アルゴリズム、製造方法
+
+#### 2-2. 構成材料・原料
+構成要素を**作るための材料・材質**を箇条書きでリストアップ。
+- 該当例: 金属、樹脂、化学物質、合金、繊維
+- 非該当例: 完成した部品（それは2-1に記載）
+
+#### 2-3. 形態・形状・構造
+技術が「どのような形・構造」をしているかを記述。
+- 全体の形状、配置関係、構造的特徴など
+
+---
+
+### 項目3: 技術の機能的構成
+
+#### 3-1. 基盤技術・要素技術
+**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
+- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
+- 非該当例: 物理的な部品（それは2-1に記載）
+
+#### 3-2. 要素機能（部品レベル）
+各構成要素が果たす**個別の役割**を記述。
+
+#### 3-3. システム機能（全体レベル）
+技術全体として実現される**主要な機能**を記述。
+
+#### 3-4. 動作フロー（該当記述がある場合のみ）
+技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
+
+---
+
+### 項目4: 定量データ・仕様情報
+
+以下のルールで数値データを抽出してください：
+
+**抽出原則:**
+1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
+2. **文脈を保持**: 数値が何を示すかを明記
+3. **出典を明記**: 段落番号、図番号、表番号を併記
+4. **範囲と条件**: 数値に条件がある場合、その条件も記載
+
+**抽出対象:**
+- 寸法・サイズ
+- 物理量
+- 性能指標
+- 配合・比率
+- その他の定量的記述
+
+---
+
+## 3. 分類に関する補足
+
+### 複数項目に該当する要素の扱い
+同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
+
+例:
+- 項目2-1: 「温度センサー」（物理的構成要素として）
+- 項目3-1: 「温度センシング技術」（検出原理として）
+- 項目3-2: 「周囲温度の測定」（要素機能として）
+
+### 不明確な分類の場合
+どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
+
+## 対象資料
+<document>
+{patent_doc.get_text()}
+</document>
+""".strip()
+    return prompt
+
+
+# アイデア生成用のプロンプト作成関数
+
+
+def build_idea_prompt(patent_doc, explanation_text):
+    prompt = f"""
+資料に記載された技術について、第三者が利用する場合を想定して、以下の指示や観点に従い、現実的な活用アイデアを生成してください。
+
+## 1. 生成内容の信頼性と推測の扱いについて
+
+- 技術的な誤認や数値的な誤りや引用ミスを避けてください。
+- 資料にない数値表現や定量的効果を扱う場合は、根拠なく「約○○%向上」のような書き方をするのではなく、「向上が期待される」といった定性的な書き方をしてください。
+
+## 2. 推測レベルの定義と対応方針
+
+全ての推測箇所は、**言い切りや断定的な表現をしない**でください。（推奨表現の例：〇〇の可能性がある。〇〇が期待される。）
+以下に示す推測レベル3, レベル4は、必ず"行末に[推測]"と明記してください。
+補足事項:
+- レベル2とレベル3で判断に迷った場合はレベル3を優先してください。
+
+推測レベルの定義:
+- レベル1: 資料の記述から引用
+- レベル2: 資料の記述から推測
+- レベル3: 資料の記述と学習データを組み合わせた推測（※文末に明記が必要）
+- レベル4: 学習データのみに基づいた推測（※文末に明記が必要）
+
+## 3. 出力テンプレート
+- 以下の出力テンプレートに従って、アイデアリストを生成してください。
+- 推測箇所は断定的な表現を避け、"行末に[推測]"と明記してください。
+
+```text: output format
+## 発明の名称
+
+### アイデア1: [分かりやすい日本語の名称を記述]
+
+- 概要:
+  - [アイデアの概要やどのような用途であるかを具体的に記述]
+- 解決できる課題:
+  - [このアイデアによって、どのような課題を解決するのかを言語化。]
+- ターゲット像:
+  - 企業: [先述した課題を参考に、どのような企業や組織がこの技術を利用したいか記述]
+  - 消費者: [先述した課題を参考に、どのような消費者にニーズがあるか記述]
+- 提供価値:
+  - [このアイデアが提供するベネフィットを記述]
+- 技術的接続点:
+  - [この技術のどの特性がこのアイデアを可能にするのか。その繋がりや技術的なポイントを記述。]
+- 想定ハードル:
+  - [実装ハードルや、市場、規制リスクなどを統合して記述]
+
+### アイデア2: [分かりやすい日本語の名称を記述]
+
+...(省略)
+```
+
+## 4. 対象技術に関する資料
+## 特許技術の解説（前提）
+{explanation_text}
+
+## 特許原文（参考データ）
+<document>
+{patent_doc.get_text()}
+</document>
+
+
+""".strip()
+    return prompt
+</file>
+
+<file path="backend/src/routers/generate_api.py">
+# Patent_Survey_APP/backend/src/routers/generate_api.py
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from src.func import gemini_client, generate_func
+from src.prompt import idea_prompt, system_prompt
+from src.storage.patent_store import get_patent
+
+## generate_api.py / LLM生成のAPIエンドポイント ##
+
+router = APIRouter(prefix="/generate", tags=["LLM生成"])
+client = gemini_client.client
+
+# ============================================================
+# リクエストボディのモデル定義
+# ============================================================
+
+
+# LLMテキスト生成
+class GenerateRequest(BaseModel):
+    prompt: str
+    tool_mode: str
+
+
+# 特許解説
+class GeneratePatentRequest(BaseModel):
+    patent_id: str
+
+
+# アイデア生成
+class GenerateIdeaRequest(BaseModel):
+    patent_id: str
+    explanation_text: str  # フロントエンドから受け取る解説文
+
+
+# ============================================================
+# エンドポイント
+# ============================================================
+
+
+@router.post("/content", summary="テキスト生成")
+async def generate(data: GenerateRequest):
+    """
+    Gemini APIを使用してテキストをストリーミング生成
+    """
+
+    # ストリーミング生成
+    def stream_output():
+        prompt = data.prompt
+        tool_mode = data.tool_mode
+        response = generate_func.generate_content(prompt, client, tool_mode)
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# 特許解説
+@router.post("/patent")
+async def generate_from_patent(data: GeneratePatentRequest):
+    # 1. 保存された原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. プロンプト構築
+    prompt = idea_prompt.build_patent_prompt(patent_doc)
+
+    # 3. ストリーミング生成
+    def stream_output():
+        response = generate_func.generate_content(
+            prompt=prompt,
+            client=client,
+            tool_mode="text",
+            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+        )
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# アイデア生成
+@router.post("/idea")
+async def generate_idea(data: GenerateIdeaRequest):
+    # 1. 保存された特許原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. プロンプトを構築（解説文 + 原文）
+    prompt = idea_prompt.build_idea_prompt(patent_doc, data.explanation_text)
+
+    # 3. ストリーミング生成
+    def stream_output():
+        response = generate_func.generate_content(
+            prompt=prompt,
+            client=client,
+            tool_mode="text",
+            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+        )
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+</file>
+
+<file path="frontend/app/home/idea/GeneratingScreen.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/GeneratingScreen.tsx
+
+"use client";
+
+import "@/styles/markdown_style.css";
+import {
+    ArrowRight,
+    Bot,
+    FileText,
+    Lightbulb,
+    Loader2,
+    PanelRight,
+    Sparkles,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { SourceSidebar } from "./components/SourceSidebar";
+import { MarkdownRenderer } from "./util/MarkdownRenderer";
+import { parseSourceText } from "./util/parseSourceText";
+import { formatPatentToString } from "./util/patentFormatter";
+
+import type { components } from "@/types/schema";
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+interface GeneratingScreenProps {
+    fileName: string;
+    patentId: string;
+    patentData: PatentContent;
+    patentImages: PatentImage[];
+}
+
+export const GeneratingScreen = ({
+    fileName,
+    patentId,
+    patentData,
+    patentImages,
+}: GeneratingScreenProps) => {
+    // 原文参照サイドバーの開閉
+    const [isSourceOpen, setIsSourceOpen] = useState(false);
+    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(
+        null
+    );
+
+    // 画像選択状態
+    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(
+        null
+    );
+
+    // ステータス管理（共通）
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [hasStarted, setHasStarted] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // 生成テキスト
+    const [generatedText, setGeneratedText] = useState("");
+    const [ideaText, setIdeaText] = useState("");
+
+    // アイデア生成UI状態
+    const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
+    const [showIdeaSection, setShowIdeaSection] = useState(false);
+
+    // 全文取得（一度だけ実行）
+    const fullText = useMemo(() => {
+        return formatPatentToString(patentData);
+    }, [patentData]);
+
+    const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
+
+    /**
+     * 共通ストリーミング処理ヘルパー
+     * @param url APIエンドポイント
+     * @param body POSTするボディ
+     * @param onUpdate チャンク受信時のコールバック
+     * @param onStart 開始時の状態更新コールバック
+     * @param onComplete 完了時の状態更新コールバック
+     */
+
+    const streamResponse = async (
+        url: string,
+        body: object,
+        onUpdate: (chunk: string) => void,
+        onStart: () => void,
+        onComplete: () => void
+    ) => {
+        onStart();
+        setError(null);
+
+        try {
+            // リクエスト
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            // レスポンス判定
+            if (!response.ok || !response.body) {
+                throw new Error("API request failed");
+            }
+            // ストリーム処理準備
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            // ストリーム処理
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onUpdate(decoder.decode(value, { stream: true }));
+            }
+            // エラーハンドリング
+        } catch (err) {
+            console.error(err);
+            setError("生成中にエラーが発生しました。もう一度お試しください。");
+        } finally {
+            onComplete();
+        }
+    };
+
+    // 特許解析ハンドラー
+    const handleGenerate = () => {
+        setGeneratedText("");
+        setHasStarted(true);
+
+        streamResponse(
+            "http://localhost:8000/generate/patent",
+            { patent_id: patentId },
+            (chunk) => setGeneratedText((prev) => prev + chunk),
+            () => setIsGenerating(true),
+            () => setIsGenerating(false)
+        );
+    };
+
+    // アイデア生成ハンドラー
+    const handleGenerateIdea = () => {
+        setIdeaText("");
+        setShowIdeaSection(true);
+
+        streamResponse(
+            "http://localhost:8000/generate/idea",
+            { patent_id: patentId, explanation_text: generatedText },
+            (chunk) => setIdeaText((prev) => prev + chunk),
+            () => setIsGeneratingIdea(true),
+            () => setIsGeneratingIdea(false)
+        );
+    };
+
+    return (
+        <div className="flex overflow-hidden p-8">
+            <div className="max-w-4xl mx-auto space-y-8 w-full">
+                {/* --- スクリーンヘッダー --- */}
+                <div>
+                    <div className="flex justify-between items-end mb-4">
+                        <div>
+                            <h2 className="text-lg font-medium text-slate-800 mb-1 flex items-center gap-2">
+                                <FileText className="text-blue-600" size={24} />
+                                抽出されたテキスト
+                            </h2>
+                            <p className="text-slate-500 text-sm">
+                                ファイル名：
+                                <span className="font-medium text-slate-700">
+                                    {fileName}
+                                </span>
+                            </p>
+                        </div>
+                        {/* 原文参照サイドバー開閉ボタン */}
+                        <SourceSidebarButton
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
+                    </div>
+
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 whitespace-break-spaces break-word max-h-60 overflow-y-auto">
+                        {patentData.abstract}
+                    </div>
+                </div>
+
+                {/* --- 解析開始ボタン --- */}
+                {!hasStarted && (
+                    <div className="flex justify-center py-8">
+                        <button
+                            onClick={handleGenerate}
+                            className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-liner-to-r bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                            <Sparkles size={20} />
+                            <span>特許解析を実行</span>
+                        </button>
+                    </div>
+                )}
+
+                {/* --- AI生成結果 (解析) --- */}
+                {hasStarted && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                                <Bot size={24} />
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-800">
+                                AIによる解析
+                            </h3>
+
+                            {isGenerating && (
+                                <div className="flex items-center gap-2 text-sm text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full animate-pulse">
+                                    <Loader2
+                                        size={14}
+                                        className="animate-spin"
+                                    />
+                                    生成中...
+                                </div>
+                            )}
+                            <SourceSidebarButton
+                                setIsSourceOpen={setIsSourceOpen}
+                            />
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-50">
+                            {error ? (
+                                <div className="text-red-500 bg-red-50 p-4 rounded-lg flex items-center gap-2">
+                                    <span className="font-bold">Error:</span>{" "}
+                                    {error}
+                                </div>
+                            ) : (
+                                <div className="prose prose-slate max-w-none prose-headings:font-bold prose-h2:text-xl prose-h2:mt-6 prose-h2:mb-4 prose-p:leading-relaxed prose-li:marker:text-indigo-500">
+                                    <div className="markdown break-word">
+                                        <MarkdownRenderer
+                                            content={generatedText}
+                                            onClickParagraph={(id) => {
+                                                setActiveParagraphId(id);
+                                                setIsSourceOpen(true);
+                                            }}
+                                        />
+                                    </div>
+                                    {/* カーソル点滅 */}
+                                    {isGenerating && (
+                                        <span className="inline-block w-2 h-5 ml-1 align-middle bg-indigo-500 animate-pulse" />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* --- アイデア生成ボタン --- */}
+                {hasStarted && !isGenerating && !showIdeaSection && !error && (
+                    <div className="flex justify-end animate-in fade-in duration-500">
+                        <button
+                            onClick={handleGenerateIdea}
+                            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-md transition-all">
+                            <Lightbulb size={20} />
+                            <span>この解析結果を元にアイデアを生成する</span>
+                            <ArrowRight size={18} />
+                        </button>
+                    </div>
+                )}
+
+                {/* --- アイデア生成結果 --- */}
+                {showIdeaSection && (
+                    <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 border-t-2 border-dashed border-slate-200 pt-8 mt-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-emerald-100 p-2 rounded-lg text-emerald-600">
+                                <Lightbulb size={24} />
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-800">
+                                応用アイデア
+                            </h3>
+                            {isGeneratingIdea && (
+                                <span className="text-sm text-emerald-600 animate-pulse">
+                                    思考中...
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg border border-emerald-100 p-8 ring-1 ring-emerald-50">
+                            <div className="prose prose-emerald max-w-none">
+                                <div className="markdown break-word">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {ideaText}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {isSourceOpen && (
+                <SourceSidebar
+                    isOpen={isSourceOpen}
+                    onClose={() => setIsSourceOpen(false)}
+                    fileName={fileName}
+                    sourceBlocks={sourceBlocks}
+                    activeParagraphId={activeParagraphId}
+                    patentImages={patentImages}
+                    selectedImage={selectedImage}
+                    setSelectedImage={setSelectedImage}
+                />
+            )}
+        </div>
+    );
+};
+
+// 原文表示サイドバーボタンのコンポーネント
+const SourceSidebarButton = ({
+    setIsSourceOpen,
+}: {
+    setIsSourceOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
+}) => {
+    return (
+        <button
+            onClick={() => setIsSourceOpen((prev) => !prev)}
+            className="ml-auto flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all">
+            <PanelRight size={16} />
+            <span>原文を表示</span>
+        </button>
+    );
+};
+</file>
+
+<file path="frontend/eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+    ...nextVitals,
+    ...nextTs,
+    // Override default ignores of eslint-config-next.
+    globalIgnores([
+        // Default ignores of eslint-config-next:
+        ".next/**",
+        "out/**",
+        "build/**",
+        "next-env.d.ts",
+    ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="frontend/next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+    /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="frontend/postcss.config.mjs">
+const config = {
+    plugins: {
+        "@tailwindcss/postcss": {},
+    },
+};
+
+export default config;
+</file>
+
+<file path="frontend/README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+-   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+-   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+    "compilerOptions": {
+        "target": "ES2017",
+        "lib": ["dom", "dom.iterable", "esnext"],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "noEmit": true,
+        "esModuleInterop": true,
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "jsx": "react-jsx",
+        "incremental": true,
+        "plugins": [
+            {
+                "name": "next"
+            }
+        ],
+        "paths": {
+            "@/*": ["./*"]
+        }
+    },
+    "include": [
+        "next-env.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        ".next/types/**/*.ts",
+        ".next/dev/types/**/*.ts",
+        "**/*.mts"
+    ],
+    "exclude": ["node_modules"]
+}
+</file>
+
+<file path="backend/requirements.txt">
+fastapi==0.127.1 # FastAPI
+uvicorn==0.40.0 # サーバー起動
+google-genai==1.56.0 # Gemini
+dotenv==0.9.9 # 環境変数
+pypdf==6.5.0 # PDF処理
+python-multipart==0.0.21 # pypdfの依存関係
+matplotlib==3.10.8 # PDFから画像を抽出する際に使用
+</file>
+
+<file path="backend/src/routers/patent_process_api.py">
+# Patent_Survey_APP/backend/src/routers/patent_process_api.py
+
+from fastapi import APIRouter, File, UploadFile
+from src.func.patent_images import extract_figures_from_pdf_bytes
+from src.func.patent_pdf import patent_text_extraction
+from src.schemas import patent_schemas
+from src.storage.patent_store import (
+    build_figure_url,
+    get_patent_figure_dir,
+    save_patent,
+)
+
+## upload_api.py / 特許PDFを処理するエンドポイント ##
+
+router = APIRouter(prefix="/patent", tags=["PDF処理"])
+
+# ============================================================
+# エンドポイント
+# ============================================================
+
+
+@router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
+async def upload_pdf(file: UploadFile = File(...)):
+    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
+    pdf_bytes = await file.read()  # PDF を bytes として取得
+
+    # テキスト抽出＆整形&クラスオブジェクト化
+    patent_doc = patent_text_extraction(pdf_bytes)
+
+    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
+    patent_id = save_patent(patent_doc)
+
+    # 図の抽出 & 保存
+    figure_dir = get_patent_figure_dir(patent_id)
+    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
+
+    # 図にメタデータを付与（URLなど）
+    images = [
+        {
+            "id": fig["id"],
+            "label": fig["label"],
+            "page": fig["page"],
+            "url": build_figure_url(patent_id, fig["filename"]),
+        }
+        for fig in figures
+    ]
+
+    return {
+        "filename": file.filename,
+        "patent_id": patent_id,
+        "patent_data": patent_doc.__dict__,
+        "images": images,
+    }
+</file>
+
+<file path="docker-compose.yml">
+services: # 管理するコンテナのリスト
+    backend: # サービス名 `backend`
+        build: ./backend # `./backend/Dockerfile` を使ってイメージをビルド
+        ports: # ポートマッピング
+            - "8000:8000" # コンテナの8000番ポート --> `http://localhost:8000` でアクセスできる
+        volumes: # ボリュームマウント
+            - ./backend:/app # ホストの `./backend` --> コンテナの `/app` --> ホストのコードを変更すると、即座にコンテナに反映される
+        environment:
+            - ENV=development
+        command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+    frontend: # サービス名 `frontend`
+        build: ./frontend # `./frontend/Dockerfile` を使ってイメージをビルド
+        ports:
+            - "3000:3000" # コンテナの3000番ポート --> `http://localhost:3000` でアクセスできる
+        volumes:
+            - ./frontend:/app
+            - ./frontend/node_modules:/app/node_modules # node_modulesをホストと共有
+        environment:
+            - NODE_ENV=development # 開発環境を明示
+            - NEXT_PUBLIC_API_URL=http://backend:8000
+            - WATCHPACK_POLLING=true # ホットリロードの安定化
+        depends_on:
+            - backend # `backend` コンテナを起動してから `frontend` を起動する
+        command: npm run dev # 実行コマンドを明示
+</file>
+
+<file path="frontend/app/globals.css">
+/* Patent_Survey_APP/frontend/app/grobals.css */
+
+@import "tailwindcss";
+
+:root {
+    --background: #ffffff;
+    --foreground: #171717;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-family: var(--font-noto-sans-jp);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0a0a0a;
+        --foreground: #ededed;
+    }
+}
+
+/* 参照 */
+.ref {
+    @apply text-slate-400 inline-flex items-center text-xs font-medium;
+}
+
+.ref-paragraph {
+    @apply hover:underline hover:text-blue-700 cursor-default;
+}
+
+.ref-meta {
+    @apply cursor-default;
+}
+
+body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
+}
+</file>
+
+<file path="frontend/app/home/idea/page.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/page.tsx
+
+"use client";
+
+import type { components } from "@/types/schema"; // 自動生成型定義
+import { useState } from "react";
+import { GeneratingScreen } from "./GeneratingScreen";
+import { PatentUploadUI } from "./PatentUploadUI";
+
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+// 画面状態の型定義
+type ScreenState = "upload" | "generating" | "result";
+
+export default function IdeaPage() {
+    const [screen, setScreen] = useState<ScreenState>("upload");
+
+    // 特許PDF情報 & 解析データ
+    const [patentId, setPatentId] = useState<string>("");
+    const [fileName, setFileName] = useState<string>("");
+    const [patentData, setPatentData] = useState<PatentContent | null>(null);
+    const [patentImages, setPatentImages] = useState<PatentImage[]>([]);
+
+    return (
+        <>
+            {/* アップロード画面 */}
+            {screen === "upload" && (
+                <PatentUploadUI
+                    setScreen={setScreen}
+                    setPatentId={setPatentId}
+                    setFileName={setFileName}
+                    setPatentData={setPatentData}
+                    setPatentImages={setPatentImages}
+                />
+            )}
+
+            {/* 生成・解析画面 (データが存在する場合のみ表示) */}
+            {screen === "generating" && patentData && (
+                <GeneratingScreen
+                    fileName={fileName}
+                    patentId={patentId}
+                    patentData={patentData}
+                    patentImages={patentImages}
+                />
+            )}
+
+            {/* 結果画面 (将来拡張用) */}
+            {screen === "result" && <div>Result</div>}
+        </>
+    );
+}
+</file>
+
+<file path="frontend/app/home/idea/PatentUploadUI.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/PatentUploadUI.tsx
+
+"use client";
+
+import type { components } from "@/types/schema";
+import { CheckCircle2, FileText, Send, UploadCloud, X } from "lucide-react";
+import React, { useCallback, useRef, useState } from "react";
+
+// 特許PDFの型
+type PatentResponse = components["schemas"]["PatentUploadResponse"];
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+interface FileItem {
+    name: string;
+    size: string;
+}
+
+interface UploadUIProps {
+    setScreen: (state: "upload" | "generating" | "result") => void;
+    setFileName: (fileName: string) => void;
+    setPatentId: (patentId: string) => void;
+    setPatentData: (data: PatentContent) => void;
+    setPatentImages: (data: PatentImage[]) => void;
+}
+
+export const PatentUploadUI = ({
+    setScreen,
+    setFileName,
+    setPatentId,
+    setPatentData,
+    setPatentImages,
+}: UploadUIProps) => {
+    const [isDragging, setIsDragging] = useState(false);
+    const [fileInfo, setFileInfo] = useState<FileItem | null>(null);
+    const [rawFile, setRawFile] = useState<File | null>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // --- ドラッグアンドドロップ関連ハンドラ ---
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            processFile(e.dataTransfer.files[0]);
+        }
+    }, []);
+
+    // --- ファイル処理ロジック ---
+    const processFile = (uploadedFile: File) => {
+        // 拡張子またはMIMEタイプでPDFかを判定
+        const isPdfType = uploadedFile.type === "application/pdf";
+        const isPdfExt = uploadedFile.name.toLowerCase().endsWith(".pdf");
+
+        if (!isPdfType && !isPdfExt) {
+            alert("PDFファイルのみアップロード可能です。");
+            return;
+        }
+
+        setRawFile(uploadedFile);
+        setFileInfo({
+            name: uploadedFile.name,
+            size: `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB`,
+        });
+    };
+
+    const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            processFile(e.target.files[0]);
+        }
+        // 同じファイルを再選択可能にするためリセット
+        e.target.value = "";
+    };
+
+    // ファイル取り消し
+    const removeFile = () => {
+        setFileInfo(null);
+        setRawFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    // --- API送信処理 ---
+    const handleSubmit = async () => {
+        if (!rawFile) return;
+
+        const formData = new FormData();
+        formData.append("file", rawFile);
+
+        try {
+            const res = await fetch("http://localhost:8000/patent/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error("Upload failed");
+
+            const data: PatentResponse = await res.json();
+
+            // 親コンポーネントの状態を更新し、次画面へ遷移
+            setFileName(data.filename);
+            setPatentId(data.patent_id);
+            setPatentData(data.patent_data);
+            setPatentImages(data.images);
+            setScreen("generating");
+        } catch (error) {
+            console.error("Error uploading file:", error);
+            alert("アップロードに失敗しました");
+        }
+    };
+
+    return (
+        <div className="flex-1 overflow-y-auto p-8">
+            <div className="max-w-4xl mx-auto space-y-8">
+                {/* 説明文 */}
+                <div>
+                    <h2 className="text-lg font-medium text-slate-800 mb-1">
+                        J-PlatPat PDFアップロード
+                    </h2>
+                    <p className="text-slate-500 text-sm">
+                        特許公報PDFをアップロードしてください。生成AIが内容を解析し、特許を踏まえたアイデアを生成します。
+                    </p>
+                </div>
+
+                {/* アップロードエリア */}
+                <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`
+            relative rounded-lg border-2 border-dashed p-12 text-center transition-all duration-200 ease-in-out
+            ${
+                isDragging
+                    ? "border-blue-500 bg-blue-50/50"
+                    : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100/50"
+            }
+          `}>
+                    <div className="flex flex-col items-center justify-center gap-4">
+                        <div
+                            className={`
+                p-4 rounded-full 
+                ${
+                    isDragging
+                        ? "bg-blue-100 text-blue-600"
+                        : "bg-white text-slate-400 shadow-sm"
+                }
+              `}>
+                            <UploadCloud size={32} />
+                        </div>
+                        <div>
+                            <p className="text-base font-medium text-slate-700">
+                                <span className="text-blue-600 cursor-pointer hover:underline">
+                                    クリックしてファイルを選択
+                                </span>{" "}
+                                またはドラッグ＆ドロップ
+                            </p>
+                            <p className="text-sm text-slate-400 mt-1">
+                                PDF形式 (最大 50MB) / 単一ファイルのみ
+                            </p>
+                        </div>
+                    </div>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        accept=".pdf"
+                        onChange={handleFileInput}
+                    />
+                </div>
+
+                {/* ファイル表示エリア */}
+                {fileInfo && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
+                            アップロード済みファイル
+                        </h3>
+
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                            <FileRow file={fileInfo} onRemove={removeFile} />
+                        </div>
+
+                        <div className="flex justify-center pt-2">
+                            <button
+                                type="button"
+                                onClick={handleSubmit}
+                                className="flex items-center justify-center gap-2 w-full max-w-lg px-8 py-3
+                                bg-blue-600 hover:bg-blue-700 active:bg-blue-800
+                                text-white font-semibold rounded-lg shadow-sm transition-all cursor-pointer">
+                                <span>解析を実行する</span>
+                                <Send size={18} />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// サブコンポーネント: ファイル情報行
+function FileRow({ file, onRemove }: { file: FileItem; onRemove: () => void }) {
+    return (
+        <div className="p-4 flex items-center gap-4 border-l-4 border-emerald-500 hover:bg-slate-50 transition-colors group">
+            <div className="h-10 w-10 bg-slate-100 rounded flex items-center justify-center text-slate-500 shrink-0">
+                <FileText size={20} />
+            </div>
+
+            <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start mb-1">
+                    <p className="font-medium text-slate-800 truncate pr-4">
+                        {file.name}
+                    </p>
+                    <button
+                        onClick={onRemove}
+                        className="text-slate-400 hover:text-red-500 opacity-100 transition-all"
+                        title="ファイルを削除">
+                        <X size={18} />
+                    </button>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <span>{file.size}</span>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm font-medium min-w-25 text-emerald-600 justify-end">
+                <CheckCircle2 />
+                アップロード完了
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="frontend/app/layout.tsx">
+// Patent_Survey_APP/frontend/app/layout.tsx
+
+import type { Metadata } from "next";
+import { Noto_Sans_JP } from "next/font/google";
+import "./globals.css";
+
+const notoSansJP = Noto_Sans_JP({
+    variable: "--font-noto-sans-jp",
+    subsets: ["latin"],
+    weight: ["100", "300", "400", "500", "700", "900"],
+    display: "swap",
+});
+
+export const metadata: Metadata = {
+    title: "Patent Survey APP",
+    description: "フリーヒルズラボ",
+};
+
+export default function RootLayout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return (
+        <html lang="ja" suppressHydrationWarning>
+            <body
+                suppressHydrationWarning
+                className={`${notoSansJP.variable} antialiased`}>
+                {children}
+            </body>
+        </html>
+    );
+}
+</file>
+
+<file path="frontend/app/page.tsx">
+// Patent_Survey_APP/frontend/app/page.tsx
+
+import { redirect } from "next/navigation";
+
+// リダイレクト専用ページ
+export default function Page() {
+    redirect("/home");
+}
+</file>
+
+<file path="README.md">
+# Patent_Survey_APP
+
+Hirano ブランチで開発を進めていきます。（2025/12/25 記載）
+
+## Docker ビルド＆起動
+
+```
+docker compose up --build
+```
+
+## レスポンス型定義ファイルの自動生成
+
+```
+# FastAPIサーバーを起動した状態で実行してください
+npm run api:gen
+```
+
+## ディレクトリ構造（2025/12/29時点）
+```
+Patent_Survey_APP
+├─ backend
+│  ├─ config.py
+│  ├─ Dockerfile
+│  ├─ main.py
+│  ├─ requirements.txt
+│  └─ src
+│     ├─ func
+│     │  ├─ gemini_client.py
+│     │  ├─ generate_func.py
+│     │  ├─ patent_images.py
+│     │  └─ patent_pdf.py
+│     ├─ prompt
+│     │  ├─ idea_prompt.py
+│     │  └─ system_prompt.py
+│     ├─ routers
+│     │  ├─ generate_api.py
+│     │  └─ patent_process_api.py
+│     ├─ schemas
+│     │  └─ patent_schemas.py
+│     └─ storage
+│        └─ patent_store.py
+├─ docker-compose.yml
+├─ frontend
+│  ├─ app
+│  │  ├─ chat-ui
+│  │  │  ├─ ChatInput.tsx
+│  │  │  ├─ KnowledgeTypes.ts
+│  │  │  ├─ MessageList.tsx
+│  │  │  └─ page.tsx
+│  │  ├─ favicon.ico
+│  │  ├─ globals.css
+│  │  ├─ home
+│  │  │  ├─ idea
+│  │  │  │  ├─ components
+│  │  │  │  │  ├─ FigureList.tsx
+│  │  │  │  │  ├─ PatentImageModal.tsx
+│  │  │  │  │  └─ SourceSidebar.tsx
+│  │  │  │  ├─ GeneratingScreen.tsx
+│  │  │  │  ├─ page.tsx
+│  │  │  │  ├─ PatentUploadUI.tsx
+│  │  │  │  └─ util
+│  │  │  │     ├─ FigureReference.tsx
+│  │  │  │     ├─ MarkdownRenderer.tsx
+│  │  │  │     ├─ parseSourceText.ts
+│  │  │  │     ├─ patentFormatter.ts
+│  │  │  │     └─ ReferenceText.tsx
+│  │  │  ├─ layout.tsx
+│  │  │  └─ page.tsx
+│  │  ├─ layout.tsx
+│  │  ├─ MainLayout.tsx
+│  │  ├─ page.tsx
+│  │  └─ test
+│  │     └─ page.tsx
+│  ├─ Dockerfile
+│  ├─ eslint.config.mjs
+│  ├─ images
+│  ├─ next.config.ts
+│  ├─ package-lock.json
+│  ├─ package.json
+│  ├─ postcss.config.mjs
+│  ├─ public
+│  │  ├─ file.svg
+│  │  ├─ globe.svg
+│  │  ├─ next.svg
+│  │  ├─ vercel.svg
+│  │  └─ window.svg
+│  ├─ README.md
+│  ├─ styles
+│  │  ├─ chat_input_style.css
+│  │  └─ markdown_style.css
+│  ├─ tsconfig.json
+│  └─ types
+│     └─ schema.ts
+└─ README.md
+```
+</file>
+
+<file path="backend/main.py">
+# Patent_Survey_APP/backend/main.py
+
+import os
+from contextlib import asynccontextmanager  # ライフサイクルイベント
+
+import config
+from fastapi import FastAPI  # アプリ本体
+from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
+from src.routers import generate_api, patent_process_api  # APIエンドポイント
+from src.storage.patent_store import (
+    STATIC_BASE_PATH,
+    cleanup_temp_files,
+)  # 一時ファイル処理用
+from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
+
+# ============================================================
+# ライフサイクルイベント（起動・終了時の処理）
+# ============================================================
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    アプリケーションのライフサイクル管理
+    - yield前: アプリ起動時の処理
+    - yield後: アプリ終了時の処理
+    """
+
+    # --- 起動時の処理 ---
+    print("アプリケーションを起動しています...")
+    if not os.path.exists(STATIC_BASE_PATH):
+        os.makedirs(STATIC_BASE_PATH, exist_ok=True)
+
+    yield  # ← ここでアプリケーションが実行される
+
+    # --- 終了時の処理 ---
+    print("アプリケーションを終了しています...")
+    if config.CLEANUP_ON_EXIT == "true":
+        cleanup_temp_files()  # 一時ファイル削除実行
+
+
+# ============================================================
+# アプリケーションのセットアップ
+# ============================================================
+
+app = FastAPI(
+    title="Patent Survey App",
+    description="フリーヒルズラボ",
+    version="1.0.0",
+    lifespan=lifespan,  # ← lifespanを指定
+)
+
+FRONTEND_URL = config.FRONTEND_URL or ""
+
+# 特許画像保存先
+os.makedirs(STATIC_BASE_PATH, exist_ok=True)  # マウント前に確実にディレクトリを作成
+app.mount("/static/patents", StaticFiles(directory=STATIC_BASE_PATH), name="static")
+
+# ============================================================
+# CORS設定（フロントエンドとの通信を許可）
+# ============================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL],  # フロントエンド の URL を指定
+    allow_credentials=True,
+    allow_methods=["*"],  # HTTP メソッドを許可 (GET, POST, PUT, DELETE)
+    allow_headers=["*"],  # すべてのヘッダーを許可
+)
+
+
+# ============================================================
+# ルーター登録
+# ============================================================
+
+app.include_router(generate_api.router)  # LLM生成API
+app.include_router(patent_process_api.router)  # 特許PDF処理API
+
+
+# ============================================================
+# エンドポイント（テスト用）
+# ===========================================================
+
+
+# 動作確認
+@app.get("/")
+def read_root():
+    return {"message": "Hello World"}
+
+
+# 実行コマンド:
+# uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+</file>
+
+<file path="frontend/package.json">
+{
+    "name": "frontend",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint",
+        "api:gen": "openapi-typescript http://127.0.0.1:8000/openapi.json --output ./types/schema.ts"
+    },
+    "dependencies": {
+        "@ai-sdk/react": "^3.0.3",
+        "lucide-react": "^0.562.0",
+        "next": "16.1.1",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
+        "react-markdown": "^10.1.0",
+        "remark-gfm": "^4.0.1",
+        "zod": "^4.2.1"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "eslint": "^9",
+        "eslint-config-next": "16.1.1",
+        "openapi-typescript": "^7.10.1",
+        "tailwindcss": "^4",
+        "typescript": "^5.9.3"
+    }
+}
+</file>
+
+</files>
