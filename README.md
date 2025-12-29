@@ -31,7 +31,7 @@
 
 ## デモ / スクリーンショット
 
-![特許応用アイデア生成デモ画面](<img width="1919" height="989" alt="Image" src="https://github.com/user-attachments/assets/e433fed8-ce35-4e2c-a137-e26f55a65cd9" />)
+<img width="1919" height="989" alt="特許応用アイデア生成デモ画面" src="https://github.com/user-attachments/assets/1e12d57d-1b27-4d4b-9ea1-684b36d3c8e5" />
 
 ---
 
