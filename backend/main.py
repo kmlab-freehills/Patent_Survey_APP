@@ -63,8 +63,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL],  # フロントエンド の URL を指定
     allow_credentials=True,
-    allow_methods=["*"],  # HTTP メソッドを許可 (GET, POST, PUT, DELETE)
-    allow_headers=["*"],  # すべてのヘッダーを許可
+    allow_methods=["GET", "POST"],  # 必要なメソッドのみ許可
+    allow_headers=["Content-Type", "Authorization"],  # 必要なヘッダーのみ許可
 )
 
 

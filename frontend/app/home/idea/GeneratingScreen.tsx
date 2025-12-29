@@ -95,8 +95,23 @@ export const GeneratingScreen = ({
                 body: JSON.stringify(body),
             });
             // レスポンス判定
-            if (!response.ok || !response.body) {
-                throw new Error("API request failed");
+            if (!response.ok) {
+                // HTTPステータスコードに応じたエラー処理
+                if (response.status === 404) {
+                    throw new Error("特許データが見つかりませんでした");
+                } else if (response.status >= 500) {
+                    throw new Error(
+                        "サーバーエラーが発生しました。時間をおいて再試行してください"
+                    );
+                } else {
+                    throw new Error(
+                        `エラーが発生しました (${response.status})`
+                    );
+                }
+            }
+
+            if (!response.body) {
+                throw new Error("レスポンスが空です");
             }
             // ストリーム処理準備
             const reader = response.body.getReader();
@@ -110,7 +125,11 @@ export const GeneratingScreen = ({
             // エラーハンドリング
         } catch (err) {
             console.error(err);
-            setError("生成中にエラーが発生しました。もう一度お試しください。");
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("不明なエラーが発生しました");
+            }
         } finally {
             onComplete();
         }

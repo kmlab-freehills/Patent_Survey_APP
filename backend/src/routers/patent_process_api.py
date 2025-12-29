@@ -1,6 +1,6 @@
 # Patent_Survey_APP/backend/src/routers/patent_process_api.py
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from src.func.patent_images import extract_figures_from_pdf_bytes
 from src.func.patent_pdf import patent_text_extraction
 from src.schemas import patent_schemas
@@ -14,6 +14,8 @@ from src.storage.patent_store import (
 
 router = APIRouter(prefix="/patent", tags=["PDF処理"])
 
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
 # ============================================================
 # エンドポイント
 # ============================================================
@@ -23,6 +25,12 @@ router = APIRouter(prefix="/patent", tags=["PDF処理"])
 async def upload_pdf(file: UploadFile = File(...)):
     """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
     pdf_bytes = await file.read()  # PDF を bytes として取得
+
+    if len(pdf_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"ファイルサイズが上限({MAX_FILE_SIZE / 1024 / 1024}MB)を超えています",
+        )
 
     # テキスト抽出＆整形&クラスオブジェクト化
     patent_doc = patent_text_extraction(pdf_bytes)

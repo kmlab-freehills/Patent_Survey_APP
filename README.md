@@ -194,12 +194,6 @@ Patent_Survey_APP
 │  ├─ package-lock.json
 │  ├─ package.json
 │  ├─ postcss.config.mjs
-│  ├─ public
-│  │  ├─ file.svg
-│  │  ├─ globe.svg
-│  │  ├─ next.svg
-│  │  ├─ vercel.svg
-│  │  └─ window.svg
 │  ├─ README.md
 │  ├─ styles
 │  │  ├─ chat_input_style.css
@@ -210,4 +204,5 @@ Patent_Survey_APP
 ├─ README.md
 ├─ repomix-output.xml
 └─ SETUP.md
+
 ```
