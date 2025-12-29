@@ -1,9 +1,14 @@
-import os
-from fastapi import APIRouter, UploadFile, File
-from src.func.patent_pdf import patent_text_extraction
+# Patent_Survey_APP/backend/src/routers/patent_process_api.py
+
+from fastapi import APIRouter, File, UploadFile
 from src.func.patent_images import extract_figures_from_pdf_bytes
+from src.func.patent_pdf import patent_text_extraction
 from src.schemas import patent_schemas
-from src.storage.patent_store import save_patent, get_patent_figure_dir, build_figure_url
+from src.storage.patent_store import (
+    build_figure_url,
+    get_patent_figure_dir,
+    save_patent,
+)
 
 ## upload_api.py / 特許PDFを処理するエンドポイント ##
 
@@ -13,9 +18,11 @@ router = APIRouter(prefix="/patent", tags=["PDF処理"])
 # エンドポイント
 # ============================================================
 
+
 @router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
 async def upload_pdf(file: UploadFile = File(...)):
-    pdf_bytes = await file.read() # PDF を bytes として取得
+    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
+    pdf_bytes = await file.read()  # PDF を bytes として取得
 
     # テキスト抽出＆整形&クラスオブジェクト化
     patent_doc = patent_text_extraction(pdf_bytes)

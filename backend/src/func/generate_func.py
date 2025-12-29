@@ -1,10 +1,12 @@
+# Patent_Survey_APP/backend/src/func/generate_func.py
+
 from google.genai import types
 from google.genai.types import GenerateContentConfig
-
 
 # ============================================================
 # テキスト生成実行関数
 # ============================================================
+
 
 def generate_content(prompt, client, tool_mode: str, system_instruction=None):
     """
@@ -22,9 +24,7 @@ def generate_content(prompt, client, tool_mode: str, system_instruction=None):
 
     # Google Searchのみ
     elif tool_mode == "search":
-        grounding_tool = types.Tool(
-            google_search=types.GoogleSearch()
-        )
+        grounding_tool = types.Tool(google_search=types.GoogleSearch())
         tools = [grounding_tool]
 
     # URL context + Google Search を両方指定
@@ -45,8 +45,8 @@ def generate_content(prompt, client, tool_mode: str, system_instruction=None):
         )
     else:
         config = types.GenerateContentConfig(
-        system_instruction=system_instruction,
-    )
+            system_instruction=system_instruction,
+        )
 
     response = client.models.generate_content_stream(
         model="gemini-2.5-flash",
@@ -57,18 +57,25 @@ def generate_content(prompt, client, tool_mode: str, system_instruction=None):
     return response
 
 
+# ============================================================
+# ストリーミング生成補助関数
+# ============================================================
+
+
 def stream(response_stream):
     full_text = ""
     thoughts = ""
     answer = ""
 
     for chunk in response_stream:
-        if not chunk.candidates: # ツール呼び出し中などで candidates が None の場合があるので防御的に
+        if (
+            not chunk.candidates
+        ):  # ツール呼び出し中などで candidates が None の場合があるので防御的に
             continue
 
         for part in chunk.candidates[0].content.parts:
             if not getattr(part, "text", None):
-                continue # 何も送らない
+                continue  # 何も送らない
 
             # 思考テキスト
             if getattr(part, "thought", False):

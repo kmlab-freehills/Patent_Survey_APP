@@ -1,4 +1,7 @@
+# Patent_Survey_APP/backend/config.py
+
 import os
+
 from dotenv import load_dotenv
 
 # .envファイル読み込み

@@ -1,11 +1,11 @@
+# Patent_Survey_APP/backend/src/routers/generate_api.py
+
 from fastapi import APIRouter, HTTPException
-from typing import Optional
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from src.func import generate_func
-from src.func import gemini_client
-from src.storage.patent_store import get_patent
+from src.func import gemini_client, generate_func
 from src.prompt import idea_prompt, system_prompt
+from src.storage.patent_store import get_patent
 
 ## generate_api.py / LLM生成のAPIエンドポイント ##
 
@@ -16,28 +16,35 @@ client = gemini_client.client
 # リクエストボディのモデル定義
 # ============================================================
 
+
+# LLMテキスト生成
 class GenerateRequest(BaseModel):
     prompt: str
     tool_mode: str
 
+
 # 特許解説
 class GeneratePatentRequest(BaseModel):
     patent_id: str
+
 
 # アイデア生成
 class GenerateIdeaRequest(BaseModel):
     patent_id: str
     explanation_text: str  # フロントエンドから受け取る解説文
 
+
 # ============================================================
 # エンドポイント
 # ============================================================
+
 
 @router.post("/content", summary="テキスト生成")
 async def generate(data: GenerateRequest):
     """
     Gemini APIを使用してテキストをストリーミング生成
     """
+
     # ストリーミング生成
     def stream_output():
         prompt = data.prompt
@@ -49,6 +56,7 @@ async def generate(data: GenerateRequest):
             yield chunk
 
     return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
 
 # 特許解説
 @router.post("/patent")
@@ -74,10 +82,8 @@ async def generate_from_patent(data: GeneratePatentRequest):
                 continue
             yield chunk
 
-    return StreamingResponse(
-        stream_output(),
-        media_type="text/plain; charset=utf-8"
-    )
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
 
 # アイデア生成
 @router.post("/idea")
@@ -103,7 +109,4 @@ async def generate_idea(data: GenerateIdeaRequest):
                 continue
             yield chunk
 
-    return StreamingResponse(
-        stream_output(),
-        media_type="text/plain; charset=utf-8"
-    )
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")

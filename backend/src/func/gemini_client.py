@@ -1,3 +1,7 @@
+# Patent_Survey_APP/backend/src/func/gemini_client.py
+
+# Gemini-APIのクライアント認証を実行する --> clientをインポートして利用
+
 import config
 from google import genai
 

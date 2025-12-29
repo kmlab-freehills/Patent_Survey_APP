@@ -1,3 +1,6 @@
+# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
+
+
 def build_patent_prompt(patent_doc):
     prompt = f"""
 ## 1. 指示
@@ -102,6 +105,7 @@ def build_patent_prompt(patent_doc):
 </document>
 """.strip()
     return prompt
+
 
 # アイデア生成用のプロンプト作成関数
 

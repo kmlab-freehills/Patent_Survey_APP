@@ -1,14 +1,15 @@
-import MainLayout from "../../components/MainLayout";
+// Patent_Survey_APP/frontend/app/home/layout.tsx
 
-export default function Layout({ children, }: Readonly<{
+import MainLayout from "../MainLayout";
+
+export default function Layout({
+    children,
+}: Readonly<{
     children: React.ReactNode;
 }>) {
     return (
         <>
-            <MainLayout>
-                {children}
-            </MainLayout>
+            <MainLayout>{children}</MainLayout>
         </>
-
     );
 }

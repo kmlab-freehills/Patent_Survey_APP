@@ -1,5 +1,13 @@
+# Patent_Survey_APP/backend/src/schemas/patent_schemas.py
+
+from typing import Dict
+
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
+
+# ============================================================
+# 特許PDF処理時に使用するスキーマ
+# ============================================================
+
 
 # 特許文書の中身そのもののスキーマ
 class PatentContent(BaseModel):
@@ -14,13 +22,18 @@ class PatentContent(BaseModel):
     embodiments: str = Field("", description="実施形態")
     symbols_desc: str = Field("", description="符号の説明")
     industrial_applicability: str = Field("", description="産業上の利用可能性")
-    others: Dict[str, str] = Field(default_factory=dict, description="その他のセクション")
+    others: Dict[str, str] = Field(
+        default_factory=dict, description="その他のセクション"
+    )
 
+
+# 特許文書から抽出した図のスキーマ
 class PatentImage(BaseModel):
-    id: str
-    label: str # 図1
+    id: str  # 参照用
+    label: str  # 図1（表示用）
     page: int
-    url: str
+    url: str  # フロントエンドからアクセス(GET)するためのURL
+
 
 # APIが返す全体のレスポンススキーマ
 class PatentUploadResponse(BaseModel):

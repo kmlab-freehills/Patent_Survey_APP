@@ -1,11 +1,8 @@
-import Link from "next/link";
+// Patent_Survey_APP/frontend/app/page.tsx
 
-export default async function Home() {
+import { redirect } from "next/navigation";
 
-  return (
-    <main className="p-10">
-      <h1>Hello Next.js</h1>
-        <Link href="/home" className="hover:text-blue-600 whitespace-nowrap">ホームへ</Link>
-    </main>
-  );
+// リダイレクト専用ページ
+export default function Page() {
+    redirect("/home");
 }

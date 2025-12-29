@@ -1,7 +1,10 @@
-# src/storage/patent_store.py
+# backend/src/storage/patent_store.py
 
-from typing import Dict
-from uuid import uuid4
+import os
+import shutil
+from pathlib import Path
+from typing import Dict # 辞書型
+from uuid import uuid4 # ID生成
 
 # ==========================================
 # 1. 特許テキストデータ（idで管理）
@@ -11,11 +14,15 @@ from uuid import uuid4
 
 patent_store: Dict[str, object] = {}
 
+
+# 保存用
 def save_patent(patent_doc) -> str:
     patent_id = str(uuid4())
-    patent_store[patent_id] = patent_doc
+    patent_store[patent_id] = patent_doc  # {id: 本文}
     return patent_id
 
+
+# 取得用
 def get_patent(patent_id: str):
     return patent_store.get(patent_id)
 
@@ -26,9 +33,6 @@ def get_patent(patent_id: str):
 
 # サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
 
-import os
-import shutil
-from pathlib import Path
 
 # .parent.parent.parent で src -> storage -> backend へ遡る
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -39,13 +43,17 @@ STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
 
 STATIC_BASE_URL = "/static/patents"
 
+
 def get_patent_figure_dir(patent_id: str) -> str:
     # Pathオブジェクトを使って結合し、文字列で返す
     path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
     return str(path)
 
+
+# アクセス用URL作成
 def build_figure_url(patent_id: str, filename: str) -> str:
     return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
+
 
 # アプリ終了時に呼ばれるクリーンアップ関数
 def cleanup_temp_files():

@@ -1,3 +1,5 @@
+# Patent_Survey_APP/backend/src/prompt/system_prompt.py
+
 SYSTEM_PROMPT_PATENT = """
 # システムプロンプト: 特許解析サポートAI
 

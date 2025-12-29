@@ -1,18 +1,22 @@
-import os
-import config
-from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from starlette.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-from src.routers import generate_api, patent_process_api
-from src.storage.patent_store import STATIC_BASE_PATH, cleanup_temp_files
+# Patent_Survey_APP/backend/main.py
 
-load_dotenv()
+import os
+from contextlib import asynccontextmanager  # ライフサイクルイベント
+
+import config
+from fastapi import FastAPI  # アプリ本体
+from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
+from src.routers import generate_api, patent_process_api  # APIエンドポイント
+from src.storage.patent_store import (
+    STATIC_BASE_PATH,
+    cleanup_temp_files,
+)  # 一時ファイル処理用
+from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
 # ============================================================
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,17 +25,18 @@ async def lifespan(app: FastAPI):
     - yield前: アプリ起動時の処理
     - yield後: アプリ終了時の処理
     """
+
     # --- 起動時の処理 ---
     print("アプリケーションを起動しています...")
     if not os.path.exists(STATIC_BASE_PATH):
         os.makedirs(STATIC_BASE_PATH, exist_ok=True)
-    
+
     yield  # ← ここでアプリケーションが実行される
-    
+
     # --- 終了時の処理 ---
     print("アプリケーションを終了しています...")
-    if os.getenv("CREANUP_ON_EXIT") == "true":
-        cleanup_temp_files() # 一時ファイル削除実行
+    if config.CLEANUP_ON_EXIT == "true":
+        cleanup_temp_files()  # 一時ファイル削除実行
 
 
 # ============================================================
@@ -42,13 +47,13 @@ app = FastAPI(
     title="Patent Survey App",
     description="フリーヒルズラボ",
     version="1.0.0",
-    lifespan=lifespan  # ← lifespanを指定
+    lifespan=lifespan,  # ← lifespanを指定
 )
 
 FRONTEND_URL = config.FRONTEND_URL or ""
 
 # 特許画像保存先
-os.makedirs(STATIC_BASE_PATH, exist_ok=True) # マウント前に確実にディレクトリを作成
+os.makedirs(STATIC_BASE_PATH, exist_ok=True)  # マウント前に確実にディレクトリを作成
 app.mount("/static/patents", StaticFiles(directory=STATIC_BASE_PATH), name="static")
 
 # ============================================================
@@ -67,22 +72,20 @@ app.add_middleware(
 # ルーター登録
 # ============================================================
 
-app.include_router(generate_api.router)         # LLM生成API
-app.include_router(patent_process_api.router)   # 特許PDF処理API
+app.include_router(generate_api.router)  # LLM生成API
+app.include_router(patent_process_api.router)  # 特許PDF処理API
 
 
 # ============================================================
-# エンドポイント
+# エンドポイント（テスト用）
 # ===========================================================
 
 
-# 動作確認用
+# 動作確認
 @app.get("/")
 def read_root():
-    return {"message": "Hello from Docker!(update)"}
+    return {"message": "Hello World"}
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
 
+# 実行コマンド:
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload

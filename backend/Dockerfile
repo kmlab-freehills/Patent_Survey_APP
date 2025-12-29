@@ -1,3 +1,5 @@
+# Patent_Survey_APP/backend/Dockerfile
+
 ## ベースイメージ ##
 # Docker Hubから公式のPython 3.11イメージを取得（-slim --> 軽量版）
 FROM python:3.11-slim
