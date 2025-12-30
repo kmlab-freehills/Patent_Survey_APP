@@ -13,12 +13,13 @@ import {
     Sparkles,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { SourceSidebar } from "./components/SourceSidebar";
-import { MarkdownRenderer } from "./util/MarkdownRenderer";
+// 関数コンポーネント
 import { parseSourceText } from "./util/parseSourceText";
 import { formatPatentToString } from "./util/patentFormatter";
+// UIコンポーネント
+import { SourceSidebar } from "./components/SourceSidebar";
+import { CopyButton } from "./util/CopyButton";
+import { MarkdownRenderer } from "./util/MarkdownRenderer"; // 内部に`ReactMarkdown`と`remarkGfm`
 
 import type { components } from "@/types/schema";
 type PatentContent = components["schemas"]["PatentContent"];
@@ -178,42 +179,43 @@ export const GeneratingScreen = ({
         <div className="flex overflow-hidden p-8">
             <div className="max-w-4xl mx-auto space-y-8 w-full">
                 {/* --- スクリーンヘッダー --- */}
-                <div>
-                    <div className="flex justify-between items-end mb-4">
-                        {/* 見出し */}
-                        <div className="min-w-0 flex-1 mr-4">
-                            <h2 className="text-lg font-medium text-slate-800 mb-1 flex items-center gap-2">
-                                <FileText
-                                    className="text-blue-600 shrink-0"
-                                    size={24}
-                                />
-                                <span className="truncate">
-                                    抽出されたテキスト
-                                </span>
-                                <span className="truncate text-xs pt-1.5 text-slate-600">プレビュー</span>
-                            </h2>
-                            {/* ファイル名表示 */}
-                            <div className="text-slate-500 text-sm flex items-center">
-                                <span className="shrink-0">ファイル名：</span>
-                                <span
-                                    className="font-medium text-slate-700 truncate"
-                                    title={fileName}>
-                                    {fileName}
-                                </span>
-                            </div>
-                        </div>
-                        {/* 原文表示サイドバー開閉ボタン */}
-                        <div className="shrink-0">
-                            <SourceSidebarButton
-                                setIsSourceOpen={setIsSourceOpen}
+
+                <div className="flex justify-between items-end mb-4">
+                    {/* 見出し */}
+                    <div className="min-w-0 flex-1 mr-4">
+                        <h2 className="text-lg font-medium text-slate-800 mb-1 flex items-center gap-2">
+                            <FileText
+                                className="text-blue-600 shrink-0"
+                                size={24}
                             />
+                            <span className="truncate">抽出されたテキスト</span>
+                            <span className="truncate text-xs pt-1.5 text-slate-600">
+                                プレビュー
+                            </span>
+                        </h2>
+                        {/* ファイル名表示 */}
+                        <div className="text-slate-500 text-sm flex items-center">
+                            <span className="shrink-0">ファイル名：</span>
+                            <span
+                                className="font-medium text-slate-700 truncate"
+                                title={fileName}>
+                                {fileName}
+                            </span>
                         </div>
                     </div>
-
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 whitespace-break-spaces break-word max-h-60 overflow-y-auto">
-                        {previewText}
+                    {/* 原文表示サイドバー開閉ボタン */}
+                    <div className="shrink-0">
+                        <SourceSidebarButton
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
                     </div>
                 </div>
+
+                <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 whitespace-break-spaces break-word max-h-60 overflow-y-auto">
+                    {previewText}
+                </div>
+
+                {/* ここにステップ切り替えのボタン郡 or タブUI */}
 
                 {/* --- 解析開始ボタン --- */}
                 {!hasStarted && (
@@ -237,7 +239,11 @@ export const GeneratingScreen = ({
                             <h3 className="text-lg font-semibold text-slate-800">
                                 AIによる解析
                             </h3>
-
+                            {/* コピーボタン */}
+                            {!isGenerating && generatedText && (
+                                <CopyButton text={generatedText} />
+                            )}
+                            {/* 生成待機 */}
                             {isGenerating && (
                                 <div className="flex items-center gap-2 text-sm text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full animate-pulse">
                                     <Loader2
@@ -247,11 +253,13 @@ export const GeneratingScreen = ({
                                     生成中...
                                 </div>
                             )}
+                            {/* 原文表示ボタン */}
                             <SourceSidebarButton
                                 setIsSourceOpen={setIsSourceOpen}
                             />
                         </div>
 
+                        {/* 生成結果表示 */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-50">
                             {error ? (
                                 <div className="text-red-500 bg-red-50 p-4 rounded-lg flex items-center gap-2">
@@ -302,19 +310,32 @@ export const GeneratingScreen = ({
                             <h3 className="text-lg font-semibold text-slate-800">
                                 応用アイデア
                             </h3>
+                            {/* コピーボタン */}
+                            {!isGeneratingIdea && ideaText && (
+                                <CopyButton text={ideaText} />
+                            )}
+                            {/* 生成待機 */}
                             {isGeneratingIdea && (
                                 <span className="text-sm text-emerald-600 animate-pulse">
                                     思考中...
                                 </span>
                             )}
+                            {/* 原文表示ボタン */}
+                            <SourceSidebarButton
+                                setIsSourceOpen={setIsSourceOpen}
+                            />
                         </div>
 
                         <div className="bg-white rounded-xl shadow-lg border border-emerald-100 p-8 ring-1 ring-emerald-50">
                             <div className="prose prose-emerald max-w-none">
                                 <div className="markdown break-word">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                        {ideaText}
-                                    </ReactMarkdown>
+                                    <MarkdownRenderer
+                                        content={ideaText}
+                                        onClickParagraph={(id) => {
+                                            setActiveParagraphId(id);
+                                            setIsSourceOpen(true);
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </div>
