@@ -56,13 +56,11 @@ backend/src/routers/generate_api.py
 backend/src/routers/patent_process_api.py
 backend/src/schemas/patent_schemas.py
 backend/src/storage/patent_store.py
-Coding_Guideline_for_LLM.md
 docker-compose.yml
 frontend/.gitignore
-frontend/app/chat-ui/ChatInput.tsx
-frontend/app/chat-ui/KnowledgeTypes.ts
-frontend/app/chat-ui/MessageList.tsx
-frontend/app/chat-ui/page.tsx
+frontend/app/chat-ui-test/ChatInput.tsx
+frontend/app/chat-ui-test/MessageList.tsx
+frontend/app/chat-ui-test/page.tsx
 frontend/app/favicon.ico
 frontend/app/globals.css
 frontend/app/home/idea/components/FigureList.tsx
@@ -71,7 +69,7 @@ frontend/app/home/idea/components/SourceSidebar.tsx
 frontend/app/home/idea/GeneratingScreen.tsx
 frontend/app/home/idea/page.tsx
 frontend/app/home/idea/PatentUploadUI.tsx
-frontend/app/home/idea/util/FigureReference.tsx
+frontend/app/home/idea/util/CopyButton.tsx
 frontend/app/home/idea/util/MarkdownRenderer.tsx
 frontend/app/home/idea/util/parseSourceText.ts
 frontend/app/home/idea/util/patentFormatter.ts
@@ -81,27 +79,18 @@ frontend/app/home/page.tsx
 frontend/app/layout.tsx
 frontend/app/MainLayout.tsx
 frontend/app/page.tsx
-frontend/app/test/page.tsx
 frontend/Dockerfile
 frontend/eslint.config.mjs
 frontend/images/arrow_back.svg
-frontend/images/arrow_drop_down_icon.svg
-frontend/images/book_icon.svg
 frontend/images/check_icon.svg
 frontend/images/edit_document_icon.svg
-frontend/images/festival_icon.svg
 frontend/images/file.svg
-frontend/images/globe.svg
-frontend/images/group_icon.svg
-frontend/images/id_card_icon.svg
 frontend/images/info_icon.svg
 frontend/images/logout_icon.svg
 frontend/images/menu_icon.svg
 frontend/images/science.svg
 frontend/images/send_icon.svg
 frontend/images/setting_icon.svg
-frontend/images/side_icon.svg
-frontend/images/window.svg
 frontend/next.config.ts
 frontend/package.json
 frontend/postcss.config.mjs
@@ -117,133 +106,317 @@ SETUP.md
 <files>
 This section contains the contents of the repository's files.
 
-<file path="Coding_Guideline_for_LLM.md">
-# コーディングガイドライン（LLM 向け）
+<file path="frontend/app/chat-ui-test/ChatInput.tsx">
+// Patent_Survey_APP/frontend/app/chat-ui/ChatInput.tsx
 
-## UI デザインガイドライン
+"use Client";
 
-本アプリケーションは、特許という堅牢な情報を扱いながらも、AI による創造的な示唆を与えるツールです。
-「信頼性（Trust）」と「先進性（Innovation）」を両立するデザインシステムを採用します。
+import send_icon from "@/images/send_icon.svg";
+import "@/styles/chat_input_style.css";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
-### 1. 基本スタンス (Core Principles)
+// プロンプト入力欄
+interface ChatInputProps {
+    onSubmit: (message: string) => void;
+}
+const ChatInput: React.FC<ChatInputProps> = ({ onSubmit }) => {
+    const [message, setMessage] = useState("");
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
--   **Clean Professional**: 情報量は多いが、余白と区切り線を適切に用い、圧迫感を与えない。
--   **Traceable UI**: AI の回答と情報源（特許原文）の繋がりを視覚的に明確にする。
--   **Motion for Wait**: 生成待ち時間を「処理中」のポジティブな体験に変えるアニメーションを採用する。
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = "auto";
+            const scrollHeight = textarea.scrollHeight;
+            textarea.style.height = `${Math.min(scrollHeight, 200)}px`;
+        }
+    }, [message]);
 
-### 2. 基本スタイル (Foundation)
+    const handleSubmit = () => {
+        if (!message.trim()) return;
+        onSubmit(message);
+        setMessage("");
+    };
 
--   **フレームワーク**: Tailwind CSS
--   **アイコン**: Lucide React
-    -   基本サイズ: `size={20}` (ボタン・メニュー), `size={16}` (補足情報), `size={24}` (強調・ロゴ)
--   **フォント**: `Noto Sans JP` (Google Fonts)
-    -   ウェイト: 本文 `400`, 強調 `500`, 見出し `700`
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+        }
+    };
 
-### 3. カラーパレット (Color System)
+    return (
+        <div className="max-w-4xl mx-auto">
+            <div className="relative flex items-center">
+                <textarea
+                    ref={textareaRef}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="メッセージを入力..."
+                    rows={1}
+                    style={{ minHeight: "52px" }}
+                    className="chat w-full pl-4 pr-12 py-3 resize-none bg-white border-[#c4c7c5] border-2 rounded-2xl shadow-[0px_2px_8px_rgba(0,0,0,0.1)]
+                focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                    onClick={handleSubmit}
+                    disabled={!message.trim()}
+                    className="absolute right-6 p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 transition-colors">
+                    <Image src={send_icon} alt="送信" width={20} height={20} />
+                </button>
+            </div>
+        </div>
+    );
+};
+export default ChatInput;
+</file>
 
-ベースの `Slate` に加え、機能ごとに意味を持たせた 3 つのメインカラーを使い分けます。
+<file path="frontend/app/chat-ui-test/MessageList.tsx">
+// Patent_Survey_APP/frontend/app/chat-ui/MessageList.tsx
 
-**A. ベースカラー (Structure)**
+"use client";
 
-画面の骨格となる無彩色です。
+import "@/styles/markdown_style.css"; // Markdown用のCSS
+import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
--   **背景**: `bg-slate-50` (アプリ背景), `bg-white` (コンテナ・カード)
--   **テキスト**: `text-slate-800` (主要テキスト), `text-slate-500` (サブテキスト), `text-slate-400` (プレースホルダー・メタ情報)
--   **ボーダー**: `border-slate-200` (基本), `border-slate-300` (入力フォーム等)
+type Message = {
+    role: "user" | "llm";
+    content: string;
+};
 
-**B. 機能別アクセント (Functional Colors)**
+interface MessageListProps {
+    messages: Message[];
+    isThinking: boolean;
+}
 
-| **色系統**  | **Tailwind Class** | **用途・意味**        | **実装例**                                                                              |
-| ----------- | ------------------ | --------------------- | --------------------------------------------------------------------------------------- |
-| **Blue**    | `blue-600`         | **プライマリ / 操作** | 信頼、確定、リンク、アップロード、 送信ボタン、選択状態、リンクテキスト                 |
-| **Indigo**  | `indigo-600`       | **AI 解析 / 知性**    | AI による思考、解析プロセス、ボット発言、 AI、 アイコン背景(`indigo-100`)、ローディング |
-| **Emerald** | `emerald-600`      | **アイデア / 成果**   | 生成されたアイデア、成功、完了、アイデアセクション、完了バッジ、生成ボタン              |
+// メッセージリスト表示
+const MessageList: React.FC<MessageListProps> = ({ messages, isThinking }) => {
+    const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
-**C. 状態色 (State)**
+    useEffect(() => {
+        endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
--   **Error**: `red-500` / `bg-red-50` (エラーメッセージ)
--   **Highlight**: `yellow-100` (原文参照時のハイライト演出)
+    return (
+        <div className="p-4 md:p-6">
+            <div className="max-w-4xl mx-auto">
+                {messages.length === 0 ? (
+                    // 初期表示テキスト
+                    <div className="text-center text-gray-500-10">
+                        <p className="text-sm mt-2">下の入力欄から質問を開始してください。</p>
+                    </div>
+                ) : (
+                    // 対話内容
+                    messages.map((msg, idx) => (
+                        // ユーザーは右寄せ : LLMは左寄せ
+                        <div
+                            key={idx}
+                            className={`flex items-start gap-3 ${
+                                msg.role === "user" ? "justify-end" : ""
+                            }`}>
+                            {msg.role === "llm" && (
+                                // LLMのアイコン
+                                <div className="size-12.5 border-2 border-gray-400 rounded-full bg-white shrink-0 shadow-[0px_2px_8px_rgba(0,0,0,0.1)"></div>
+                            )}
+                            <div
+                                className={`max-w-4xl px-4 py-3 rounded-2xl
+                                    ${
+                                        msg.role === "user"
+                                            ? // ユーザー側のスタイル
+                                              "bg-blue-100/60 hover:bg-blue-100 shadow-sm ml-15"
+                                            : // LLM側のスタイル
+                                              "bg-white border border-gray-300 shadow-sm mr-15"
+                                    }`}>
+                                {msg.role === "user" ? (
+                                    // ユーザー側はプレーンテキストで表示
+                                    <div className="whitespace-break-spaces break-word">
+                                        {msg.content}
+                                    </div>
+                                ) : // LLM側で回答がまだの場合はスピナー
+                                msg.role === "llm" && msg.content === "" && isThinking ? (
+                                    <svg
+                                        className="animate-spin h-5 w-5 text-gray-400"
+                                        viewBox="0 0 24 24">
+                                        <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                            fill="none"
+                                        />
+                                        <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                        />
+                                    </svg>
+                                ) : msg.role === "llm" ? (
+                                    // LLM側はMarkdown形式で表示
+                                    <div className="markdown break-word">
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    ))
+                )}
+                <div ref={endOfMessagesRef} />
+            </div>
+        </div>
+    );
+};
+export default MessageList;
+</file>
 
-## 4. レイアウト構造 (Layout)
+<file path="frontend/app/chat-ui-test/page.tsx">
+// Patent_Survey_APP/frontend/app/chat-ui/page.tsx
 
-**ナビゲーション (Sidebar)**
+"use client";
 
--   **背景**: `bg-slate-900`
--   **文字**: `text-slate-400` (通常), `text-white` (ホバー/アクティブ)
--   **アクティブ表現**: `bg-blue-600` + **右端にアクセント線** (`border-r-4 border-blue-300`)
--   **レスポンシブ**: モバイル時はオーバーレイ表示 (`backdrop-blur-sm`)
+import { useState } from "react";
+import ChatInput from "./ChatInput";
+import MessageList from "./MessageList";
 
-**右サイドバー (Source Sidebar)**
+export type Message = {
+    role: "user" | "llm";
+    content: string;
+};
 
--   **用途**: 特許原文や図面の参照用
--   **スタイル**: 白背景、左ボーダー (`border-l`), 幅固定 (`w-105`), 画面右端に固定 (`fixed right-0`)
--   **挙動**: 原文参照ボタンクリックでスライドイン (`translate-x-0`)
+// =========== メインページコンポーネント ===========
+export default function ChatPage() {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [isThinking, setIsThinking] = useState(false);
 
-## 5. コンポーネントパターン (Components)
+    // 新しいメッセージをリストに追加する処理
+    const handleNewMessage = async (userMessage: string) => {
+        if (!userMessage.trim()) return;
+        setIsThinking(true); // スピナー表示フラグ
 
-**カード・コンテナ (Cards)**
+        // 実際には userMessage と selectedDocs のIDリストを送信する
+        console.log("送信するメッセージ:", userMessage);
 
--   **基本**: `bg-white rounded-xl shadow-sm border border-slate-200`
--   **アイデアカード**: `ring-1 ring-emerald-50 border-emerald-100 shadow-lg` (アイデア生成結果の強調)
+        // UI上での表示を更新
+        // ユーザーメッセージを先に表示
+        setMessages((prev) => [
+            ...prev,
+            { role: "user", content: userMessage },
+        ]);
+        setMessages((prev) => [...prev, { role: "llm", content: "" }]);
+        // 処理例
+        const res = await fetch("http://localhost:8000/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: userMessage }),
+        });
+        if (!res.body) {
+            setIsThinking(false);
+            return;
+        }
+        const reader = res.body.getReader();
+        let llmText = ""; // 出力結果を保存する変数
+        let done = false;
+        while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            if (value) {
+                const chunk = new TextDecoder().decode(value);
+                llmText += chunk;
+                // LLM応答を都度更新
+                setMessages((prev) => {
+                    // 最後のllmメッセージだけ更新
+                    const updated = [...prev];
+                    const lastIdx = updated.length - 1;
+                    if (updated[lastIdx]?.role === "llm") {
+                        updated[lastIdx] = {
+                            ...updated[lastIdx],
+                            content: llmText,
+                        };
+                    }
+                    return updated;
+                });
+            }
+        }
+        setIsThinking(false); // メッセージが現れたらスピナー解除
+    };
 
-**ボタン (Buttons)**
+    return (
+        <div className="fixed bg-white inset-0 bg-opacity-50 overflow-y-auto">
+            <div className="flex flex-col">
+                {/* ヘッダー */}
+                <header className="absolute w-full bg-white border-b pt-20 p-4 text-center shadow-sm">
+                    <h1 className="text-xl font-bold">チャットUI</h1>
+                </header>
 
--   **Primary**: `bg-blue-600 text-white hover:bg-blue-700 rounded-lg shadow-sm`
--   **Secondary**: `bg-white text-slate-600 border border-slate-300 hover:bg-slate-50`
--   **Action (Idea)**: `bg-emerald-600 text-white hover:bg-emerald-700` (解析からアイデア生成へ進む際など)
+                {/* メッセージリスト */}
+                <div className="pb-45 pt-30">
+                    <MessageList messages={messages} isThinking={isThinking} />
+                </div>
 
-### 生成テキスト (Markdown Output)
+                {/* プロンプト入力エリア */}
+                <div className="fixed bottom-0 w-full pb-22 pt-4">
+                    <ChatInput onSubmit={handleNewMessage} />
+                </div>
+            </div>
+        </div>
+    );
+}
+</file>
 
-AI 出力（Markdown）は `markdown_style.css` に基づき整形します。
+<file path="frontend/app/home/idea/util/CopyButton.tsx">
+"use client";
 
--   **見出し**: 太字 (`font-bold`) + マージン確保
--   **リスト**: インデント確保 (`padding-left`) + マーカー色調整
--   **引用/参照**:
-    -   通常: `text-slate-400 text-xs` (`[段落: 0013]`など)
-    -   インタラクティブ: `hover:text-blue-700 hover:underline cursor-pointer` (クリック可能な場合)
+import { Check, Copy } from "lucide-react";
+import { useState } from "react";
 
-### アニメーション (Micro Interactions)
+// テキストをクリップボードにコピーするボタンコンポーネント
+export const CopyButton = ({
+    text,
+    className = "",
+}: {
+    text: string;
+    className?: string;
+}) => {
+    const [isCopied, setIsCopied] = useState(false);
 
-ユーザーを待たせないための演出を積極的に採用します。
+    const handleCopy = async () => {
+        if (!text) return;
 
--   **出現**: `animate-in fade-in slide-in-from-bottom-4 duration-500` (生成結果の表示)
--   **待機**: `animate-pulse` (生成中のカーソル点滅、ローディングテキスト)
--   **回転**: `animate-spin` (ローディングアイコン)
+        try {
+            await navigator.clipboard.writeText(text);
+            setIsCopied(true);
+            // 2秒後にアイコンを元に戻す
+            setTimeout(() => {
+                setIsCopied(false);
+            }, 2000);
+        } catch (err) {
+            console.error("Failed to copy text: ", err);
+        }
+    };
 
----
-
-## コーディング規約とコメントのガイドライン
-
-コードを出力する際は、以下のコメントスタイルに則ってください。
-また、以下のガイドラインに限らず、私のコードベースから観察できるスタイルを参考にしてください。
-
-### 基本原則
-
--   視認性（Visibility）
--   教育的（Educational）
-
-### 1. **セクションの明示**:
-
-処理の塊ごとに、以下のような装飾コメントで区切りを入れてください。
-
-```text
-# ============================================================
-# [処理名]
-# ============================================================
-```
-
-### 2. **「なぜ」と「具体例」を書く**:
-
-単に処理内容（What）を書くのではなく、「なぜそうするのか（Why）」や可能であれば「どうなるのか（Example）」を書いてください。
-
-### 3. **正規表現や複雑なロジック**:
-
-必ず「変換前」と「変換後」の具体例をコメントに併記してください。
-
-### 4. **省略禁止**:
-
-変数名や関数名は省略しない。（悪い例: data --> d）
-「// ... existing code」のような省略はせず、コメントも含めて丁寧に記述してください。（※ ただし、ファイル全体ではなく一部分の修正であれば該当部分のみで構いません。）
+    return (
+        <button
+            onClick={handleCopy}
+            disabled={!text || isCopied}
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border transition-all 
+                ${
+                    isCopied
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700"
+                } ${className}`}
+            title="クリップボードにコピー">
+            {isCopied ? <Check size={14} /> : <Copy size={14} />}
+            <span>{isCopied ? "コピー完了" : "コピー"}</span>
+        </button>
+    );
+};
 </file>
 
 <file path="frontend/app/MainLayout.tsx">
@@ -487,14 +660,6 @@ CMD ["npm", "run", "dev"]
 <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
 </file>
 
-<file path="frontend/images/arrow_drop_down_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M480-360 280-560h400L480-360Z"/></svg>
-</file>
-
-<file path="frontend/images/book_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M300-80q-59 0-99.5-40.5T160-220v-520q0-58 40.5-99t99.5-41h500v600q-26 0-43 17.5T740-220q0 26 17 43t43 17v80H300Zm0-80h373q-6-14-9.5-28.5T660-220q0-16 3-31t10-29H300q-26 0-43 17.5T240-220q0 26 17 43t43 17Zm-60-187q14-7 28.5-10t31.5-3h420v-440H300q-26 0-43 17.5T240-740v393Zm109-93h49l25-71h113l25 71h49L504-720h-50L349-440Zm88-112 41-116h3l41 116h-85ZM240-347v-453 453Z"/></svg>
-</file>
-
 <file path="frontend/images/check_icon.svg">
 <svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="M378-246 154-470l43-43 181 181 384-384 43 43-427 427Z"/></svg>
 </file>
@@ -503,24 +668,8 @@ CMD ["npm", "run", "dev"]
 <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z"/></svg>
 </file>
 
-<file path="frontend/images/festival_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M80-80q29-74 38.5-152.5T130-390q-39-15-64.5-50T40-520v-80q115-38 234.5-116T480-880q86 86 205.5 164T920-600v80q0 45-25.5 80T830-390q2 79 11.5 157.5T880-80H80Zm156-520h488q-78-44-140.5-90.5T480-772q-41 35-103.5 81.5T236-600Zm344 140q25 0 42.5-17.5T640-520H520q0 25 17.5 42.5T580-460Zm-200 0q25 0 42.5-17.5T440-520H320q0 25 17.5 42.5T380-460Zm-200 0q25 0 42.5-17.5T240-520H120q0 25 17.5 42.5T180-460Zm6 300h107q9-60 14-119t8-119q-9-5-18-10.5T280-422q-15 15-32.5 24.5T210-383q-2 57-7 112.5T186-160Zm188 0h212q-8-55-12.5-110T566-381q-26-2-47.5-12.5T480-421q-17 17-39.5 27.5T394-381q-3 56-7.5 111T374-160Zm293 0h107q-12-55-17-110.5T750-383q-20-5-38-14.5T680-422q-8 8-17 13.5T645-398q3 60 8.5 119T667-160Zm113-300q25 0 42.5-17.5T840-520H720q0 25 17.5 42.5T780-460Z"/></svg>
-</file>
-
 <file path="frontend/images/file.svg">
 <svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
-</file>
-
-<file path="frontend/images/globe.svg">
-<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
-</file>
-
-<file path="frontend/images/group_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="M0-240v-53q0-38.57 41.5-62.78Q83-380 150.38-380q12.16 0 23.39.5t22.23 2.15q-8 17.35-12 35.17-4 17.81-4 37.18v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-19.86-3.5-37.43T765-377.27q11-1.73 22.17-2.23 11.17-.5 22.83-.5 67.5 0 108.75 23.77T960-293v53H780Zm-480-60h360v-6q0-37-50.5-60.5T480-390q-79 0-129.5 23.5T300-305v5ZM149.57-410q-28.57 0-49.07-20.56Q80-451.13 80-480q0-29 20.56-49.5Q121.13-550 150-550q29 0 49.5 20.5t20.5 49.93q0 28.57-20.5 49.07T149.57-410Zm660 0q-28.57 0-49.07-20.56Q740-451.13 740-480q0-29 20.56-49.5Q781.13-550 810-550q29 0 49.5 20.5t20.5 49.93q0 28.57-20.5 49.07T809.57-410ZM480-480q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm.35-60Q506-540 523-557.35t17-43Q540-626 522.85-643t-42.5-17q-25.35 0-42.85 17.15t-17.5 42.5q0 25.35 17.35 42.85t43 17.5ZM480-300Zm0-300Z"/></svg>
-</file>
-
-<file path="frontend/images/id_card_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-440h200v-80H560v80Zm0-120h200v-80H560v80ZM200-320h320v-22q0-45-44-71.5T360-440q-72 0-116 26.5T200-342v22Zm160-160q33 0 56.5-23.5T440-560q0-33-23.5-56.5T360-640q-33 0-56.5 23.5T280-560q0 33 23.5 56.5T360-480ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-480H160v480Zm0 0v-480 480Z"/></svg>
 </file>
 
 <file path="frontend/images/info_icon.svg">
@@ -545,14 +694,6 @@ CMD ["npm", "run", "dev"]
 
 <file path="frontend/images/setting_icon.svg">
 <svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>
-</file>
-
-<file path="frontend/images/side_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z"/></svg>
-</file>
-
-<file path="frontend/images/window.svg">
-<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
 </file>
 
 <file path="SETUP.md">
@@ -1403,450 +1544,6 @@ def patent_text_extraction(pdf_bytes):
 # print(patent_doc.get_text(['abstract']))
 </file>
 
-<file path="backend/src/prompt/system_prompt.py">
-# Patent_Survey_APP/backend/src/prompt/system_prompt.py
-
-SYSTEM_PROMPT_PATENT = """
-# システムプロンプト: 特許解析サポートAI
-
-## 第1章 基本原則
-
-### 1-1. あなたの役割
-
-あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
-ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
-
-### 1-2. 3つの核心原則
-
-### 1. 透明性
-
-- 情報源を明示する
-- 推論過程を隠さない
-- 不確実性を認める
-
-### 2: 誠実性
-
-- 事実と推測を混同しない
-- 限界を認識する
-- 知らないことを知らないと言う
-
-### 3: 検証可能性
-
-- すべての主張に根拠を示す
-- ユーザーが確認できる形式で提示する
-- 追跡可能性を常に確保する
-
----
-
-## 第2章 情報の3層構造
-
-あなたが扱う情報は、以下の3つの層に明確に分類されます：
-
-### 【第1層: 検証可能な事実】
-
-- 特許文書に明記された情報
-- 直接観測・引用できる内容
-- **必ず出典を明記**
-    - 例: [段落: xxxx]
-
-### 【第2層: 論理的推論】
-
-- 第1層の事実から導かれる推論
-- 特許文書内の複数情報の統合
-- **推論であることを明示**
-    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
-
-### 【第3層: 創造的応用】
-
-- 事実を新しい文脈に適用
-- 市場ニーズや応用可能性の想定
-- **明確に[推測]とマーク**
-    - 例: Xは、Zに応用できる可能性がある。[推測]
-
----
-
-## 第3章 出典明記の標準規則
-
-### 3-1. 出典の必須明記
-
-以下の情報には、**必ず出典を明記**してください：
-
-1. **特許文書からの直接引用・要約**
-2. **数値データ、定量情報**
-3. **技術的構造の詳細**
-4. **機能・動作の具体的説明**
-5. **請求項の内容**
-
-### 3-2. 出典の記法（標準形式）
-
-以下の統一された記法を使用してください：
-
-```
-- 段落 --> [段落: xxxx]
-- 複数段落 --> [段落: xxxx], [段落: yyyy]
-- 請求項 --> [請求項: x]
-- 図面 --> [図: x]
-(※ xは数字に置き換える)
-```
-
-**禁止例：**
-
-```
-誤: [段落: 0013, 0014]  # 入れ子にしない
-誤: [0013]              # 何の番号か不明
-誤: (段落0013)          # 記法の不統一
-```
-
-### 3-3. 複数出典の扱い
-
-同じ情報が複数箇所に記載されている場合：
-
-**原則: 代表的な1-2箇所のみを記載**
-
-ただし、以下の場合は複数出典が有益：
-
-- 異なる側面を示す場合（構造と機能）
-- 異なる情報源タイプ（請求項と実施例）
-
-### 3-4. 出典なしで記述してよい場合
-
-以下は出典を省略可：
-
-- 明らかに文書全体の前提となる基本概念
-""".strip()
-</file>
-
-<file path="frontend/app/chat-ui/ChatInput.tsx">
-// Patent_Survey_APP/frontend/app/chat-ui/ChatInput.tsx
-
-"use Client";
-
-import send_icon from "@/images/send_icon.svg";
-import "@/styles/chat_input_style.css";
-import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
-
-// プロンプト入力欄
-interface ChatInputProps {
-    onSubmit: (message: string) => void;
-}
-const ChatInput: React.FC<ChatInputProps> = ({ onSubmit }) => {
-    const [message, setMessage] = useState("");
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    useEffect(() => {
-        const textarea = textareaRef.current;
-        if (textarea) {
-            textarea.style.height = "auto";
-            const scrollHeight = textarea.scrollHeight;
-            textarea.style.height = `${Math.min(scrollHeight, 200)}px`;
-        }
-    }, [message]);
-
-    const handleSubmit = () => {
-        if (!message.trim()) return;
-        onSubmit(message);
-        setMessage("");
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleSubmit();
-        }
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto">
-            <div className="relative flex items-center">
-                <textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="メッセージを入力..."
-                    rows={1}
-                    style={{ minHeight: "52px" }}
-                    className="chat w-full pl-4 pr-12 py-3 resize-none bg-white border-[#c4c7c5] border-2 rounded-2xl shadow-[0px_2px_8px_rgba(0,0,0,0.1)]
-                focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                    onClick={handleSubmit}
-                    disabled={!message.trim()}
-                    className="absolute right-6 p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 transition-colors">
-                    <Image src={send_icon} alt="送信" width={20} height={20} />
-                </button>
-            </div>
-        </div>
-    );
-};
-export default ChatInput;
-</file>
-
-<file path="frontend/app/chat-ui/KnowledgeTypes.ts">
-// Patent_Survey_APP/frontend/app/chat-ui/KnowledgeTypes.ts
-
-export type Message = {
-    role: "user" | "llm";
-    content: string;
-};
-
-export type DocumentFormat = "markdown" | "text";
-</file>
-
-<file path="frontend/app/chat-ui/MessageList.tsx">
-// Patent_Survey_APP/frontend/app/chat-ui/MessageList.tsx
-
-"use client";
-
-import aorun_normal from "@/images/aorun_normal.png";
-import "@/styles/markdown_style.css"; // Markdown用のCSS
-import Image from "next/image";
-import { useEffect, useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Message } from "./KnowledgeTypes";
-
-interface MessageListProps {
-    messages: Message[];
-    isThinking: boolean;
-}
-
-// メッセージリスト表示
-const MessageList: React.FC<MessageListProps> = ({ messages, isThinking }) => {
-    const endOfMessagesRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
-
-    return (
-        <div className="p-4 md:p-6">
-            <div className="max-w-4xl mx-auto">
-                {messages.length === 0 ? (
-                    // 初期表示テキスト
-                    <div className="text-center text-gray-500-10">
-                        <p className="text-sm mt-2">
-                            下の入力欄から質問を開始してください。
-                        </p>
-                    </div>
-                ) : (
-                    // 対話内容
-                    messages.map((msg, idx) => (
-                        // ユーザーは右寄せ : LLMは左寄せ
-                        <div
-                            key={idx}
-                            className={`flex items-start gap-3 ${
-                                msg.role === "user" ? "justify-end" : ""
-                            }`}>
-                            {msg.role === "llm" && (
-                                // LLMのアイコン
-                                <div className="size-12.5 border-2 border-gray-400 rounded-full bg-white shrink-0 shadow-[0px_2px_8px_rgba(0,0,0,0.1)">
-                                    <Image
-                                        src={aorun_normal}
-                                        alt="あおるん"
-                                        width={50}
-                                        height={50}
-                                    />
-                                </div>
-                            )}
-                            <div
-                                className={`max-w-4xl px-4 py-3 rounded-2xl
-              ${
-                  msg.role === "user"
-                      ? // ユーザー側のスタイル
-                        "bg-blue-100/60 hover:bg-blue-100 shadow-sm ml-15"
-                      : // LLM側のスタイル
-                        "bg-white border border-gray-300 shadow-sm mr-15"
-              }`}>
-                                {msg.role === "user" ? (
-                                    // ユーザー側はプレーンテキストで表示
-                                    <div className="whitespace-break-spaces break-word">
-                                        {msg.content}
-                                    </div>
-                                ) : // LLM側で回答がまだの場合はスピナー
-                                msg.role === "llm" &&
-                                  msg.content === "" &&
-                                  isThinking ? (
-                                    <svg
-                                        className="animate-spin h-5 w-5 text-gray-400"
-                                        viewBox="0 0 24 24">
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                            fill="none"
-                                        />
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                                        />
-                                    </svg>
-                                ) : msg.role === "llm" ? (
-                                    // LLM側はMarkdown形式で表示
-                                    <div className="markdown break-word">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}>
-                                            {msg.content}
-                                        </ReactMarkdown>
-                                    </div>
-                                ) : null}
-                            </div>
-                        </div>
-                    ))
-                )}
-                <div ref={endOfMessagesRef} />
-            </div>
-        </div>
-    );
-};
-export default MessageList;
-</file>
-
-<file path="frontend/app/chat-ui/page.tsx">
-// Patent_Survey_APP/frontend/app/chat-ui/page.tsx
-
-"use client";
-
-import { useState } from "react";
-import ChatInput from "./ChatInput";
-import MessageList from "./MessageList";
-
-export type Message = {
-    role: "user" | "llm";
-    content: string;
-};
-
-// =========== メインページコンポーネント ===========
-export default function ChatPage() {
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [isThinking, setIsThinking] = useState(false);
-
-    // 新しいメッセージをリストに追加する処理
-    const handleNewMessage = async (userMessage: string) => {
-        if (!userMessage.trim()) return;
-        setIsThinking(true); // スピナー表示フラグ
-
-        // 実際には userMessage と selectedDocs のIDリストを送信する
-        console.log("送信するメッセージ:", userMessage);
-
-        // UI上での表示を更新
-        // ユーザーメッセージを先に表示
-        setMessages((prev) => [
-            ...prev,
-            { role: "user", content: userMessage },
-        ]);
-        setMessages((prev) => [...prev, { role: "llm", content: "" }]);
-        // 処理例
-        const res = await fetch("http://localhost:8000/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: userMessage }),
-        });
-        if (!res.body) {
-            setIsThinking(false);
-            return;
-        }
-        const reader = res.body.getReader();
-        let llmText = ""; // 出力結果を保存する変数
-        let done = false;
-        while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            if (value) {
-                const chunk = new TextDecoder().decode(value);
-                llmText += chunk;
-                // LLM応答を都度更新
-                setMessages((prev) => {
-                    // 最後のllmメッセージだけ更新
-                    const updated = [...prev];
-                    const lastIdx = updated.length - 1;
-                    if (updated[lastIdx]?.role === "llm") {
-                        updated[lastIdx] = {
-                            ...updated[lastIdx],
-                            content: llmText,
-                        };
-                    }
-                    return updated;
-                });
-            }
-        }
-        setIsThinking(false); // メッセージが現れたらスピナー解除
-    };
-
-    return (
-        <div className="fixed bg-white inset-0 bg-opacity-50 overflow-y-auto">
-            <div className="flex flex-col">
-                {/* ヘッダー */}
-                <header className="absolute w-full bg-white border-b pt-20 p-4 text-center shadow-sm">
-                    <h1 className="text-xl font-bold">チャットUI</h1>
-                </header>
-
-                {/* メッセージリスト */}
-                <div className="pb-45 pt-30">
-                    <MessageList messages={messages} isThinking={isThinking} />
-                </div>
-
-                {/* プロンプト入力エリア */}
-                <div className="fixed bottom-0 w-full pb-22 pt-4">
-                    <ChatInput onSubmit={handleNewMessage} />
-                </div>
-            </div>
-        </div>
-    );
-}
-</file>
-
-<file path="frontend/app/home/idea/components/FigureList.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/components/FigureList.tsx
-
-import type { components } from "@/types/schema";
-type PatentImage = components["schemas"]["PatentImage"];
-
-type FigureListProps = {
-    images: PatentImage[];
-    onSelect: (img: PatentImage) => void;
-};
-
-// 画像GET用
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-export const FigureList = ({ images, onSelect }: FigureListProps) => {
-    if (images.length === 0) return null;
-
-    return (
-        <div className="border-t pt-4 mt-4">
-            <h3 className="text-sm font-semibold text-slate-600 mb-2">
-                図一覧
-            </h3>
-
-            <div className="grid grid-cols-2 gap-3">
-                {images.map((img) => (
-                    <button
-                        key={img.id}
-                        onClick={() => onSelect(img)}
-                        className="group rounded-lg border bg-white shadow-sm hover:shadow-md transition">
-                        <img
-                            src={`${API_BASE}${img.url}`}
-                            alt={img.label}
-                            loading="lazy"
-                            className="w-full h-24 object-contain bg-slate-50"
-                        />
-                        <div className="text-xs text-center py-1 text-slate-600">
-                            {img.label}
-                        </div>
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-};
-</file>
-
 <file path="frontend/app/home/idea/components/PatentImageModal.tsx">
 // Patent_Survey_APP/frontend/app/home/idea/components/PatentImageModal.tsx
 
@@ -1887,176 +1584,6 @@ export const PatentImageModal = ({ image, onClose }: PatentImageModalProps) => {
 };
 </file>
 
-<file path="frontend/app/home/idea/components/SourceSidebar.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/components/SourceSidebar.tsx
-
-import { useEffect, useRef } from "react";
-import { FigureReference } from "../util/FigureReference";
-import { SourceBlock, parseFigureRefs } from "../util/parseSourceText";
-// 画像
-import { FigureList } from "./FigureList";
-import { PatentImageModal } from "./PatentImageModal";
-
-import type { components } from "@/types/schema";
-type PatentImage = components["schemas"]["PatentImage"];
-
-type SourceSidebarProps = {
-    isOpen: boolean;
-    onClose: () => void;
-    fileName: string;
-    sourceBlocks: SourceBlock[];
-    activeParagraphId: string | null;
-    patentImages: PatentImage[];
-    selectedImage: PatentImage | null;
-    setSelectedImage: (img: PatentImage | null) => void;
-};
-
-// 特許原文サイドバー（右）
-export const SourceSidebar = ({
-    isOpen,
-    onClose,
-    fileName,
-    sourceBlocks,
-    activeParagraphId,
-    patentImages,
-    selectedImage,
-    setSelectedImage,
-}: SourceSidebarProps) => {
-    const paragraphRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-    useEffect(() => {
-        if (!isOpen || !activeParagraphId) return;
-
-        const el = paragraphRefs.current[activeParagraphId];
-        if (!el) return;
-
-        el.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-        });
-
-        el.classList.add("bg-yellow-100");
-        const timer = setTimeout(() => {
-            el.classList.remove("bg-yellow-100");
-        }, 2500);
-
-        return () => clearTimeout(timer);
-    }, [isOpen, activeParagraphId]);
-
-    // 画像参照
-    const renderTextWithFigures = (text: string) =>
-        parseFigureRefs(text).map((part, i) => {
-            if (part.type === "text") {
-                return <span key={i}>{part.text}</span>;
-            }
-
-            return (
-                <FigureReference
-                    key={i}
-                    figureNo={part.figureNo}
-                    images={patentImages}
-                    onSelect={setSelectedImage}
-                />
-            );
-        });
-
-    return (
-        <aside
-            className={`
-        fixed top-16 right-0 bottom-0 z-40
-        h-[calc(100vh-4rem)] shadow-2xl
-        w-105 max-w-[40vw] bg-white border-l border-gray-200
-        transform transition-transform duration-250 ease-out
-        flex flex-col
-        ${isOpen ? "translate-x-0" : "translate-x-full"}
-      `}>
-            {/* サイドバーヘッダー */}
-            <header className="flex justify-between items-center gap-4 py-3 px-4 border-b border-gray-200">
-                <h2 className="text-lg font-bold">原文</h2>
-                <span className="text-sm pt-0.5">{fileName}</span>
-                <button
-                    onClick={onClose}
-                    className="ml-auto cursor-pointer text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors"
-                    aria-label="閉じる">
-                    ✕
-                </button>
-            </header>
-
-            {/* 本文エリア */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {sourceBlocks.map((block, index) => {
-                    if (block.type === "paragraph") {
-                        return (
-                            <div
-                                key={index}
-                                ref={(el) => {
-                                    paragraphRefs.current[block.id] = el;
-                                }}
-                                data-paragraph-id={block.id}
-                                className="rounded px-2 py-1 transition-colors">
-                                <div className="text-xs text-slate-400 mb-1">
-                                    [段落: {block.id}]
-                                </div>
-                                <div className="whitespace-pre-wrap text-sm">
-                                    {renderTextWithFigures(block.text)}
-                                </div>
-                            </div>
-                        );
-                    }
-
-                    return (
-                        <div
-                            key={index}
-                            className="whitespace-pre-wrap text-sm">
-                            {renderTextWithFigures(block.text)}
-                        </div>
-                    );
-                })}
-            </div>
-            <FigureList images={patentImages} onSelect={setSelectedImage} />
-
-            <PatentImageModal
-                image={selectedImage}
-                onClose={() => setSelectedImage(null)}
-            />
-        </aside>
-    );
-};
-</file>
-
-<file path="frontend/app/home/idea/util/FigureReference.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/util/FigureReference.tsx
-
-import type { components } from "@/types/schema";
-type PatentImage = components["schemas"]["PatentImage"];
-
-type FigureReferenceProps = {
-    figureNo: string;
-    images: PatentImage[];
-    onSelect: (img: PatentImage) => void;
-};
-
-export const FigureReference = ({
-    figureNo,
-    images,
-    onSelect,
-}: FigureReferenceProps) => {
-    const target = images.find((img) => img.label === `図${figureNo}`);
-
-    if (!target) {
-        return <span className="text-slate-400">[図:{figureNo}]</span>;
-    }
-
-    return (
-        <button
-            onClick={() => onSelect(target)}
-            className="inline text-blue-600 hover:underline">
-            [図:{figureNo}]
-        </button>
-    );
-};
-</file>
-
 <file path="frontend/app/home/idea/util/MarkdownRenderer.tsx">
 // Patent_Survey_APP/frontend/app/home/idea/util/MarkdownRenderer.tsx
 
@@ -2064,53 +1591,52 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ReferenceText } from "./ReferenceText";
+import "@/styles/markdown_style.css";
 
 type MarkdownRendererProps = {
     content: string;
     onClickParagraph?: (id: string) => void;
 };
 
-export const MarkdownRenderer = ({
-    content,
-    onClickParagraph,
-}: MarkdownRendererProps) => {
+export const MarkdownRenderer = ({ content, onClickParagraph }: MarkdownRendererProps) => {
     return (
-        <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-                p({ children }) {
-                    return (
-                        <p>
-                            {React.Children.map(children, (child) => (
-                                <ReferenceText>{child}</ReferenceText>
-                            ))}
-                        </p>
-                    );
-                },
-                li({ children }) {
-                    return (
-                        <li>
-                            {React.Children.map(children, (child) => (
-                                <ReferenceText
-                                    onClickParagraph={onClickParagraph}>
-                                    {child}
-                                </ReferenceText>
-                            ))}
-                        </li>
-                    );
-                },
-                blockquote({ children }) {
-                    return (
-                        <blockquote>
-                            {React.Children.map(children, (child) => (
-                                <ReferenceText>{child}</ReferenceText>
-                            ))}
-                        </blockquote>
-                    );
-                },
-            }}>
-            {content}
-        </ReactMarkdown>
+        <div className="markdown break-word">
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    p({ children }) {
+                        return (
+                            <p>
+                                {React.Children.map(children, (child) => (
+                                    <ReferenceText>{child}</ReferenceText>
+                                ))}
+                            </p>
+                        );
+                    },
+                    li({ children }) {
+                        return (
+                            <li>
+                                {React.Children.map(children, (child) => (
+                                    <ReferenceText onClickParagraph={onClickParagraph}>
+                                        {child}
+                                    </ReferenceText>
+                                ))}
+                            </li>
+                        );
+                    },
+                    blockquote({ children }) {
+                        return (
+                            <blockquote>
+                                {React.Children.map(children, (child) => (
+                                    <ReferenceText>{child}</ReferenceText>
+                                ))}
+                            </blockquote>
+                        );
+                    },
+                }}>
+                {content}
+            </ReactMarkdown>
+        </div>
     );
 };
 </file>
@@ -2245,115 +1771,9 @@ export default function Home() {
 }
 </file>
 
-<file path="frontend/app/test/page.tsx">
-// Patent_Survey_APP/frontend/app/test/page.tsx
-
-"use client";
-
-import { useState } from "react";
-
-export default function Home() {
-    const [input, setInput] = useState("");
-    const [output, setOutput] = useState("");
-    const [loading, setLoading] = useState(false);
-
-    // /generate/content を呼び出してストリーミング受信
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setOutput("");
-        setLoading(true);
-
-        try {
-            const response = await fetch(
-                "http://localhost:8000/generate/content",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        prompt: input,
-                        tool_mode: "search", // ここを "text" / "search" / "search_url" に変えることも可能
-                    }),
-                }
-            );
-
-            if (!response.ok || !response.body) {
-                throw new Error("LLMからのストリームを取得できませんでした");
-            }
-
-            // ストリーム読み取り
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullText = "";
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                fullText += chunk;
-                setOutput((prev) => prev + chunk); // 逐次チャンクを表示
-            }
-        } catch (err) {
-            console.error(err);
-            setOutput("エラーが発生しました。");
-            console.log(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-            <h1>Gemini ストリーミング生成デモ</h1>
-
-            <form onSubmit={handleSubmit} style={{ marginBottom: "1rem" }}>
-                <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    rows={4}
-                    style={{
-                        width: "100%",
-                        fontSize: "1rem",
-                        padding: "0.5rem",
-                    }}
-                    placeholder="プロンプトを入力..."
-                />
-                <button
-                    type="submit"
-                    disabled={loading}
-                    style={{
-                        marginTop: "0.5rem",
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                        cursor: "pointer",
-                    }}>
-                    {loading ? "生成中..." : "送信"}
-                </button>
-            </form>
-
-            <div
-                style={{
-                    border: "1px solid #ccc",
-                    minHeight: "200px",
-                    padding: "1rem",
-                    whiteSpace: "pre-wrap",
-                    backgroundColor: "#fafafa",
-                }}>
-                {output ||
-                    (loading
-                        ? "応答を待っています..."
-                        : "ここに出力が表示されます")}
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="frontend/styles/chat_input_style.css">
 /* Patent_Survey_APP/frontend/styles/chat_input_style.css */
 
-/* グローバルCSSやmodule.cssに追加 */
 textarea::-webkit-scrollbar {
     right: 10px;
     width: 8px;
@@ -3011,6 +2431,121 @@ def extract_figures_from_pdf_bytes(
     return figures
 </file>
 
+<file path="backend/src/prompt/system_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/system_prompt.py
+
+SYSTEM_PROMPT_PATENT = """
+# システムプロンプト: 特許解析サポートAI
+
+## 第1章 基本原則
+
+### 1-1. あなたの役割
+
+あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
+ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
+
+### 1-2. 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2: 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3: 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 第2章 情報の3層構造
+
+あなたが扱う情報は、以下の3つの層に明確に分類されます：
+
+### 【第1層: 検証可能な事実】
+
+- 特許文書に明記された情報
+- 直接観測・引用できる内容
+- **必ず出典を明記**
+    - 例: [段落: xxxx]
+
+### 【第2層: 論理的推論】
+
+- 第1層の事実から導かれる推論
+- 特許文書内の複数情報の統合
+- **推論であることを明示**
+    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
+
+### 【第3層: 創造的応用】
+
+- 事実を新しい文脈に適用
+- 市場ニーズや応用可能性の想定
+- **明確に[推測]とマーク**
+    - 例: Xは、Zに応用できる可能性がある。[推測]
+
+---
+
+## 第3章 出典明記の標準規則
+
+### 3-1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 3-2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # 入れ子にしない
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+### 3-3. 複数出典の扱い
+
+同じ情報が複数箇所に記載されている場合：
+
+**原則: 代表的な1-2箇所のみを記載**
+
+ただし、以下の場合は複数出典が有益：
+
+- 異なる側面を示す場合（構造と機能）
+- 異なる情報源タイプ（請求項と実施例）
+
+### 3-4. 出典なしで記述してよい場合
+
+以下は出典を省略可：
+
+- 明らかに文書全体の前提となる基本概念
+- 文書タイトルや技術分野
+
+""".strip()
+</file>
+
 <file path="backend/src/schemas/patent_schemas.py">
 # Patent_Survey_APP/backend/src/schemas/patent_schemas.py
 
@@ -3167,111 +2702,178 @@ yarn-error.log*
 next-env.d.ts
 </file>
 
-<file path="frontend/app/home/idea/util/parseSourceText.ts">
-// Patent_Survey_APP/frontend/app/home/idea/util/parseSourceText.ts
+<file path="frontend/app/home/idea/components/FigureList.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/components/FigureList.tsx
 
-// ============================================================
-// テキストのパース
-// ============================================================
+import type { components } from "@/types/schema";
+import { Divide } from "lucide-react";
+type PatentImage = components["schemas"]["PatentImage"];
 
-// パース結果の型定義
-export type SourceBlock =
-    | { type: "paragraph"; id: string; text: string } // 段落番号付き（アンカー対象）
-    | { type: "text"; text: string }; // 通常テキスト（見出しなど）
+type FigureListProps = {
+    images: PatentImage[];
+    onSelect: (img: PatentImage) => void;
+};
 
-export function parseSourceText(sourceText: string): SourceBlock[] {
-    const blocks: SourceBlock[] = [];
+// 画像GET用
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-    const regex = /\[段落:\s*(\d{4})\]/g;
-    const matches = [...sourceText.matchAll(regex)];
+export const FigureList = ({ images, onSelect }: FigureListProps) => {
+    if (images.length === 0) return null;
 
-    // 段落番号が1つもない場合
-    if (matches.length === 0) {
-        return [{ type: "text", text: sourceText.trim() }];
-    }
+    return (
+        // 図が多くなると本文を圧迫するため、画像2枚分の高さと幅をもたせる
+        <div className="h-80 p-2 overflow-y-scroll border-t">
+            <div className="flex gap-2">
+                <h3 className="text-sm font-semibold text-slate-600 mb-2">
+                    図一覧
+                </h3>
+                <span className="text-xs pt-1 text-slate-600">クリックして拡大</span>
+            </div>
 
-    let lastIndex = 0;
+            <div className="grid grid-cols-2 gap-3">
+                {images.map((img) => (
+                    <button
+                        key={img.id}
+                        onClick={() => onSelect(img)}
+                        className="group rounded-lg border bg-white shadow-sm hover:shadow-md transition">
+                        <img
+                            src={`${API_BASE}${img.url}`}
+                            alt={img.label}
+                            loading="lazy"
+                            className="w-full h-24 object-contain bg-slate-50"
+                        />
+                        <div className="text-xs text-center py-1 text-slate-600">
+                            {img.label}
+                        </div>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+</file>
 
-    matches.forEach((match, index) => {
-        const paragraphId = match[1];
-        const matchStart = match.index!;
-        const matchEnd = matchStart + match[0].length;
+<file path="frontend/app/home/idea/components/SourceSidebar.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/components/SourceSidebar.tsx
 
-        // 前のテキスト
-        if (matchStart > lastIndex) {
-            const beforeText = sourceText.slice(lastIndex, matchStart).trim();
+import { useEffect, useRef } from "react";
+import { SourceBlock } from "../util/parseSourceText";
+// 画像
+import { FigureList } from "./FigureList";
+import { PatentImageModal } from "./PatentImageModal";
 
-            if (beforeText) {
-                blocks.push({
-                    type: "text",
-                    text: beforeText,
-                });
-            }
-        }
+import type { components } from "@/types/schema";
+type PatentImage = components["schemas"]["PatentImage"];
 
-        // 段落本文
-        const nextMatch = matches[index + 1];
-        const paragraphText = sourceText
-            .slice(matchEnd, nextMatch ? nextMatch.index! : sourceText.length)
-            .trim();
+type SourceSidebarProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    fileName: string;
+    sourceBlocks: SourceBlock[];
+    activeParagraphId: string | null;
+    patentImages: PatentImage[];
+    selectedImage: PatentImage | null;
+    setSelectedImage: (img: PatentImage | null) => void;
+};
 
-        blocks.push({
-            type: "paragraph",
-            id: paragraphId,
-            text: paragraphText,
+// 特許原文サイドバー（右）
+export const SourceSidebar = ({
+    isOpen,
+    onClose,
+    fileName,
+    sourceBlocks,
+    activeParagraphId,
+    patentImages,
+    selectedImage,
+    setSelectedImage,
+}: SourceSidebarProps) => {
+    const paragraphRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+    useEffect(() => {
+        if (!isOpen || !activeParagraphId) return;
+
+        const element = paragraphRefs.current[activeParagraphId];
+        if (!element) return;
+
+        element.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
         });
 
-        lastIndex = nextMatch ? nextMatch.index! : sourceText.length;
-    });
+        element.classList.add("bg-yellow-100");
+        const timer = setTimeout(() => {
+            element.classList.remove("bg-yellow-100");
+        }, 2500);
 
-    return blocks;
-}
+        return () => clearTimeout(timer);
+    }, [isOpen, activeParagraphId]);
 
-// ============================================================
-// 画像のパース
-// ============================================================
+    return (
+        <aside
+            className={`
+        fixed top-16 right-0 bottom-0 z-40
+        h-[calc(100vh-4rem)] shadow-2xl
+        w-105 max-w-[40vw] bg-white border-l border-gray-200
+        transform transition-transform duration-250 ease-out
+        flex flex-col
+        ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
+            {/* サイドバーヘッダー */}
+            <header className="flex justify-between items-center gap-4 py-3 px-4 border-b border-gray-200">
+                <div className="w-80 flex items-center gap-3">
+                    <h2 className="text-lg font-bold whitespace-nowrap">
+                        原文
+                    </h2>
+                    <span className="text-sm pt-1 truncate">{fileName}</span>
+                </div>
+                <button
+                    onClick={onClose}
+                    className="ml-auto text-xl cursor-pointer text-gray-500 hover:text-gray-700 rounded hover:bg-gray-100 transition-colors"
+                    aria-label="閉じる">
+                    ✕
+                </button>
+            </header>
 
-// 正規表現
-const FIGURE_REF_REGEX = /\[図:\s*(\d+)\]/g;
-// 1 / 12 / 001 などに対応可能
+            {/* 本文エリア */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
+                {sourceBlocks.map((block, index) => {
+                    if (block.type === "paragraph") {
+                        return (
+                            <div
+                                key={index}
+                                ref={(element) => {
+                                    paragraphRefs.current[block.id] = element;
+                                }}
+                                data-paragraph-id={block.id}
+                                className="rounded px-2 py-1 transition-colors">
+                                <div className="text-xs text-slate-400 mb-1">
+                                    [段落: {block.id}]
+                                </div>
+                                <div className="whitespace-pre-wrap text-sm">
+                                    {block.text}
+                                </div>
+                            </div>
+                        );
+                    }
 
-type SourceInline =
-    | { type: "text"; text: string }
-    | { type: "figure-ref"; figureNo: string };
+                    return (
+                        <div
+                            key={index}
+                            className="whitespace-pre-wrap text-sm">
+                            {block.text}
+                        </div>
+                    );
+                })}
+            </div>
 
-// 画像のインライン分解
-export function parseFigureRefs(text: string): SourceInline[] {
-    const parts: SourceInline[] = [];
-    let lastIndex = 0;
+            <FigureList images={patentImages} onSelect={setSelectedImage} />
 
-    for (const match of text.matchAll(FIGURE_REF_REGEX)) {
-        const start = match.index!;
-        const end = start + match[0].length;
-
-        if (start > lastIndex) {
-            parts.push({
-                type: "text",
-                text: text.slice(lastIndex, start),
-            });
-        }
-
-        parts.push({
-            type: "figure-ref",
-            figureNo: match[1],
-        });
-
-        lastIndex = end;
-    }
-
-    if (lastIndex < text.length) {
-        parts.push({
-            type: "text",
-            text: text.slice(lastIndex),
-        });
-    }
-
-    return parts;
-}
+            <PatentImageModal
+                image={selectedImage}
+                onClose={() => setSelectedImage(null)}
+            />
+        </aside>
+    );
+};
 </file>
 
 <file path="frontend/app/home/layout.tsx">
@@ -3425,183 +3027,6 @@ FRONTEND_URL = os.getenv("FRONTEND_URL")
 CLEANUP_ON_EXIT = os.getenv("CLEANUP_ON_EXIT")
 </file>
 
-<file path="backend/src/prompt/idea_prompt.py">
-# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
-
-
-def build_patent_prompt(patent_doc):
-    prompt = f"""
-## 1. 指示
-
-### 1-1. 基本原則
-- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
-- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
-- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
-
-### 1-2. 該当記述がない場合の対応
-各項目について、以下の基準で判断してください：
-
-1. **明確な記述がある** → そのまま抽出
-2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
-3. **該当する記述が見当たらない** → 「該当記述なし」と明記
-
-### 1-3. 出典の明記
-可能な限り、抽出した情報の出典を明示してください：
-- 段落番号、図番号、表番号などを併記
-  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
-
----
-
-## 2. 出力テンプレート
-
-### 項目1: 発明の技術分野
-【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
-
----
-
-### 項目2: 技術の物理的構成
-
-#### 2-1. 構成要素（部材・部品）
-**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
-- 該当例: モーター、センサー筐体、フレーム、ギア、配線
-- 非該当例: ソフトウェア、アルゴリズム、製造方法
-
-#### 2-2. 構成材料・原料
-構成要素を**作るための材料・材質**を箇条書きでリストアップ。
-- 該当例: 金属、樹脂、化学物質、合金、繊維
-- 非該当例: 完成した部品（それは2-1に記載）
-
-#### 2-3. 形態・形状・構造
-技術が「どのような形・構造」をしているかを記述。
-- 全体の形状、配置関係、構造的特徴など
-
----
-
-### 項目3: 技術の機能的構成
-
-#### 3-1. 基盤技術・要素技術
-**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
-- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
-- 非該当例: 物理的な部品（それは2-1に記載）
-
-#### 3-2. 要素機能（部品レベル）
-各構成要素が果たす**個別の役割**を記述。
-
-#### 3-3. システム機能（全体レベル）
-技術全体として実現される**主要な機能**を記述。
-
-#### 3-4. 動作フロー（該当記述がある場合のみ）
-技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
-
----
-
-### 項目4: 定量データ・仕様情報
-
-以下のルールで数値データを抽出してください：
-
-**抽出原則:**
-1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
-2. **文脈を保持**: 数値が何を示すかを明記
-3. **出典を明記**: 段落番号、図番号、表番号を併記
-4. **範囲と条件**: 数値に条件がある場合、その条件も記載
-
-**抽出対象:**
-- 寸法・サイズ
-- 物理量
-- 性能指標
-- 配合・比率
-- その他の定量的記述
-
----
-
-## 3. 分類に関する補足
-
-### 複数項目に該当する要素の扱い
-同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
-
-例:
-- 項目2-1: 「温度センサー」（物理的構成要素として）
-- 項目3-1: 「温度センシング技術」（検出原理として）
-- 項目3-2: 「周囲温度の測定」（要素機能として）
-
-### 不明確な分類の場合
-どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
-
-## 対象資料
-<document>
-{patent_doc.get_text()}
-</document>
-""".strip()
-    return prompt
-
-
-# アイデア生成用のプロンプト作成関数
-
-
-def build_idea_prompt(patent_doc, explanation_text):
-    prompt = f"""
-資料に記載された技術について、第三者が利用する場合を想定して、以下の指示や観点に従い、現実的な活用アイデアを生成してください。
-
-## 1. 生成内容の信頼性と推測の扱いについて
-
-- 技術的な誤認や数値的な誤りや引用ミスを避けてください。
-- 資料にない数値表現や定量的効果を扱う場合は、根拠なく「約○○%向上」のような書き方をするのではなく、「向上が期待される」といった定性的な書き方をしてください。
-
-## 2. 推測レベルの定義と対応方針
-
-全ての推測箇所は、**言い切りや断定的な表現をしない**でください。（推奨表現の例：〇〇の可能性がある。〇〇が期待される。）
-以下に示す推測レベル3, レベル4は、必ず"行末に[推測]"と明記してください。
-補足事項:
-- レベル2とレベル3で判断に迷った場合はレベル3を優先してください。
-
-推測レベルの定義:
-- レベル1: 資料の記述から引用
-- レベル2: 資料の記述から推測
-- レベル3: 資料の記述と学習データを組み合わせた推測（※文末に明記が必要）
-- レベル4: 学習データのみに基づいた推測（※文末に明記が必要）
-
-## 3. 出力テンプレート
-- 以下の出力テンプレートに従って、アイデアリストを生成してください。
-- 推測箇所は断定的な表現を避け、"行末に[推測]"と明記してください。
-
-```text: output format
-## 発明の名称
-
-### アイデア1: [分かりやすい日本語の名称を記述]
-
-- 概要:
-  - [アイデアの概要やどのような用途であるかを具体的に記述]
-- 解決できる課題:
-  - [このアイデアによって、どのような課題を解決するのかを言語化。]
-- ターゲット像:
-  - 企業: [先述した課題を参考に、どのような企業や組織がこの技術を利用したいか記述]
-  - 消費者: [先述した課題を参考に、どのような消費者にニーズがあるか記述]
-- 提供価値:
-  - [このアイデアが提供するベネフィットを記述]
-- 技術的接続点:
-  - [この技術のどの特性がこのアイデアを可能にするのか。その繋がりや技術的なポイントを記述。]
-- 想定ハードル:
-  - [実装ハードルや、市場、規制リスクなどを統合して記述]
-
-### アイデア2: [分かりやすい日本語の名称を記述]
-
-...(省略)
-```
-
-## 4. 対象技術に関する資料
-## 特許技術の解説（前提）
-{explanation_text}
-
-## 特許原文（参考データ）
-<document>
-{patent_doc.get_text()}
-</document>
-
-
-""".strip()
-    return prompt
-</file>
-
 <file path="backend/src/routers/generate_api.py">
 # Patent_Survey_APP/backend/src/routers/generate_api.py
 
@@ -3715,6 +3140,67 @@ async def generate_idea(data: GenerateIdeaRequest):
             yield chunk
 
     return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+</file>
+
+<file path="frontend/app/home/idea/util/parseSourceText.ts">
+// Patent_Survey_APP/frontend/app/home/idea/util/parseSourceText.ts
+
+// ============================================================
+// テキストのパース
+// ============================================================
+
+// パース結果の型定義
+export type SourceBlock =
+    | { type: "paragraph"; id: string; text: string } // 段落番号付き（アンカー対象）
+    | { type: "text"; text: string }; // 通常テキスト（見出しなど）
+
+export function parseSourceText(sourceText: string): SourceBlock[] {
+    const blocks: SourceBlock[] = [];
+
+    const regex = /\[段落:\s*(\d{4})\]/g;
+    const matches = [...sourceText.matchAll(regex)];
+
+    // 段落番号が1つもない場合
+    if (matches.length === 0) {
+        return [{ type: "text", text: sourceText.trim() }];
+    }
+
+    let lastIndex = 0;
+
+    matches.forEach((match, index) => {
+        const paragraphId = match[1];
+        const matchStart = match.index!;
+        const matchEnd = matchStart + match[0].length;
+
+        // 前のテキスト
+        if (matchStart > lastIndex) {
+            const beforeText = sourceText.slice(lastIndex, matchStart).trim();
+
+            if (beforeText) {
+                blocks.push({
+                    type: "text",
+                    text: beforeText,
+                });
+            }
+        }
+
+        // 段落本文
+        const nextMatch = matches[index + 1];
+        const paragraphText = sourceText
+            .slice(matchEnd, nextMatch ? nextMatch.index! : sourceText.length)
+            .trim();
+
+        blocks.push({
+            type: "paragraph",
+            id: paragraphId,
+            text: paragraphText,
+        });
+
+        lastIndex = nextMatch ? nextMatch.index! : sourceText.length;
+    });
+
+    return blocks;
+}
 </file>
 
 <file path="frontend/eslint.config.mjs">
@@ -3844,6 +3330,241 @@ python-multipart==0.0.21 # pypdfの依存関係
 matplotlib==3.10.8 # PDFから画像を抽出する際に使用
 </file>
 
+<file path="backend/src/prompt/idea_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
+
+# ============================================================
+# 特許解析プロンプト
+# ============================================================
+
+
+def build_patent_prompt(patent_doc):
+    prompt = f"""
+
+## 1. 基本原則
+- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
+- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
+- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
+
+## 2. 該当記述がない場合の対応
+各項目について、以下の基準で判断してください：
+
+1. **明確な記述がある** → そのまま抽出
+2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
+3. **該当する記述が見当たらない** → 「該当記述なし」と明記
+
+## 3. 出典の明記
+可能な限り、抽出した情報の出典を明示してください：
+- 段落番号、図番号、表番号などを併記
+  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
+
+## 4. 分類に関する補足
+
+### 複数項目に該当する要素の扱い
+同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
+
+例:
+- 項目2-1: 「温度センサー」（物理的構成要素として）
+- 項目3-1: 「温度センシング技術」（検出原理として）
+- 項目3-2: 「周囲温度の測定」（要素機能として）
+
+### 不明確な分類の場合
+どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
+
+## 5. 出力テンプレート
+
+抽出内容は、以下の構造で記述してください。
+
+```markdown
+# [特許の名称]
+
+## 1. 発明の技術分野
+【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
+
+---
+
+## 2. 技術の物理的構成
+
+### 2-1. 構成要素（部材・部品）
+**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
+- 該当例: モーター、センサー筐体、フレーム、ギア、配線
+- 非該当例: ソフトウェア、アルゴリズム、製造方法
+
+### 2-2. 構成材料・原料
+構成要素を**作るための材料・材質**を箇条書きでリストアップ。
+- 該当例: 金属、樹脂、化学物質、合金、繊維
+- 非該当例: 完成した部品（それは2-1に記載）
+
+### 2-3. 形態・形状・構造
+技術が「どのような形・構造」をしているかを記述。
+- 全体の形状、配置関係、構造的特徴など
+
+---
+
+## 3. 技術の機能的構成
+
+### 3-1. 基盤技術・要素技術
+**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
+- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
+- 非該当例: 物理的な部品（それは2-1に記載）
+
+### 3-2. 要素機能（部品レベル）
+各構成要素が果たす**個別の役割**を記述。
+
+### 3-3. システム機能（全体レベル）
+技術全体として実現される**主要な機能**を記述。
+
+### 3-4. 動作フロー（該当記述がある場合のみ）
+技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
+
+---
+
+## 4. 定量データ・仕様情報
+
+以下のルールで数値データを抽出してください：
+
+**抽出原則:**
+1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
+2. **文脈を保持**: 数値が何を示すかを明記
+3. **出典を明記**: 段落番号、図番号、表番号を併記
+4. **範囲と条件**: 数値に条件がある場合、その条件も記載
+
+**抽出対象:**
+- 寸法・サイズ
+- 物理量
+- 性能指標
+- 配合・比率
+- その他の定量的記述
+```
+
+## 対象資料
+<document>
+{patent_doc.get_text()}
+</document>
+""".strip()
+    return prompt
+
+
+# ============================================================
+# アイデア生成プロンプト
+# ============================================================
+
+
+def build_idea_prompt(patent_doc, explanation_text):
+    prompt = f"""
+特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
+
+## アイデア生成の指針
+
+### 基本的な問い
+すべてのアイデアは、以下の問いに答えるものとしてください：
+
+1. **誰の課題を解決するのか？**（ターゲットの明確化）
+2. **どのように解決するのか？**（技術との接続）
+3. **なぜこの技術が適しているのか？**（技術的優位性）
+
+### アイデアの多様性
+以下のような多様性を持つアイデアを含めてください：
+
+- **近接応用**: 特許文書に記載された用途に近い応用
+- **遠隔転用**: 全く異なる分野への転用
+- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
+
+## 重要な原則
+
+### 1. 事実と推測の明確な分離
+あなたが生成するアイデアは、以下の2つの要素から構成されます：
+
+**【事実層】特許文書に基づく技術的事実**
+- フェーズ1で抽出された情報のみを使用
+- 引用または要約の形式で明示
+
+**【推測層】あなたの創造的な解釈・応用**
+- 事実層を出発点とした、論理的な推論
+- 市場ニーズや応用可能性の想定
+- **必ず[推測]とマークする**
+
+### 2. 推測の誠実な表現
+推測箇所では、以下のような表現を使用してください：
+
+- 「〜の可能性がある」
+- 「〜が期待される」
+- 「〜と想定される」
+- 「〜への応用が考えられる」
+
+**絶対に使用しないこと：**
+- 断定的な表現（「〜である」「〜できる」）
+- 根拠なき数値（「約○○%向上」）
+- 架空の事例（「A社では〜」）
+
+## 出力テンプレート
+
+各アイデアは、以下の構造で記述してください。
+
+```markdown
+# [特許の名称] アイデアリスト
+
+---
+
+## アイデア1: [名称]
+
+### 技術的基盤（事実層）
+
+この特許技術は、以下の特性を持つ：
+- [特許文書からの引用または要約箇所を出典と共にリストアップ]
+
+### アイデアの概要（推測層）
+
+[上記の技術的基盤を出発点として、どのような応用が考えられるか]
+
+### 解決できる課題（推測層）
+
+[このアイデアがどのような課題を解決するか]
+
+### ターゲット像（推測層）
+
+- 企業: [想定される企業・組織]
+- 消費者: [想定される消費者層]
+
+### 提供価値（推測層）
+
+[このアイデアが提供するベネフィット]
+
+### 技術的接続点（事実層 + 推測層）
+
+特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
+根拠: （[段落: xxxx]参照）
+
+### 実装上の検討事項（推測層）
+
+- 技術的ハードル: [想定される課題]
+- 市場・規制リスク: [想定されるリスク]
+
+---
+
+## アイデア2: [名称]
+...(省略)
+```
+
+## 対象技術に関する資料
+
+### 特許技術の構造化
+<document>
+{explanation_text}
+</document>
+
+### 特許原文（前提）
+<document>
+{patent_doc.get_text()}
+</document>
+
+---
+
+上記の指示と資料に基づき、アイデアを生成してください。
+""".strip()
+    return prompt
+</file>
+
 <file path="frontend/app/globals.css">
 /* Patent_Survey_APP/frontend/app/grobals.css */
 
@@ -3887,341 +3608,6 @@ body {
     color: var(--foreground);
     font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
 }
-</file>
-
-<file path="frontend/app/home/idea/GeneratingScreen.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/GeneratingScreen.tsx
-
-"use client";
-
-import "@/styles/markdown_style.css";
-import {
-    ArrowRight,
-    Bot,
-    FileText,
-    Lightbulb,
-    Loader2,
-    PanelRight,
-    Sparkles,
-} from "lucide-react";
-import { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { SourceSidebar } from "./components/SourceSidebar";
-import { MarkdownRenderer } from "./util/MarkdownRenderer";
-import { parseSourceText } from "./util/parseSourceText";
-import { formatPatentToString } from "./util/patentFormatter";
-
-import type { components } from "@/types/schema";
-type PatentContent = components["schemas"]["PatentContent"];
-type PatentImage = components["schemas"]["PatentImage"];
-
-interface GeneratingScreenProps {
-    fileName: string;
-    patentId: string;
-    patentData: PatentContent;
-    patentImages: PatentImage[];
-}
-
-export const GeneratingScreen = ({
-    fileName,
-    patentId,
-    patentData,
-    patentImages,
-}: GeneratingScreenProps) => {
-    // 原文参照サイドバーの開閉
-    const [isSourceOpen, setIsSourceOpen] = useState(false);
-    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(
-        null
-    );
-
-    // 画像選択状態
-    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(
-        null
-    );
-
-    // ステータス管理（共通）
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [hasStarted, setHasStarted] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    // 生成テキスト
-    const [generatedText, setGeneratedText] = useState("");
-    const [ideaText, setIdeaText] = useState("");
-
-    // アイデア生成UI状態
-    const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
-    const [showIdeaSection, setShowIdeaSection] = useState(false);
-
-    // 全文取得（一度だけ実行）
-    const fullText = useMemo(() => {
-        return formatPatentToString(patentData);
-    }, [patentData]);
-
-    const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
-
-    /**
-     * 共通ストリーミング処理ヘルパー
-     * @param url APIエンドポイント
-     * @param body POSTするボディ
-     * @param onUpdate チャンク受信時のコールバック
-     * @param onStart 開始時の状態更新コールバック
-     * @param onComplete 完了時の状態更新コールバック
-     */
-
-    const streamResponse = async (
-        url: string,
-        body: object,
-        onUpdate: (chunk: string) => void,
-        onStart: () => void,
-        onComplete: () => void
-    ) => {
-        onStart();
-        setError(null);
-
-        try {
-            // リクエスト
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-            // レスポンス判定
-            if (!response.ok) {
-                // HTTPステータスコードに応じたエラー処理
-                if (response.status === 404) {
-                    throw new Error("特許データが見つかりませんでした");
-                } else if (response.status >= 500) {
-                    throw new Error(
-                        "サーバーエラーが発生しました。時間をおいて再試行してください"
-                    );
-                } else {
-                    throw new Error(
-                        `エラーが発生しました (${response.status})`
-                    );
-                }
-            }
-
-            if (!response.body) {
-                throw new Error("レスポンスが空です");
-            }
-            // ストリーム処理準備
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            // ストリーム処理
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                onUpdate(decoder.decode(value, { stream: true }));
-            }
-            // エラーハンドリング
-        } catch (err) {
-            console.error(err);
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("不明なエラーが発生しました");
-            }
-        } finally {
-            onComplete();
-        }
-    };
-
-    // 特許解析ハンドラー
-    const handleGenerate = () => {
-        setGeneratedText("");
-        setHasStarted(true);
-
-        streamResponse(
-            "http://localhost:8000/generate/patent",
-            { patent_id: patentId },
-            (chunk) => setGeneratedText((prev) => prev + chunk),
-            () => setIsGenerating(true),
-            () => setIsGenerating(false)
-        );
-    };
-
-    // アイデア生成ハンドラー
-    const handleGenerateIdea = () => {
-        setIdeaText("");
-        setShowIdeaSection(true);
-
-        streamResponse(
-            "http://localhost:8000/generate/idea",
-            { patent_id: patentId, explanation_text: generatedText },
-            (chunk) => setIdeaText((prev) => prev + chunk),
-            () => setIsGeneratingIdea(true),
-            () => setIsGeneratingIdea(false)
-        );
-    };
-
-    return (
-        <div className="flex overflow-hidden p-8">
-            <div className="max-w-4xl mx-auto space-y-8 w-full">
-                {/* --- スクリーンヘッダー --- */}
-                <div>
-                    <div className="flex justify-between items-end mb-4">
-                        <div>
-                            <h2 className="text-lg font-medium text-slate-800 mb-1 flex items-center gap-2">
-                                <FileText className="text-blue-600" size={24} />
-                                抽出されたテキスト
-                            </h2>
-                            <p className="text-slate-500 text-sm">
-                                ファイル名：
-                                <span className="font-medium text-slate-700">
-                                    {fileName}
-                                </span>
-                            </p>
-                        </div>
-                        {/* 原文参照サイドバー開閉ボタン */}
-                        <SourceSidebarButton
-                            setIsSourceOpen={setIsSourceOpen}
-                        />
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 whitespace-break-spaces break-word max-h-60 overflow-y-auto">
-                        {patentData.abstract}
-                    </div>
-                </div>
-
-                {/* --- 解析開始ボタン --- */}
-                {!hasStarted && (
-                    <div className="flex justify-center py-8">
-                        <button
-                            onClick={handleGenerate}
-                            className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-liner-to-r bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
-                            <Sparkles size={20} />
-                            <span>特許解析を実行</span>
-                        </button>
-                    </div>
-                )}
-
-                {/* --- AI生成結果 (解析) --- */}
-                {hasStarted && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-                                <Bot size={24} />
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-800">
-                                AIによる解析
-                            </h3>
-
-                            {isGenerating && (
-                                <div className="flex items-center gap-2 text-sm text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full animate-pulse">
-                                    <Loader2
-                                        size={14}
-                                        className="animate-spin"
-                                    />
-                                    生成中...
-                                </div>
-                            )}
-                            <SourceSidebarButton
-                                setIsSourceOpen={setIsSourceOpen}
-                            />
-                        </div>
-
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-50">
-                            {error ? (
-                                <div className="text-red-500 bg-red-50 p-4 rounded-lg flex items-center gap-2">
-                                    <span className="font-bold">Error:</span>{" "}
-                                    {error}
-                                </div>
-                            ) : (
-                                <div className="prose prose-slate max-w-none prose-headings:font-bold prose-h2:text-xl prose-h2:mt-6 prose-h2:mb-4 prose-p:leading-relaxed prose-li:marker:text-indigo-500">
-                                    <div className="markdown break-word">
-                                        <MarkdownRenderer
-                                            content={generatedText}
-                                            onClickParagraph={(id) => {
-                                                setActiveParagraphId(id);
-                                                setIsSourceOpen(true);
-                                            }}
-                                        />
-                                    </div>
-                                    {/* カーソル点滅 */}
-                                    {isGenerating && (
-                                        <span className="inline-block w-2 h-5 ml-1 align-middle bg-indigo-500 animate-pulse" />
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* --- アイデア生成ボタン --- */}
-                {hasStarted && !isGenerating && !showIdeaSection && !error && (
-                    <div className="flex justify-end animate-in fade-in duration-500">
-                        <button
-                            onClick={handleGenerateIdea}
-                            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-md transition-all">
-                            <Lightbulb size={20} />
-                            <span>この解析結果を元にアイデアを生成する</span>
-                            <ArrowRight size={18} />
-                        </button>
-                    </div>
-                )}
-
-                {/* --- アイデア生成結果 --- */}
-                {showIdeaSection && (
-                    <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 border-t-2 border-dashed border-slate-200 pt-8 mt-8">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="bg-emerald-100 p-2 rounded-lg text-emerald-600">
-                                <Lightbulb size={24} />
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-800">
-                                応用アイデア
-                            </h3>
-                            {isGeneratingIdea && (
-                                <span className="text-sm text-emerald-600 animate-pulse">
-                                    思考中...
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="bg-white rounded-xl shadow-lg border border-emerald-100 p-8 ring-1 ring-emerald-50">
-                            <div className="prose prose-emerald max-w-none">
-                                <div className="markdown break-word">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                        {ideaText}
-                                    </ReactMarkdown>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {isSourceOpen && (
-                <SourceSidebar
-                    isOpen={isSourceOpen}
-                    onClose={() => setIsSourceOpen(false)}
-                    fileName={fileName}
-                    sourceBlocks={sourceBlocks}
-                    activeParagraphId={activeParagraphId}
-                    patentImages={patentImages}
-                    selectedImage={selectedImage}
-                    setSelectedImage={setSelectedImage}
-                />
-            )}
-        </div>
-    );
-};
-
-// 原文表示サイドバーボタンのコンポーネント
-const SourceSidebarButton = ({
-    setIsSourceOpen,
-}: {
-    setIsSourceOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
-}) => {
-    return (
-        <button
-            onClick={() => setIsSourceOpen((prev) => !prev)}
-            className="ml-auto flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all">
-            <PanelRight size={16} />
-            <span>原文を表示</span>
-        </button>
-    );
-};
 </file>
 
 <file path="frontend/app/home/idea/page.tsx">
@@ -4457,6 +3843,8 @@ export const PatentUploadUI = ({
                         type="file"
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         accept=".pdf"
+                        title="特許PDFを選択"
+                        aria-label="特許PDFファイルを選択"
                         onChange={handleFileInput}
                     />
                 </div>
@@ -4661,6 +4049,617 @@ import { redirect } from "next/navigation";
 export default function Page() {
     redirect("/home");
 }
+</file>
+
+<file path="frontend/app/home/idea/GeneratingScreen.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/GeneratingScreen.tsx
+
+"use client";
+
+import "@/styles/markdown_style.css";
+import {
+    ArrowRight,
+    Bot,
+    CheckCircle2,
+    FileText,
+    Lightbulb,
+    Loader2,
+    Lock,
+    PanelRight,
+    RotateCw, // 再生成
+    Sparkles,
+    type LucideIcon, // アイコンの型
+} from "lucide-react";
+import { useMemo, useState } from "react";
+// 関数コンポーネント
+import { parseSourceText } from "./util/parseSourceText";
+import { formatPatentToString } from "./util/patentFormatter";
+// UIコンポーネント
+import { SourceSidebar } from "./components/SourceSidebar";
+import { CopyButton } from "./util/CopyButton";
+import { MarkdownRenderer } from "./util/MarkdownRenderer"; // 内部に`ReactMarkdown`と`remarkGfm`
+
+// ============================================================
+// 型定義
+// ============================================================
+
+// 特許の型
+import type { components } from "@/types/schema";
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+// ステップ定義
+const STEPS = [
+    { id: 0, label: "テキスト抽出結果", icon: FileText },
+    { id: 1, label: "AI解析結果", icon: Bot },
+    { id: 2, label: "応用アイデア", icon: Lightbulb },
+] as const;
+
+// Propsの型
+interface GeneratingScreenProps {
+    fileName: string;
+    patentId: string;
+    patentData: PatentContent;
+    patentImages: PatentImage[];
+}
+
+// ============================================================
+// メインコンポーネント
+// ============================================================
+
+export const GeneratingScreen = ({
+    fileName,
+    patentId,
+    patentData,
+    patentImages,
+}: GeneratingScreenProps) => {
+    // ------------------------------------------------------------
+    // State定義
+    // ------------------------------------------------------------
+
+    // ステップ管理
+    const [currentStep, setCurrentStep] = useState<number>(0);
+    const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
+    // 原文参照サイドバー
+    const [isSourceOpen, setIsSourceOpen] = useState(false);
+    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
+    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
+    // 生成テキストデータ
+    const [generatedAnalysisText, setGeneratedAnalysisText] = useState("");
+    const [generatedIdeaText, setGeneratedIdeaText] = useState("");
+    // 生成ステータス管理
+    const [error, setError] = useState<string | null>(null);
+    // アイデア生成UI状態
+    const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+    const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
+
+    // ------------------------------------------------------------
+    // データ処理
+    // ------------------------------------------------------------
+
+    // 全文取得（一度だけ実行）
+    const fullText = useMemo(() => formatPatentToString(patentData), [patentData]);
+    const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
+
+    // ------------------------------------------------------------
+    // API処理
+    // ------------------------------------------------------------
+
+    // 共通ストリーミング処理ヘルパー
+    const streamResponse = async (
+        url: string, // APIエンドポイント
+        body: object, // POSTに必要なボディ
+        onUpdate: (chunk: string) => void, // チャンク受診時のコールバック
+        onStart: () => void, // 開始時の状態更新コールバック
+        onComplete: () => void // 完了時の状態更新コールバック
+    ) => {
+        onStart();
+        setError(null);
+        try {
+            // リクエスト
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            // レスポンス判定
+            if (!response.ok) {
+                // HTTPステータスコードに応じたエラー処理
+                if (response.status === 404) {
+                    throw new Error("特許データが見つかりませんでした");
+                } else if (response.status >= 500) {
+                    throw new Error("サーバーエラーが発生しました。時間をおいて再試行してください");
+                } else {
+                    throw new Error(`エラーが発生しました (${response.status})`);
+                }
+            }
+
+            if (!response.body) {
+                throw new Error("レスポンスが空です");
+            }
+            // ストリーム処理準備
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            // ストリーム処理
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onUpdate(decoder.decode(value, { stream: true }));
+            }
+            // エラーハンドリング
+        } catch (err) {
+            console.error(err);
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("不明なエラーが発生しました");
+            }
+        } finally {
+            onComplete();
+        }
+    };
+
+    // ------------------------------------------------------------
+    // API呼び出しハンドラー
+    // ------------------------------------------------------------
+
+    // 特許解析ハンドラー
+    // 1. 解析開始
+    const handleStartAnalysis = () => {
+        // ステップを移動
+        setCurrentStep(1);
+        setMaxReachedStep((prev) => Math.max(prev, 1));
+        setGeneratedAnalysisText("");
+
+        streamResponse(
+            "http://localhost:8000/generate/patent",
+            { patent_id: patentId },
+            (chunk) => setGeneratedAnalysisText((prev) => prev + chunk),
+            () => setIsGeneratingAnalysis(true),
+            () => setIsGeneratingAnalysis(false)
+        );
+    };
+
+    // 2. アイデア生成開始
+    const handleStartIdea = () => {
+        // ステップを移動
+        setCurrentStep(2);
+        setMaxReachedStep((prev) => Math.max(prev, 2));
+        setGeneratedIdeaText("");
+
+        streamResponse(
+            "http://localhost:8000/generate/idea",
+            { patent_id: patentId, explanation_text: generatedAnalysisText },
+            (chunk) => setGeneratedIdeaText((prev) => prev + chunk),
+            () => setIsGeneratingIdea(true),
+            () => setIsGeneratingIdea(false)
+        );
+    };
+
+    return (
+        <div className="flex overflow-hidden p-8 h-screen-minus-header">
+            <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
+                {/* ヘッダー情報 */}
+                <HeaderInfo fileName={fileName} setIsSourceOpen={setIsSourceOpen} />
+
+                {/* タブナビゲーション */}
+                <StepTabs
+                    currentStep={currentStep}
+                    maxReachedStep={maxReachedStep}
+                    onTabClick={setCurrentStep}
+                />
+
+                {/* コンテンツエリア (スクロール可能領域) */}
+                <div className="flex-1 overflow-y-auto min-h-0 py-6 px-1">
+                    {/* STEP 0: テキスト抽出結果 */}
+                    {currentStep === 0 && (
+                        <PreviewSection
+                            text={fullText}
+                            onStart={handleStartAnalysis}
+                            // ▼既に解析結果があるか判定
+                            hasGenerated={generatedAnalysisText.length > 0}
+                        />
+                    )}
+
+                    {/* STEP 1: AI解析 */}
+                    {currentStep === 1 && (
+                        <AnalysisSection
+                            text={generatedAnalysisText}
+                            isGenerating={isGeneratingAnalysis}
+                            error={error}
+                            onNext={handleStartIdea}
+                            // ▼すでにアイデア結果があるか判定
+                            hasNextGenerated={generatedIdeaText.length > 0}
+                            setActiveParagraphId={setActiveParagraphId}
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
+                    )}
+
+                    {/* STEP 2: アイデア */}
+                    {currentStep === 2 && (
+                        <IdeaSection
+                            text={generatedIdeaText}
+                            isGenerating={isGeneratingIdea}
+                            error={error}
+                            setActiveParagraphId={setActiveParagraphId}
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
+                    )}
+                </div>
+            </div>
+
+            {/* 原文サイドバー (常にレンダリングしておき、表示状態を制御) */}
+            {isSourceOpen && (
+                <SourceSidebar
+                    isOpen={isSourceOpen}
+                    onClose={() => setIsSourceOpen(false)}
+                    fileName={fileName}
+                    sourceBlocks={sourceBlocks}
+                    activeParagraphId={activeParagraphId}
+                    patentImages={patentImages}
+                    selectedImage={selectedImage}
+                    setSelectedImage={setSelectedImage}
+                />
+            )}
+        </div>
+    );
+};
+
+// ============================================================
+// サブコンポーネント
+// ============================================================
+
+// ------------------------------------------------------------
+// 1. ヘッダー情報
+// ------------------------------------------------------------
+
+interface HeaderInfoProps {
+    fileName: string;
+    setIsSourceOpen: (v: boolean) => void;
+}
+
+const HeaderInfo = ({ fileName, setIsSourceOpen }: HeaderInfoProps) => (
+    <div className="flex justify-between items-center mb-6 shrink-0">
+        <div className="min-w-0 mr-4">
+            <h2 className="text-xl font-bold text-slate-800 mb-1">特許解析・アイデア生成</h2>
+            <div className="text-slate-500 text-sm flex items-center">
+                <span className="shrink-0">対象ファイル：</span>
+                <span className="font-medium text-slate-700 truncate max-w-md" title={fileName}>
+                    {fileName}
+                </span>
+            </div>
+        </div>
+        {/* 原文表示サイドバー開閉ボタン */}
+        <button
+            onClick={() => setIsSourceOpen(true)}
+            className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
+            <PanelRight size={16} />
+            <span>原文を隣に表示</span>
+        </button>
+    </div>
+);
+
+// ----------------------------------------------------------------------
+// 2. ステップタブナビゲーション
+// ----------------------------------------------------------------------
+
+interface StepTabsProps {
+    currentStep: number;
+    maxReachedStep: number; // 最大到達ステップ（未到達には特定のアクションを実行するまでロック）
+    onTabClick: (step: number) => void;
+}
+
+const StepTabs = ({ currentStep, maxReachedStep, onTabClick }: StepTabsProps) => {
+    return (
+        <div className="flex border-b border-slate-200 mb-2 shrink-0">
+            {STEPS.map((step) => {
+                const isActive = currentStep === step.id;
+                const isEnabled = step.id <= maxReachedStep;
+                const isCompleted = step.id < maxReachedStep;
+
+                // ロック中ならLock、それ以外は元のアイコン
+                const Icon = !isEnabled ? Lock : step.icon;
+
+                return (
+                    <button
+                        key={step.id}
+                        onClick={() => isEnabled && onTabClick(step.id)}
+                        disabled={!isEnabled}
+                        className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all
+                ${
+                    isActive
+                        ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/50"
+                        : isEnabled
+                        ? "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                        : "text-slate-300 cursor-not-allowed"
+                }`}>
+                        {/* アイコンコンテナ（バッジ配置用） */}
+                        <div className="relative">
+                            <Icon size={18} />
+
+                            {/* 完了バッジ: 右上に絶対配置 */}
+                            {isCompleted && (
+                                <div className="absolute -top-1.5 -right-1.5 bg-blue-50/50 rounded-full p-px shadow-sm">
+                                    <CheckCircle2
+                                        size={12}
+                                        className="text-green-500 fill-green-50"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <span>{step.label}</span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 3. 統合アクションボタン
+// ----------------------------------------------------------------------
+
+interface StepActionButtonProps {
+    onClick: () => void;
+    isReRun: boolean; // 再生成かどうか
+    size?: "small" | "normal"; // 上部: small, 下部: normal
+    labelText: string; // ボタンに表示するテキスト
+    icon: LucideIcon; // コンポーネントそのものを渡す
+    colorTheme: "blue" | "emerald"; // 必要に応じて増やしていく
+}
+
+const StepActionButton = ({
+    onClick,
+    isReRun,
+    size = "normal",
+    labelText,
+    icon: Icon, // JSXとして使うため大文字にリネーム
+    colorTheme,
+}: StepActionButtonProps) => {
+    // Tailwindの動的クラス対策として、完全なクラス名を定義しておく
+    const variants = {
+        blue: {
+            initial: "bg-blue-600 hover:bg-blue-700 text-white",
+            retry: "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50",
+        },
+        emerald: {
+            initial: "bg-emerald-600 hover:bg-emerald-700 text-white",
+            retry: "bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50",
+        },
+    };
+
+    // 指定されたテーマのスタイルセットを取得
+    const themeStyles = variants[colorTheme];
+    const currentStyle = isReRun ? themeStyles.retry : themeStyles.initial;
+
+    return (
+        <button
+            onClick={onClick}
+            className={`flex items-center gap-2 font-bold rounded-lg shadow-sm transition-all
+            ${size === "small" ? "px-3 py-1.5 text-sm" : "px-6 py-3 text-base shadow-md"}
+            ${currentStyle}`}>
+            {isReRun ? (
+                <RotateCw size={size === "small" ? 14 : 18} />
+            ) : (
+                <Icon size={size === "small" ? 14 : 18} />
+            )}
+            <span>{labelText}</span>
+            {!isReRun && <ArrowRight size={size === "small" ? 14 : 18} />}
+        </button>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 4. テキスト抽出結果セクション
+// ----------------------------------------------------------------------
+
+interface PreviewSectionProps {
+    text: string;
+    onStart: () => void;
+    hasGenerated: boolean; // 生成済みフラグ
+}
+
+const PreviewSection = ({ text, onStart, hasGenerated }: PreviewSectionProps) => {
+    return (
+        <div className="space-y-6">
+            {/* ツールバー */}
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
+                {/* 左側：ラベル */}
+                <div className="flex items-center gap-2 text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <FileText size={18} />
+                    <span>テキスト抽出結果</span>
+                </div>
+
+                {/* 右側：アクション (コピー & 小ボタン) */}
+                <div className="flex items-center gap-3">
+                    <CopyButton text={text} />
+                    {/* 上部アクションボタンを表示 */}
+                    <StepActionButton
+                        onClick={onStart}
+                        isReRun={hasGenerated}
+                        size="small"
+                        labelText={hasGenerated ? "解析をやり直す" : "解析を開始する"}
+                        icon={Sparkles}
+                        colorTheme="blue"
+                    />
+                </div>
+            </div>
+
+            {/* コンテンツ */}
+            <div className="bg-white px-8 py-6 rounded-xl shadow-sm border border-slate-200">
+                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{text}</p>
+            </div>
+
+            {/* 下部アクションエリア */}
+            <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
+                <StepActionButton
+                    onClick={onStart}
+                    isReRun={hasGenerated}
+                    size="normal"
+                    labelText={hasGenerated ? "解析をやり直す" : "解析を開始する"}
+                    icon={Sparkles}
+                    colorTheme="blue"
+                />
+            </div>
+        </div>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 5. 解析結果セクション
+// ----------------------------------------------------------------------
+
+interface AnalysisSectionProps {
+    text: string;
+    isGenerating: boolean;
+    error: string | null;
+    onNext: () => void;
+    hasNextGenerated: boolean; // 次のステップ(アイデア)が生成済みか
+    setActiveParagraphId: (id: string) => void;
+    setIsSourceOpen: (v: boolean) => void;
+}
+
+const AnalysisSection = ({
+    text,
+    isGenerating,
+    error,
+    onNext,
+    hasNextGenerated,
+    setActiveParagraphId,
+    setIsSourceOpen,
+}: AnalysisSectionProps) => {
+    // ボタンの表示条件
+    const showActionButton = !isGenerating && text && !error;
+
+    return (
+        <div className="space-y-6">
+            {/* ツールバー */}
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
+                <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <Bot size={18} />
+                    <span>AI解析結果</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {/* コピーボタン */}
+                    {!isGenerating && text && <CopyButton text={text} />}
+                    {/* 上部アクションボタン */}
+                    {showActionButton && (
+                        <StepActionButton
+                            onClick={onNext}
+                            isReRun={hasNextGenerated}
+                            size="small"
+                            labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
+                            icon={Lightbulb}
+                            colorTheme="emerald"
+                        />
+                    )}
+                </div>
+            </div>
+
+            {/* コンテンツ */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-8 min-h-75">
+                {error && (
+                    <div className="mb-4 text-red-600 bg-red-50 p-4 rounded-lg font-medium">
+                        {error}
+                    </div>
+                )}
+
+                <div className="prose prose-slate max-w-none">
+                    <MarkdownRenderer
+                        content={text}
+                        onClickParagraph={(id) => {
+                            setActiveParagraphId(id);
+                            setIsSourceOpen(true);
+                        }}
+                    />
+                    {isGenerating && (
+                        <div className="flex items-center gap-2 mt-4 text-indigo-500 animate-pulse">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span>解析中...</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 下部アクションボタン */}
+            {showActionButton && (
+                <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
+                    <StepActionButton
+                        onClick={onNext}
+                        isReRun={hasNextGenerated}
+                        size="normal"
+                        labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
+                        icon={Lightbulb}
+                        colorTheme="emerald"
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
+
+// 6. アイデアセクション
+
+interface IdeaSectionProps {
+    text: string;
+    isGenerating: boolean;
+    error: string | null;
+    setActiveParagraphId: (id: string) => void;
+    setIsSourceOpen: (v: boolean) => void;
+}
+
+const IdeaSection = ({
+    text,
+    isGenerating,
+    error,
+    setActiveParagraphId,
+    setIsSourceOpen,
+}: IdeaSectionProps) => {
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
+                <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <Lightbulb size={18} />
+                    <span>応用アイデア</span>
+                </div>
+                {!isGenerating && text && <CopyButton text={text} />}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md border border-emerald-100 px-8 ring-1 ring-emerald-50 min-h-75">
+                {error && (
+                    <div className="mb-4 text-red-600 bg-red-50 p-4 rounded-lg font-medium">
+                        {error}
+                    </div>
+                )}
+
+                <div className="prose prose-emerald max-w-none">
+                    <MarkdownRenderer
+                        content={text}
+                        onClickParagraph={(id) => {
+                            setActiveParagraphId(id);
+                            setIsSourceOpen(true);
+                        }}
+                    />
+                    {isGenerating && (
+                        <div className="flex items-center gap-2 mt-4 text-emerald-500 animate-pulse">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span>思考中...</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 完了メッセージなど */}
+            {!isGenerating && text && (
+                <div className="text-center text-slate-400 text-sm py-8">
+                    生成が完了しました。タブを切り替えて解析結果を確認できます。
+                </div>
+            )}
+        </div>
+    );
+};
 </file>
 
 <file path="frontend/package.json">

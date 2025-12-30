@@ -175,6 +175,8 @@ export const PatentUploadUI = ({
                         type="file"
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         accept=".pdf"
+                        title="特許PDFを選択"
+                        aria-label="特許PDFファイルを選択"
                         onChange={handleFileInput}
                     />
                 </div>

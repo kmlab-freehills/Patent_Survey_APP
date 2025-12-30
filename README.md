@@ -112,8 +112,7 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ---
 
-## ディレクトリ構造（2025/12/29 時点）
-
+## ディレクトリ構造（2025/12/30 時点）
 ```
 Patent_Survey_APP
 ├─ backend
@@ -140,9 +139,8 @@ Patent_Survey_APP
 ├─ docker-compose.yml
 ├─ frontend
 │  ├─ app
-│  │  ├─ chat-ui
+│  │  ├─ chat-ui-test
 │  │  │  ├─ ChatInput.tsx
-│  │  │  ├─ KnowledgeTypes.ts
 │  │  │  ├─ MessageList.tsx
 │  │  │  └─ page.tsx
 │  │  ├─ favicon.ico
@@ -157,7 +155,7 @@ Patent_Survey_APP
 │  │  │  │  ├─ page.tsx
 │  │  │  │  ├─ PatentUploadUI.tsx
 │  │  │  │  └─ util
-│  │  │  │     ├─ FigureReference.tsx
+│  │  │  │     ├─ CopyButton.tsx
 │  │  │  │     ├─ MarkdownRenderer.tsx
 │  │  │  │     ├─ parseSourceText.ts
 │  │  │  │     ├─ patentFormatter.ts
@@ -166,30 +164,20 @@ Patent_Survey_APP
 │  │  │  └─ page.tsx
 │  │  ├─ layout.tsx
 │  │  ├─ MainLayout.tsx
-│  │  ├─ page.tsx
-│  │  └─ test
-│  │     └─ page.tsx
+│  │  └─ page.tsx
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
 │  ├─ images
 │  │  ├─ arrow_back.svg
-│  │  ├─ arrow_drop_down_icon.svg
-│  │  ├─ book_icon.svg
 │  │  ├─ check_icon.svg
 │  │  ├─ edit_document_icon.svg
-│  │  ├─ festival_icon.svg
 │  │  ├─ file.svg
-│  │  ├─ globe.svg
-│  │  ├─ group_icon.svg
-│  │  ├─ id_card_icon.svg
 │  │  ├─ info_icon.svg
 │  │  ├─ logout_icon.svg
 │  │  ├─ menu_icon.svg
 │  │  ├─ science.svg
 │  │  ├─ send_icon.svg
-│  │  ├─ setting_icon.svg
-│  │  ├─ side_icon.svg
-│  │  └─ window.svg
+│  │  └─ setting_icon.svg
 │  ├─ next.config.ts
 │  ├─ package-lock.json
 │  ├─ package.json

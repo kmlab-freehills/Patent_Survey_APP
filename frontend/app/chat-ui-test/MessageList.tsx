@@ -2,13 +2,15 @@
 
 "use client";
 
-import aorun_normal from "@/images/aorun_normal.png";
 import "@/styles/markdown_style.css"; // Markdown用のCSS
-import Image from "next/image";
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Message } from "./KnowledgeTypes";
+
+type Message = {
+    role: "user" | "llm";
+    content: string;
+};
 
 interface MessageListProps {
     messages: Message[];
@@ -29,9 +31,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isThinking }) => {
                 {messages.length === 0 ? (
                     // 初期表示テキスト
                     <div className="text-center text-gray-500-10">
-                        <p className="text-sm mt-2">
-                            下の入力欄から質問を開始してください。
-                        </p>
+                        <p className="text-sm mt-2">下の入力欄から質問を開始してください。</p>
                     </div>
                 ) : (
                     // 対話内容
@@ -44,33 +44,24 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isThinking }) => {
                             }`}>
                             {msg.role === "llm" && (
                                 // LLMのアイコン
-                                <div className="size-12.5 border-2 border-gray-400 rounded-full bg-white shrink-0 shadow-[0px_2px_8px_rgba(0,0,0,0.1)">
-                                    <Image
-                                        src={aorun_normal}
-                                        alt="あおるん"
-                                        width={50}
-                                        height={50}
-                                    />
-                                </div>
+                                <div className="size-12.5 border-2 border-gray-400 rounded-full bg-white shrink-0 shadow-[0px_2px_8px_rgba(0,0,0,0.1)"></div>
                             )}
                             <div
                                 className={`max-w-4xl px-4 py-3 rounded-2xl
-              ${
-                  msg.role === "user"
-                      ? // ユーザー側のスタイル
-                        "bg-blue-100/60 hover:bg-blue-100 shadow-sm ml-15"
-                      : // LLM側のスタイル
-                        "bg-white border border-gray-300 shadow-sm mr-15"
-              }`}>
+                                    ${
+                                        msg.role === "user"
+                                            ? // ユーザー側のスタイル
+                                              "bg-blue-100/60 hover:bg-blue-100 shadow-sm ml-15"
+                                            : // LLM側のスタイル
+                                              "bg-white border border-gray-300 shadow-sm mr-15"
+                                    }`}>
                                 {msg.role === "user" ? (
                                     // ユーザー側はプレーンテキストで表示
                                     <div className="whitespace-break-spaces break-word">
                                         {msg.content}
                                     </div>
                                 ) : // LLM側で回答がまだの場合はスピナー
-                                msg.role === "llm" &&
-                                  msg.content === "" &&
-                                  isThinking ? (
+                                msg.role === "llm" && msg.content === "" && isThinking ? (
                                     <svg
                                         className="animate-spin h-5 w-5 text-gray-400"
                                         viewBox="0 0 24 24">
@@ -92,8 +83,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isThinking }) => {
                                 ) : msg.role === "llm" ? (
                                     // LLM側はMarkdown形式で表示
                                     <div className="markdown break-word">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                             {msg.content}
                                         </ReactMarkdown>
                                     </div>
