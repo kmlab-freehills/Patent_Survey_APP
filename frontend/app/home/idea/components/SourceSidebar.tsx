@@ -1,8 +1,7 @@
 // Patent_Survey_APP/frontend/app/home/idea/components/SourceSidebar.tsx
 
 import { useEffect, useRef } from "react";
-import { FigureReference } from "../util/FigureReference";
-import { SourceBlock, parseFigureRefs } from "../util/parseSourceText";
+import { SourceBlock } from "../util/parseSourceText";
 // 画像
 import { FigureList } from "./FigureList";
 import { PatentImageModal } from "./PatentImageModal";
@@ -37,38 +36,21 @@ export const SourceSidebar = ({
     useEffect(() => {
         if (!isOpen || !activeParagraphId) return;
 
-        const el = paragraphRefs.current[activeParagraphId];
-        if (!el) return;
+        const element = paragraphRefs.current[activeParagraphId];
+        if (!element) return;
 
-        el.scrollIntoView({
+        element.scrollIntoView({
             behavior: "smooth",
             block: "center",
         });
 
-        el.classList.add("bg-yellow-100");
+        element.classList.add("bg-yellow-100");
         const timer = setTimeout(() => {
-            el.classList.remove("bg-yellow-100");
+            element.classList.remove("bg-yellow-100");
         }, 2500);
 
         return () => clearTimeout(timer);
     }, [isOpen, activeParagraphId]);
-
-    // 画像参照
-    const renderTextWithFigures = (text: string) =>
-        parseFigureRefs(text).map((part, i) => {
-            if (part.type === "text") {
-                return <span key={i}>{part.text}</span>;
-            }
-
-            return (
-                <FigureReference
-                    key={i}
-                    figureNo={part.figureNo}
-                    images={patentImages}
-                    onSelect={setSelectedImage}
-                />
-            );
-        });
 
     return (
         <aside
@@ -78,29 +60,32 @@ export const SourceSidebar = ({
         w-105 max-w-[40vw] bg-white border-l border-gray-200
         transform transition-transform duration-250 ease-out
         flex flex-col
-        ${isOpen ? "translate-x-0" : "translate-x-full"}
-      `}>
+        ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
             {/* サイドバーヘッダー */}
             <header className="flex justify-between items-center gap-4 py-3 px-4 border-b border-gray-200">
-                <h2 className="text-lg font-bold">原文</h2>
-                <span className="text-sm pt-0.5">{fileName}</span>
+                <div className="w-80 flex items-center gap-3">
+                    <h2 className="text-lg font-bold whitespace-nowrap">
+                        原文
+                    </h2>
+                    <span className="text-sm pt-1 truncate">{fileName}</span>
+                </div>
                 <button
                     onClick={onClose}
-                    className="ml-auto cursor-pointer text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors"
+                    className="ml-auto text-xl cursor-pointer text-gray-500 hover:text-gray-700 rounded hover:bg-gray-100 transition-colors"
                     aria-label="閉じる">
                     ✕
                 </button>
             </header>
 
             {/* 本文エリア */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
                 {sourceBlocks.map((block, index) => {
                     if (block.type === "paragraph") {
                         return (
                             <div
                                 key={index}
-                                ref={(el) => {
-                                    paragraphRefs.current[block.id] = el;
+                                ref={(element) => {
+                                    paragraphRefs.current[block.id] = element;
                                 }}
                                 data-paragraph-id={block.id}
                                 className="rounded px-2 py-1 transition-colors">
@@ -108,7 +93,7 @@ export const SourceSidebar = ({
                                     [段落: {block.id}]
                                 </div>
                                 <div className="whitespace-pre-wrap text-sm">
-                                    {renderTextWithFigures(block.text)}
+                                    {block.text}
                                 </div>
                             </div>
                         );
@@ -118,11 +103,12 @@ export const SourceSidebar = ({
                         <div
                             key={index}
                             className="whitespace-pre-wrap text-sm">
-                            {renderTextWithFigures(block.text)}
+                            {block.text}
                         </div>
                     );
                 })}
             </div>
+
             <FigureList images={patentImages} onSelect={setSelectedImage} />
 
             <PatentImageModal
