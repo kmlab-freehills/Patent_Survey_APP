@@ -68,6 +68,17 @@ export const GeneratingScreen = ({
 
     const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
 
+    // 表示テキストの決定
+    const previewText = useMemo(() => {
+        // 要約が存在し、かつ空文字でない場合は要約を使用
+        if (patentData.abstract && patentData.abstract.trim().length > 0) {
+            return patentData.abstract;
+        }
+        // 要約がない場合は全文から500文字切り出し + "..."
+        const snippet = fullText.slice(0, 200);
+        return fullText.length > 200 ? `${snippet}...` : snippet;
+    }, [patentData.abstract, fullText]);
+
     /**
      * 共通ストリーミング処理ヘルパー
      * @param url APIエンドポイント
@@ -169,26 +180,38 @@ export const GeneratingScreen = ({
                 {/* --- スクリーンヘッダー --- */}
                 <div>
                     <div className="flex justify-between items-end mb-4">
-                        <div>
+                        {/* 見出し */}
+                        <div className="min-w-0 flex-1 mr-4">
                             <h2 className="text-lg font-medium text-slate-800 mb-1 flex items-center gap-2">
-                                <FileText className="text-blue-600" size={24} />
-                                抽出されたテキスト
+                                <FileText
+                                    className="text-blue-600 shrink-0"
+                                    size={24}
+                                />
+                                <span className="truncate">
+                                    抽出されたテキスト
+                                </span>
+                                <span className="truncate text-xs pt-1.5 text-slate-600">プレビュー</span>
                             </h2>
-                            <p className="text-slate-500 text-sm">
-                                ファイル名：
-                                <span className="font-medium text-slate-700">
+                            {/* ファイル名表示 */}
+                            <div className="text-slate-500 text-sm flex items-center">
+                                <span className="shrink-0">ファイル名：</span>
+                                <span
+                                    className="font-medium text-slate-700 truncate"
+                                    title={fileName}>
                                     {fileName}
                                 </span>
-                            </p>
+                            </div>
                         </div>
-                        {/* 原文参照サイドバー開閉ボタン */}
-                        <SourceSidebarButton
-                            setIsSourceOpen={setIsSourceOpen}
-                        />
+                        {/* 原文表示サイドバー開閉ボタン */}
+                        <div className="shrink-0">
+                            <SourceSidebarButton
+                                setIsSourceOpen={setIsSourceOpen}
+                            />
+                        </div>
                     </div>
 
                     <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 whitespace-break-spaces break-word max-h-60 overflow-y-auto">
-                        {patentData.abstract}
+                        {previewText}
                     </div>
                 </div>
 
@@ -324,7 +347,7 @@ const SourceSidebarButton = ({
     return (
         <button
             onClick={() => setIsSourceOpen((prev) => !prev)}
-            className="ml-auto flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all">
+            className="text-nowrap ml-auto flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all">
             <PanelRight size={16} />
             <span>原文を表示</span>
         </button>
