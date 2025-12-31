@@ -15,6 +15,8 @@
 -   **LLM による多層的な解析**:
     -   **事実の抽出**: 原文に基づく正確な情報抽出（Text/Image to Text）
     -   **アイデア生成**: 技術を応用した新規ビジネスアイデアの提案
+-   **対話機能**:
+    -   基になった特許や生成されたアイデアに対し、LLM との対話を通じてサポート
 -   **特許原文と照合できる UI（根拠確認用）**:
     -   AI の回答（例: `[段落: 0001]`）をクリックすると、原文の該当箇所へジャンプ
     -   抽出された図面の参照機能
@@ -112,7 +114,8 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ---
 
-## ディレクトリ構造（2025/12/31 時点）
+## ディレクトリ構造（2026/1/1 時点）
+
 ```
 Patent_Survey_APP
 ├─ backend
@@ -139,27 +142,30 @@ Patent_Survey_APP
 ├─ docker-compose.yml
 ├─ frontend
 │  ├─ app
-│  │  ├─ chat-ui-test
-│  │  │  ├─ ChatInput.tsx
-│  │  │  ├─ MessageList.tsx
-│  │  │  └─ page.tsx
 │  │  ├─ favicon.ico
 │  │  ├─ globals.css
 │  │  ├─ home
 │  │  │  ├─ idea
 │  │  │  │  ├─ components
-│  │  │  │  │  ├─ FigureList.tsx
-│  │  │  │  │  ├─ PatentImageModal.tsx
-│  │  │  │  │  └─ SourceSidebar.tsx
-│  │  │  │  ├─ GeneratingScreen.tsx
-│  │  │  │  ├─ page.tsx
-│  │  │  │  ├─ PatentUploadUI.tsx
-│  │  │  │  └─ util
-│  │  │  │     ├─ CopyButton.tsx
-│  │  │  │     ├─ MarkdownRenderer.tsx
-│  │  │  │     ├─ parseSourceText.ts
-│  │  │  │     ├─ patentFormatter.ts
-│  │  │  │     └─ ReferenceText.tsx
+│  │  │  │  │  ├─ screen
+│  │  │  │  │  │  ├─ GeneratingScreen.tsx
+│  │  │  │  │  │  └─ PatentUploadScreen.tsx
+│  │  │  │  │  ├─ section
+│  │  │  │  │  │  ├─ AnalysisSection.tsx
+│  │  │  │  │  │  ├─ ChatSection.tsx
+│  │  │  │  │  │  ├─ HeaderSection.tsx
+│  │  │  │  │  │  ├─ IdeaSection.tsx
+│  │  │  │  │  │  └─ PreviewSection.tsx
+│  │  │  │  │  ├─ sidebar
+│  │  │  │  │  │  ├─ FigureList.tsx
+│  │  │  │  │  │  ├─ PatentImageModal.tsx
+│  │  │  │  │  │  ├─ sourcePatentTextProcess.ts
+│  │  │  │  │  │  └─ SourceSidebar.tsx
+│  │  │  │  │  └─ util
+│  │  │  │  │     ├─ ActionButton.tsx
+│  │  │  │  │     ├─ CopyButton.tsx
+│  │  │  │  │     └─ MarkdownRenderer.tsx
+│  │  │  │  └─ page.tsx
 │  │  │  ├─ layout.tsx
 │  │  │  └─ page.tsx
 │  │  ├─ layout.tsx
