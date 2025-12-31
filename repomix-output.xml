@@ -370,55 +370,6 @@ export default function ChatPage() {
 }
 </file>
 
-<file path="frontend/app/home/idea/util/CopyButton.tsx">
-"use client";
-
-import { Check, Copy } from "lucide-react";
-import { useState } from "react";
-
-// テキストをクリップボードにコピーするボタンコンポーネント
-export const CopyButton = ({
-    text,
-    className = "",
-}: {
-    text: string;
-    className?: string;
-}) => {
-    const [isCopied, setIsCopied] = useState(false);
-
-    const handleCopy = async () => {
-        if (!text) return;
-
-        try {
-            await navigator.clipboard.writeText(text);
-            setIsCopied(true);
-            // 2秒後にアイコンを元に戻す
-            setTimeout(() => {
-                setIsCopied(false);
-            }, 2000);
-        } catch (err) {
-            console.error("Failed to copy text: ", err);
-        }
-    };
-
-    return (
-        <button
-            onClick={handleCopy}
-            disabled={!text || isCopied}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border transition-all 
-                ${
-                    isCopied
-                        ? "bg-green-50 text-green-700 border-green-200"
-                        : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700"
-                } ${className}`}
-            title="クリップボードにコピー">
-            {isCopied ? <Check size={14} /> : <Copy size={14} />}
-            <span>{isCopied ? "コピー完了" : "コピー"}</span>
-        </button>
-    );
-};
-</file>
-
 <file path="frontend/app/MainLayout.tsx">
 // Patent_Survey_APP/frontend/app/MainLayout.tsx
 
@@ -1584,59 +1535,51 @@ export const PatentImageModal = ({ image, onClose }: PatentImageModalProps) => {
 };
 </file>
 
-<file path="frontend/app/home/idea/util/MarkdownRenderer.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/util/MarkdownRenderer.tsx
+<file path="frontend/app/home/idea/util/CopyButton.tsx">
+"use client";
 
-import React from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { ReferenceText } from "./ReferenceText";
-import "@/styles/markdown_style.css";
+import { Check, Copy } from "lucide-react";
+import { useState } from "react";
 
-type MarkdownRendererProps = {
-    content: string;
-    onClickParagraph?: (id: string) => void;
-};
+// テキストをクリップボードにコピーするボタンコンポーネント
+export const CopyButton = ({
+    text,
+    className = "",
+}: {
+    text: string;
+    className?: string;
+}) => {
+    const [isCopied, setIsCopied] = useState(false);
 
-export const MarkdownRenderer = ({ content, onClickParagraph }: MarkdownRendererProps) => {
+    const handleCopy = async () => {
+        if (!text) return;
+
+        try {
+            await navigator.clipboard.writeText(text);
+            setIsCopied(true);
+            // 2秒後にアイコンを元に戻す
+            setTimeout(() => {
+                setIsCopied(false);
+            }, 2000);
+        } catch (err) {
+            console.error("Failed to copy text: ", err);
+        }
+    };
+
     return (
-        <div className="markdown break-word">
-            <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                    p({ children }) {
-                        return (
-                            <p>
-                                {React.Children.map(children, (child) => (
-                                    <ReferenceText>{child}</ReferenceText>
-                                ))}
-                            </p>
-                        );
-                    },
-                    li({ children }) {
-                        return (
-                            <li>
-                                {React.Children.map(children, (child) => (
-                                    <ReferenceText onClickParagraph={onClickParagraph}>
-                                        {child}
-                                    </ReferenceText>
-                                ))}
-                            </li>
-                        );
-                    },
-                    blockquote({ children }) {
-                        return (
-                            <blockquote>
-                                {React.Children.map(children, (child) => (
-                                    <ReferenceText>{child}</ReferenceText>
-                                ))}
-                            </blockquote>
-                        );
-                    },
-                }}>
-                {content}
-            </ReactMarkdown>
-        </div>
+        <button
+            onClick={handleCopy}
+            disabled={!text || isCopied}
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border transition-all 
+                ${
+                    isCopied
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700"
+                } ${className}`}
+            title="クリップボードにコピー">
+            {isCopied ? <Check size={14} /> : <Copy size={14} />}
+            <span>{isCopied ? "コピー完了" : "回答をコピー"}</span>
+        </button>
     );
 };
 </file>
@@ -1768,23 +1711,6 @@ export default function Home() {
             <div className="max-w-7xl mx-auto space-y-6">ホーム画面</div>
         </>
     );
-}
-</file>
-
-<file path="frontend/styles/chat_input_style.css">
-/* Patent_Survey_APP/frontend/styles/chat_input_style.css */
-
-textarea::-webkit-scrollbar {
-    right: 10px;
-    width: 8px;
-    background: #f0f0f0;
-}
-textarea::-webkit-scrollbar-thumb {
-    background: #b3c6ff;
-    border-radius: 4px;
-}
-textarea::-webkit-scrollbar-thumb:hover {
-    background: #5b8cff;
 }
 </file>
 
@@ -2255,105 +2181,6 @@ EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 </file>
 
-<file path="backend/src/func/generate_func.py">
-# Patent_Survey_APP/backend/src/func/generate_func.py
-
-from google.genai import types
-from google.genai.types import GenerateContentConfig
-
-# ============================================================
-# テキスト生成実行関数
-# ============================================================
-
-
-def generate_content(prompt, client, tool_mode: str, system_instruction=None):
-    """
-    tool_mode:
-        "text"       : ツールなし（純粋なテキスト生成）
-        "search"     : Google Search のみ
-        "search_url" : URL context + Google Search
-    """
-
-    tools = None
-
-    # テキスト生成のみ
-    if tool_mode == "text":
-        pass
-
-    # Google Searchのみ
-    elif tool_mode == "search":
-        grounding_tool = types.Tool(google_search=types.GoogleSearch())
-        tools = [grounding_tool]
-
-    # URL context + Google Search を両方指定
-    elif tool_mode == "search_url":
-        tools = [
-            {"url_context": {}},
-            {"google_search": {}},
-        ]
-
-    else:
-        raise ValueError(f"Unknown tool_mode: {tool_mode}")
-
-    # config生成ツールがある場合のみ生成
-    if tools is not None:
-        config = GenerateContentConfig(
-            tools=tools,
-            system_instruction=system_instruction,
-        )
-    else:
-        config = types.GenerateContentConfig(
-            system_instruction=system_instruction,
-        )
-
-    response = client.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=config,
-    )
-
-    return response
-
-
-# ============================================================
-# ストリーミング生成補助関数
-# ============================================================
-
-
-def stream(response_stream):
-    full_text = ""
-    thoughts = ""
-    answer = ""
-
-    for chunk in response_stream:
-        if (
-            not chunk.candidates
-        ):  # ツール呼び出し中などで candidates が None の場合があるので防御的に
-            continue
-
-        for part in chunk.candidates[0].content.parts:
-            if not getattr(part, "text", None):
-                continue  # 何も送らない
-
-            # 思考テキスト
-            if getattr(part, "thought", False):
-                if not thoughts:
-                    yield ""
-                thoughts += part.text
-                full_text += part.text
-                yield part.text
-
-            # 回答テキスト
-            else:
-                if not answer:
-                    yield ""
-                answer += part.text
-                full_text += part.text
-                yield part.text
-
-    return
-</file>
-
 <file path="backend/src/func/patent_images.py">
 # Patent_Survey_APP/backend/src/func/patent_images.py
 
@@ -2431,121 +2258,6 @@ def extract_figures_from_pdf_bytes(
     return figures
 </file>
 
-<file path="backend/src/prompt/system_prompt.py">
-# Patent_Survey_APP/backend/src/prompt/system_prompt.py
-
-SYSTEM_PROMPT_PATENT = """
-# システムプロンプト: 特許解析サポートAI
-
-## 第1章 基本原則
-
-### 1-1. あなたの役割
-
-あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
-ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
-
-### 1-2. 3つの核心原則
-
-### 1. 透明性
-
-- 情報源を明示する
-- 推論過程を隠さない
-- 不確実性を認める
-
-### 2: 誠実性
-
-- 事実と推測を混同しない
-- 限界を認識する
-- 知らないことを知らないと言う
-
-### 3: 検証可能性
-
-- すべての主張に根拠を示す
-- ユーザーが確認できる形式で提示する
-- 追跡可能性を常に確保する
-
----
-
-## 第2章 情報の3層構造
-
-あなたが扱う情報は、以下の3つの層に明確に分類されます：
-
-### 【第1層: 検証可能な事実】
-
-- 特許文書に明記された情報
-- 直接観測・引用できる内容
-- **必ず出典を明記**
-    - 例: [段落: xxxx]
-
-### 【第2層: 論理的推論】
-
-- 第1層の事実から導かれる推論
-- 特許文書内の複数情報の統合
-- **推論であることを明示**
-    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
-
-### 【第3層: 創造的応用】
-
-- 事実を新しい文脈に適用
-- 市場ニーズや応用可能性の想定
-- **明確に[推測]とマーク**
-    - 例: Xは、Zに応用できる可能性がある。[推測]
-
----
-
-## 第3章 出典明記の標準規則
-
-### 3-1. 出典の必須明記
-
-以下の情報には、**必ず出典を明記**してください：
-
-1. **特許文書からの直接引用・要約**
-2. **数値データ、定量情報**
-3. **技術的構造の詳細**
-4. **機能・動作の具体的説明**
-5. **請求項の内容**
-
-### 3-2. 出典の記法（標準形式）
-
-以下の統一された記法を使用してください：
-
-```
-- 段落 --> [段落: xxxx]
-- 複数段落 --> [段落: xxxx], [段落: yyyy]
-- 請求項 --> [請求項: x]
-- 図面 --> [図: x]
-(※ xは数字に置き換える)
-```
-
-**禁止例：**
-
-```
-誤: [段落: 0013, 0014]  # 入れ子にしない
-誤: [0013]              # 何の番号か不明
-誤: (段落0013)          # 記法の不統一
-```
-
-### 3-3. 複数出典の扱い
-
-同じ情報が複数箇所に記載されている場合：
-
-**原則: 代表的な1-2箇所のみを記載**
-
-ただし、以下の場合は複数出典が有益：
-
-- 異なる側面を示す場合（構造と機能）
-- 異なる情報源タイプ（請求項と実施例）
-
-### 3-4. 出典なしで記述してよい場合
-
-以下は出典を省略可：
-
-- 明らかに文書全体の前提となる基本概念
-- 文書タイトルや技術分野
-
-""".strip()
-</file>
-
 <file path="backend/src/schemas/patent_schemas.py">
 # Patent_Survey_APP/backend/src/schemas/patent_schemas.py
 
@@ -2590,72 +2302,6 @@ class PatentUploadResponse(BaseModel):
     patent_id: str
     patent_data: PatentContent  # ここで上記のクラスをネストする
     images: list[PatentImage]
-</file>
-
-<file path="backend/src/storage/patent_store.py">
-# backend/src/storage/patent_store.py
-
-import os
-import shutil
-from pathlib import Path
-from typing import Dict # 辞書型
-from uuid import uuid4 # ID生成
-
-# ==========================================
-# 1. 特許テキストデータ（idで管理）
-# ==========================================
-
-# サーバ再起動で消える一時ストレージ（DBを使わず変数をアプリ内で共有する）
-
-patent_store: Dict[str, object] = {}
-
-
-# 保存用
-def save_patent(patent_doc) -> str:
-    patent_id = str(uuid4())
-    patent_store[patent_id] = patent_doc  # {id: 本文}
-    return patent_id
-
-
-# 取得用
-def get_patent(patent_id: str):
-    return patent_store.get(patent_id)
-
-
-# ==========================================
-# 2. 特許画像データ（一時フォルダで管理）
-# ==========================================
-
-# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
-
-
-# .parent.parent.parent で src -> storage -> backend へ遡る
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-
-# 2. プロジェクトルート直下に一時フォルダを作成
-STATIC_DIR_NAME = "temp_patents"
-STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
-
-STATIC_BASE_URL = "/static/patents"
-
-
-def get_patent_figure_dir(patent_id: str) -> str:
-    # Pathオブジェクトを使って結合し、文字列で返す
-    path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
-    return str(path)
-
-
-# アクセス用URL作成
-def build_figure_url(patent_id: str, filename: str) -> str:
-    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
-
-
-# アプリ終了時に呼ばれるクリーンアップ関数
-def cleanup_temp_files():
-    if os.path.exists(STATIC_BASE_PATH):
-        # フォルダの中身ごと完全に削除
-        shutil.rmtree(STATIC_BASE_PATH)
-        print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
 </file>
 
 <file path="frontend/.gitignore">
@@ -2876,6 +2522,63 @@ export const SourceSidebar = ({
 };
 </file>
 
+<file path="frontend/app/home/idea/util/MarkdownRenderer.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/util/MarkdownRenderer.tsx
+
+import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { ReferenceText } from "./ReferenceText";
+import "@/styles/markdown_style.css";
+
+type MarkdownRendererProps = {
+    content: string;
+    onClickParagraph?: (id: string) => void;
+};
+
+export const MarkdownRenderer = ({ content, onClickParagraph }: MarkdownRendererProps) => {
+    return (
+        <div className="markdown break-word">
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    p({ children }) {
+                        return (
+                            <p>
+                                {React.Children.map(children, (child) => (
+                                    <ReferenceText>{child}</ReferenceText>
+                                ))}
+                            </p>
+                        );
+                    },
+                    li({ children }) {
+                        return (
+                            <li>
+                                {React.Children.map(children, (child) => (
+                                    <ReferenceText onClickParagraph={onClickParagraph}>
+                                        {child}
+                                    </ReferenceText>
+                                ))}
+                            </li>
+                        );
+                    },
+                    blockquote({ children }) {
+                        return (
+                            <blockquote>
+                                {React.Children.map(children, (child) => (
+                                    <ReferenceText>{child}</ReferenceText>
+                                ))}
+                            </blockquote>
+                        );
+                    },
+                }}>
+                {content}
+            </ReactMarkdown>
+        </div>
+    );
+};
+</file>
+
 <file path="frontend/app/home/layout.tsx">
 // Patent_Survey_APP/frontend/app/home/layout.tsx
 
@@ -2891,6 +2594,23 @@ export default function Layout({
             <MainLayout>{children}</MainLayout>
         </>
     );
+}
+</file>
+
+<file path="frontend/styles/chat_input_style.css">
+/* Patent_Survey_APP/frontend/styles/chat_input_style.css */
+
+textarea::-webkit-scrollbar {
+    right: 10px;
+    width: 8px;
+    background: #f0f0f0;
+}
+textarea::-webkit-scrollbar-thumb {
+    background: #b3c6ff;
+    border-radius: 4px;
+}
+textarea::-webkit-scrollbar-thumb:hover {
+    background: #5b8cff;
 }
 </file>
 
@@ -3027,119 +2747,573 @@ FRONTEND_URL = os.getenv("FRONTEND_URL")
 CLEANUP_ON_EXIT = os.getenv("CLEANUP_ON_EXIT")
 </file>
 
-<file path="backend/src/routers/generate_api.py">
-# Patent_Survey_APP/backend/src/routers/generate_api.py
+<file path="backend/src/func/generate_func.py">
+# Patent_Survey_APP/backend/src/func/generate_func.py
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from src.func import gemini_client, generate_func
-from src.prompt import idea_prompt, system_prompt
-from src.storage.patent_store import get_patent
-
-## generate_api.py / LLM生成のAPIエンドポイント ##
-
-router = APIRouter(prefix="/generate", tags=["LLM生成"])
-client = gemini_client.client
+from google.genai import types
+from google.genai.types import GenerateContentConfig
 
 # ============================================================
-# リクエストボディのモデル定義
+# テキスト生成実行関数
 # ============================================================
 
 
-# LLMテキスト生成
-class GenerateRequest(BaseModel):
-    prompt: str
-    tool_mode: str
-
-
-# 特許解説
-class GeneratePatentRequest(BaseModel):
-    patent_id: str
-
-
-# アイデア生成
-class GenerateIdeaRequest(BaseModel):
-    patent_id: str
-    explanation_text: str  # フロントエンドから受け取る解説文
-
-
-# ============================================================
-# エンドポイント
-# ============================================================
-
-
-@router.post("/content", summary="テキスト生成")
-async def generate(data: GenerateRequest):
+def generate_content(prompt, client, tool_mode: str, system_instruction=None):
     """
-    Gemini APIを使用してテキストをストリーミング生成
+    tool_mode:
+        "text"       : ツールなし（純粋なテキスト生成）
+        "search"     : Google Search のみ
+        "search_url" : URL context + Google Search
     """
 
-    # ストリーミング生成
-    def stream_output():
-        prompt = data.prompt
-        tool_mode = data.tool_mode
-        response = generate_func.generate_content(prompt, client, tool_mode)
-        for chunk in generate_func.stream(response):
-            if not chunk:
-                continue
-            yield chunk
+    tools = None
 
-    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+    # テキスト生成のみ
+    if tool_mode == "text":
+        pass
 
+    # Google Searchのみ
+    elif tool_mode == "search":
+        grounding_tool = types.Tool(google_search=types.GoogleSearch())
+        tools = [grounding_tool]
 
-# 特許解説
-@router.post("/patent")
-async def generate_from_patent(data: GeneratePatentRequest):
-    # 1. 保存された原文を取得
-    patent_doc = get_patent(data.patent_id)
-    if not patent_doc:
-        raise HTTPException(status_code=404, detail="Patent not found")
+    # URL context + Google Search を両方指定
+    elif tool_mode == "search_url":
+        tools = [
+            {"url_context": {}},
+            {"google_search": {}},
+        ]
 
-    # 2. プロンプト構築
-    prompt = idea_prompt.build_patent_prompt(patent_doc)
+    else:
+        raise ValueError(f"Unknown tool_mode: {tool_mode}")
 
-    # 3. ストリーミング生成
-    def stream_output():
-        response = generate_func.generate_content(
-            prompt=prompt,
-            client=client,
-            tool_mode="text",
-            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+    # config生成ツールがある場合のみ生成
+    if tools is not None:
+        config = GenerateContentConfig(
+            tools=tools,
+            system_instruction=system_instruction,
         )
-        for chunk in generate_func.stream(response):
-            if not chunk:
-                continue
-            yield chunk
-
-    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
-
-
-# アイデア生成
-@router.post("/idea")
-async def generate_idea(data: GenerateIdeaRequest):
-    # 1. 保存された特許原文を取得
-    patent_doc = get_patent(data.patent_id)
-    if not patent_doc:
-        raise HTTPException(status_code=404, detail="Patent not found")
-
-    # 2. プロンプトを構築（解説文 + 原文）
-    prompt = idea_prompt.build_idea_prompt(patent_doc, data.explanation_text)
-
-    # 3. ストリーミング生成
-    def stream_output():
-        response = generate_func.generate_content(
-            prompt=prompt,
-            client=client,
-            tool_mode="text",
-            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+    else:
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
         )
-        for chunk in generate_func.stream(response):
-            if not chunk:
-                continue
-            yield chunk
 
-    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=config,
+    )
+
+    return response
+
+
+# ============================================================
+# マルチターン対話用生成関数（NEW）
+# ============================================================
+
+
+def generate_content_multiturn(contents: list, client, system_instruction: str):
+    """
+    マルチターン対話用の生成関数
+
+    Args:
+        contents: Gemini API の contents 形式
+                [{"role": "user", "parts": [{"text": "..."}]}, ...]
+        client: Gemini client
+        system_instruction: システムプロンプト
+
+    Returns:
+        ストリーミングレスポンス
+    """
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+    )
+
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents=contents,
+        config=config,
+    )
+
+    return response
+
+
+# ============================================================
+# ストリーミング生成補助関数
+# ============================================================
+
+
+def stream(response_stream):
+    full_text = ""
+    thoughts = ""
+    answer = ""
+
+    for chunk in response_stream:
+        if (
+            not chunk.candidates
+        ):  # ツール呼び出し中などで candidates が None の場合があるので防御的に
+            continue
+
+        for part in chunk.candidates[0].content.parts:
+            if not getattr(part, "text", None):
+                continue  # 何も送らない
+
+            # 思考テキスト
+            if getattr(part, "thought", False):
+                if not thoughts:
+                    yield ""
+                thoughts += part.text
+                full_text += part.text
+                yield part.text
+
+            # 回答テキスト
+            else:
+                if not answer:
+                    yield ""
+                answer += part.text
+                full_text += part.text
+                yield part.text
+
+    return
+</file>
+
+<file path="backend/src/prompt/system_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/system_prompt.py
+
+SYSTEM_PROMPT_PATENT = """
+# システムプロンプト: 特許解析サポートAI
+
+## あなたの役割
+
+あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
+ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
+
+## 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 情報の3層構造
+
+あなたが扱う情報は、以下の3つの層に明確に分類されます：
+
+### 【第1層: 検証可能な事実】
+
+- 特許文書に明記された情報
+- 直接観測・引用できる内容
+- **必ず出典を明記**
+    - 例: [段落: xxxx]
+
+### 【第2層: 論理的推論】
+
+- 第1層の事実から導かれる推論
+- 特許文書内の複数情報の統合
+- **推論であることを明示**
+    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
+
+### 【第3層: 創造的応用】
+
+- 事実を新しい文脈に適用
+- 市場ニーズや応用可能性の想定
+- **明確に[推測]とマーク**
+    - 例: Xは、Zに応用できる可能性がある。[推測]
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # **入れ子にしない**
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+### 3. 複数出典の扱い
+
+同じ情報が複数箇所に記載されている場合：
+
+**原則: 代表的な1-2箇所のみを記載**
+
+ただし、以下の場合は複数出典が有益：
+
+- 異なる側面を示す場合（構造と機能）
+- 異なる情報源タイプ（請求項と実施例）
+
+### 4. 出典なしで記述してよい場合
+
+以下は出典を省略可：
+
+- 明らかに文書全体の前提となる基本概念
+- 文書タイトルや技術分野
+
+""".strip()
+
+
+# ============================================================
+# チャット用システムプロンプト
+# ============================================================
+
+
+def build_chat_system_instruction(
+    patent_doc, analysis_text: str = "", idea_text: str = ""
+):
+    """
+    チャット用システムプロンプト生成
+    特許原文と生成済みテキストを文脈として含める
+
+    Args:
+        patent_doc: PatentDocumentオブジェクト
+        analysis_text: 解析結果テキスト（生成済みの場合）
+        idea_text: アイデアテキスト（生成済みの場合）
+
+    Returns:
+        システムプロンプト文字列
+    """
+
+    base_instruction = """
+# システムプロンプト: 特許技術対話サポートAI
+
+## あなたの役割
+
+特許文書の内容を理解したユーザーとの対話を通じて、技術の深い理解と応用を支援します。
+
+## 特許文書が最高権威
+
+- すべての回答は特許文書を基盤としている必要があります。
+- 特許文書に基づく「個別事実」と「一般論」は明確に区別されている必要があります。
+
+---
+
+## 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # **入れ子にしない**
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+---
+
+## 一般論の慎重な扱い
+
+一般論は、具体的な情報源を明示しなかったとしても、説得力があるため**盲信されやすい**です。
+
+そのため、特許に基づく「個別事実」とあなたの学習データに基づく「一般論」は**明確に区別**されている必要があります。
+
+### 一般論の性質
+
+- 特許文書に記載されていない内容です
+- あなたの学習データに基づく推測です
+- あくまで参考情報としての位置づけであり、絶対的な事実ではありません
+
+### 一般論の原則
+
+- 一般論は「方向性を示す」ものであり、「詳細な情報を提供する」ものではありません
+- 一般論であっても、断定的な表現は避けてください
+
+### 一般論提供時のガイドライン
+
+特許文書に明記されていない一般論を提供する際は、必ず注意喚起を実施してください。
+また、詳細情報が必要な場合は、専門文献や外部リソースへの誘導を行ってください。
+
+**提供してよい場合:**
+- ユーザーが明示的に質問している
+- 特許文書に該当記述がない
+- 物理法則や工学知見などの一般論が直接関連する
+
+**提供する際の形式:**
+```
+【特許文書の記述】
+[該当箇所の引用または「該当記述なし」]
+
+【参考: 一般的な工学知識】
+[説明]
+
+【注意】
+[注意事項に関する言及]
+```
+
+**絶対に避けること:**
+- 特許文書の記述を全面否定すること
+- 「実現不可能」という断定
+- 根拠のない数値的断定
+
+### ユーザーに提示する注意事項について
+
+注意事項が定型化してしまうと、ユーザーに対する効果が低下します。
+そのため、文脈に応じた注意喚起を実施してください。
+
+**注意事項の例:**
+```
+(...技術的課題に関する一般論の後)
+【注意】
+上記はAIの学習に基づく一般的な工学的考察であり、この特許技術の具体的な実装における課題ではありません。
+実際の設計では、専門家による詳細な検証が必要です。
+
+(...規制に関する一般論の後)
+【注意】
+上記はAIの学習に基づく一般的な規制環境の概要です。
+実際の運用では、地域・国・用途により異なる規制が適用されるため、法務専門家への相談を推奨します。
+```
+
+---
+
+## 対話の指針
+
+### 質問の意図を理解する
+
+ユーザーの質問は、以下のいずれかに分類されます:
+
+1. **事実確認**: 特許に何が書いてあるか
+   → 該当箇所を引用
+
+2. **技術的詳細**: 仕組みの理解
+   → 特許の記述を基に説明
+
+3. **実現可能性**: 本当にできるのか
+   → 特許の記述 + 不明な点の指摘
+
+4. **応用可能性**: 他に使えないか
+   → 特許の原理を基に推測（`[推測]`付き）
+
+5. **一般知識**: 物理法則や工学的制約など
+   → 上記の「一般論の形式」で提供
+
+6. **その他**: いずれにも該当しない場合
+   → システムプロンプトの原則・指針に沿って誠実な対応を実施
+"""
+
+    # 文脈情報を追加
+    context_section = "\n\n---\n\n## 文脈情報\n\n"
+
+    # 特許原文
+    context_section += "### 特許原文\n\n"
+    context_section += "<document title='Patent'>\n"
+    context_section += patent_doc.get_text()
+    context_section += "\n</document>\n\n"
+
+    # 解析結果（存在する場合）
+    if analysis_text:
+        context_section += "### 特許の解析結果（LLMによる生成）\n\n"
+        context_section += "<document title='Patent-Analysis-by-LLM'>\n"
+        context_section += analysis_text
+        context_section += "\n</document>\n\n"
+
+    # アイデア結果（存在する場合）
+    if idea_text:
+        context_section += "### 応用アイデア（LLMによる生成）\n\n"
+        context_section += "<document title='Patent-Idea-by-LLM'>\n"
+        context_section += idea_text
+        context_section += "\n</document>\n\n"
+
+    context_section += "---\n\n"
+    context_section += "これらの情報を基に、ユーザーの質問に答えてください。"
+
+    # 統合
+    system_instruction = base_instruction + context_section
+
+    return system_instruction.strip()
+</file>
+
+<file path="backend/src/storage/patent_store.py">
+# backend/src/storage/patent_store.py
+
+import os
+import shutil
+from pathlib import Path
+from typing import Any, Dict, List
+from uuid import uuid4  # ID生成
+
+# ==========================================
+# 1. 特許テキストデータ（idで管理）
+# ==========================================
+
+# サーバ再起動で消える一時ストレージ（DBを使わず変数をアプリ内で共有する）
+
+patent_store: Dict[str, object] = {}
+
+
+# 保存用
+def save_patent(patent_doc) -> str:
+    patent_id = str(uuid4())
+    patent_store[patent_id] = patent_doc  # {id: 本文}
+    return patent_id
+
+
+# 取得用
+def get_patent(patent_id: str):
+    return patent_store.get(patent_id)
+
+
+# ==========================================
+# 2. 特許画像データ（一時フォルダで管理）
+# ==========================================
+
+# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
+
+
+# .parent.parent.parent で src -> storage -> backend へ遡る
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# 2. プロジェクトルート直下に一時フォルダを作成
+STATIC_DIR_NAME = "temp_patents"
+STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
+
+STATIC_BASE_URL = "/static/patents"
+
+
+def get_patent_figure_dir(patent_id: str) -> str:
+    # Pathオブジェクトを使って結合し、文字列で返す
+    path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
+    return str(path)
+
+
+# アクセス用URL作成
+def build_figure_url(patent_id: str, filename: str) -> str:
+    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
+
+
+# アプリ終了時に呼ばれるクリーンアップ関数
+def cleanup_temp_files():
+    if os.path.exists(STATIC_BASE_PATH):
+        # フォルダの中身ごと完全に削除
+        shutil.rmtree(STATIC_BASE_PATH)
+        print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
+
+
+# ==========================================
+# 3. チャット履歴管理
+# ==========================================
+
+# Gemini API の contents 形式で保存
+# {patent_id: [{"role": "user", "parts": [{"text": "..."}]}, ...]}
+chat_sessions: Dict[str, List[Dict[str, Any]]] = {}
+
+
+def save_chat_message(patent_id: str, role: str, text: str):
+    """
+    チャット履歴に追加（Gemini contents形式）
+
+    Args:
+        patent_id: 特許ID
+        role: "user" または "model"
+        text: メッセージテキスト
+    """
+    if patent_id not in chat_sessions:
+        chat_sessions[patent_id] = []
+
+    chat_sessions[patent_id].append({"role": role, "parts": [{"text": text}]})
+
+
+def get_chat_history(patent_id: str) -> List[Dict[str, Any]]:
+    """
+    チャット履歴を取得（Gemini contents形式）
+
+    Args:
+        patent_id: 特許ID
+
+    Returns:
+        Gemini API の contents 形式のリスト
+    """
+    return chat_sessions.get(patent_id, [])
+
+
+def clear_chat_history(patent_id: str):
+    """
+    チャット履歴をクリア（将来的な機能拡張用）
+
+    Args:
+        patent_id: 特許ID
+    """
+    if patent_id in chat_sessions:
+        chat_sessions[patent_id] = []
 </file>
 
 <file path="frontend/app/home/idea/util/parseSourceText.ts">
@@ -3328,6 +3502,286 @@ dotenv==0.9.9 # 環境変数
 pypdf==6.5.0 # PDF処理
 python-multipart==0.0.21 # pypdfの依存関係
 matplotlib==3.10.8 # PDFから画像を抽出する際に使用
+</file>
+
+<file path="backend/src/routers/generate_api.py">
+# Patent_Survey_APP/backend/src/routers/generate_api.py
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from src.func import gemini_client, generate_func
+from src.prompt import idea_prompt, system_prompt
+from src.storage.patent_store import (
+    get_chat_history,
+    get_patent,
+    save_chat_message,
+)
+
+## generate_api.py / LLM生成のAPIエンドポイント ##
+
+router = APIRouter(prefix="/generate", tags=["LLM生成"])
+client = gemini_client.client
+
+# ============================================================
+# リクエストボディのモデル定義
+# ============================================================
+
+
+# LLMテキスト生成
+class GenerateRequest(BaseModel):
+    prompt: str
+    tool_mode: str
+
+
+# 特許解析
+class GeneratePatentRequest(BaseModel):
+    patent_id: str
+
+
+# アイデア生成
+class GenerateIdeaRequest(BaseModel):
+    patent_id: str
+    explanation_text: str  # フロントエンドから受け取る解説文
+
+
+# チャットセッション
+class ChatRequest(BaseModel):
+    patent_id: str
+    user_message: str
+    analysis_text: str = ""  # 解析結果（生成済みの場合）
+    idea_text: str = ""  # アイデア結果（生成済みの場合）
+
+
+# ============================================================
+# エンドポイント
+# ============================================================
+
+
+# シンプルなテキスト生成
+@router.post("/content", summary="テキスト生成")
+async def generate(data: GenerateRequest):
+    """
+    Gemini APIを使用してテキストをストリーミング生成
+    """
+
+    # ストリーミング生成
+    def stream_output():
+        prompt = data.prompt
+        tool_mode = data.tool_mode
+        response = generate_func.generate_content(prompt, client, tool_mode)
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# 特許解析
+@router.post("/patent")
+async def generate_from_patent(data: GeneratePatentRequest):
+    # 1. 保存された原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. プロンプト構築
+    prompt = idea_prompt.build_patent_prompt(patent_doc)
+
+    # 3. ストリーミング生成
+    def stream_output():
+        response = generate_func.generate_content(
+            prompt=prompt,
+            client=client,
+            tool_mode="text",
+            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+        )
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# アイデア生成
+@router.post("/idea")
+async def generate_idea(data: GenerateIdeaRequest):
+    # 1. 保存された特許原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. プロンプトを構築（解説文 + 原文）
+    prompt = idea_prompt.build_idea_prompt(patent_doc, data.explanation_text)
+
+    # 3. ストリーミング生成
+    def stream_output():
+        response = generate_func.generate_content(
+            prompt=prompt,
+            client=client,
+            tool_mode="text",
+            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+        )
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# チャットセッション
+@router.post("/chat")
+async def chat_with_context(data: ChatRequest):
+    """
+    特許文脈を保持したマルチターンチャット
+    """
+    # 1. 特許原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. チャット履歴を取得（Gemini contents形式）
+    history = get_chat_history(data.patent_id)
+
+    # 3. 新しいユーザーメッセージを追加
+    history.append({"role": "user", "parts": [{"text": data.user_message}]})
+
+    # 4. システムプロンプトを構築（特許原文 + 生成済みテキストを含む）
+    system_instruction = system_prompt.build_chat_system_instruction(
+        patent_doc=patent_doc,
+        analysis_text=data.analysis_text,
+        idea_text=data.idea_text,
+    )
+
+    # 5. ユーザーメッセージを履歴に保存
+    save_chat_message(data.patent_id, "user", data.user_message)
+
+    # 6. マルチターン生成
+    def stream_output():
+        full_response = ""
+        try:
+            response = generate_func.generate_content_multiturn(
+                contents=history, client=client, system_instruction=system_instruction
+            )
+
+            for chunk in generate_func.stream(response):
+                if not chunk:
+                    continue
+                full_response += chunk
+                yield chunk
+
+            # 完了後、モデルの応答を履歴に保存
+            save_chat_message(data.patent_id, "model", full_response)
+
+        except Exception as e:
+            error_msg = f"生成エラー: {str(e)}"
+            print(error_msg)
+            yield error_msg
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+</file>
+
+<file path="frontend/app/globals.css">
+/* Patent_Survey_APP/frontend/app/grobals.css */
+
+@import "tailwindcss";
+
+:root {
+    --background: #ffffff;
+    --foreground: #171717;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-family: var(--font-noto-sans-jp);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0a0a0a;
+        --foreground: #ededed;
+    }
+}
+
+/* 参照 */
+.ref {
+    @apply text-slate-400 inline-flex items-center text-xs font-medium;
+}
+
+.ref-paragraph {
+    @apply hover:underline hover:text-blue-700 cursor-default;
+}
+
+.ref-meta {
+    @apply cursor-default;
+}
+
+body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
+}
+</file>
+
+<file path="frontend/app/home/idea/page.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/page.tsx
+
+"use client";
+
+import type { components } from "@/types/schema"; // 自動生成型定義
+import { useState } from "react";
+import { GeneratingScreen } from "./GeneratingScreen";
+import { PatentUploadUI } from "./PatentUploadUI";
+
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+// 画面状態の型定義
+type ScreenState = "upload" | "generating" | "result";
+
+export default function IdeaPage() {
+    const [screen, setScreen] = useState<ScreenState>("upload");
+
+    // 特許PDF情報 & 解析データ
+    const [patentId, setPatentId] = useState<string>("");
+    const [fileName, setFileName] = useState<string>("");
+    const [patentData, setPatentData] = useState<PatentContent | null>(null);
+    const [patentImages, setPatentImages] = useState<PatentImage[]>([]);
+
+    return (
+        <>
+            {/* アップロード画面 */}
+            {screen === "upload" && (
+                <PatentUploadUI
+                    setScreen={setScreen}
+                    setPatentId={setPatentId}
+                    setFileName={setFileName}
+                    setPatentData={setPatentData}
+                    setPatentImages={setPatentImages}
+                />
+            )}
+
+            {/* 生成・解析画面 (データが存在する場合のみ表示) */}
+            {screen === "generating" && patentData && (
+                <GeneratingScreen
+                    fileName={fileName}
+                    patentId={patentId}
+                    patentData={patentData}
+                    patentImages={patentImages}
+                />
+            )}
+
+            {/* 結果画面 (将来拡張用) */}
+            {screen === "result" && <div>Result</div>}
+        </>
+    );
+}
 </file>
 
 <file path="backend/src/prompt/idea_prompt.py">
@@ -3565,104 +4019,96 @@ def build_idea_prompt(patent_doc, explanation_text):
     return prompt
 </file>
 
-<file path="frontend/app/globals.css">
-/* Patent_Survey_APP/frontend/app/grobals.css */
+<file path="backend/src/routers/patent_process_api.py">
+# Patent_Survey_APP/backend/src/routers/patent_process_api.py
 
-@import "tailwindcss";
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from src.func.patent_images import extract_figures_from_pdf_bytes
+from src.func.patent_pdf import patent_text_extraction
+from src.schemas import patent_schemas
+from src.storage.patent_store import (
+    build_figure_url,
+    get_patent_figure_dir,
+    save_patent,
+)
 
-:root {
-    --background: #ffffff;
-    --foreground: #171717;
-}
+## upload_api.py / 特許PDFを処理するエンドポイント ##
 
-@theme inline {
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --font-family: var(--font-noto-sans-jp);
-    --font-sans: var(--font-geist-sans);
-    --font-mono: var(--font-geist-mono);
-}
+router = APIRouter(prefix="/patent", tags=["PDF処理"])
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0a0a0a;
-        --foreground: #ededed;
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# ============================================================
+# エンドポイント
+# ============================================================
+
+
+@router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
+async def upload_pdf(file: UploadFile = File(...)):
+    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
+    pdf_bytes = await file.read()  # PDF を bytes として取得
+
+    if len(pdf_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"ファイルサイズが上限({MAX_FILE_SIZE / 1024 / 1024}MB)を超えています",
+        )
+
+    # テキスト抽出＆整形&クラスオブジェクト化
+    patent_doc = patent_text_extraction(pdf_bytes)
+
+    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
+    patent_id = save_patent(patent_doc)
+
+    # 図の抽出 & 保存
+    figure_dir = get_patent_figure_dir(patent_id)
+    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
+
+    # 図にメタデータを付与（URLなど）
+    images = [
+        {
+            "id": fig["id"],
+            "label": fig["label"],
+            "page": fig["page"],
+            "url": build_figure_url(patent_id, fig["filename"]),
+        }
+        for fig in figures
+    ]
+
+    return {
+        "filename": file.filename,
+        "patent_id": patent_id,
+        "patent_data": patent_doc.__dict__,
+        "images": images,
     }
-}
-
-/* 参照 */
-.ref {
-    @apply text-slate-400 inline-flex items-center text-xs font-medium;
-}
-
-.ref-paragraph {
-    @apply hover:underline hover:text-blue-700 cursor-default;
-}
-
-.ref-meta {
-    @apply cursor-default;
-}
-
-body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
-}
 </file>
 
-<file path="frontend/app/home/idea/page.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/page.tsx
+<file path="docker-compose.yml">
+services: # 管理するコンテナのリスト
+    backend: # サービス名 `backend`
+        build: ./backend # `./backend/Dockerfile` を使ってイメージをビルド
+        ports: # ポートマッピング
+            - "8000:8000" # コンテナの8000番ポート --> `http://localhost:8000` でアクセスできる
+        volumes: # ボリュームマウント
+            - ./backend:/app # ホストの `./backend` --> コンテナの `/app` --> ホストのコードを変更すると、即座にコンテナに反映される
+        environment:
+            - ENV=development
+        command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-"use client";
-
-import type { components } from "@/types/schema"; // 自動生成型定義
-import { useState } from "react";
-import { GeneratingScreen } from "./GeneratingScreen";
-import { PatentUploadUI } from "./PatentUploadUI";
-
-type PatentContent = components["schemas"]["PatentContent"];
-type PatentImage = components["schemas"]["PatentImage"];
-
-// 画面状態の型定義
-type ScreenState = "upload" | "generating" | "result";
-
-export default function IdeaPage() {
-    const [screen, setScreen] = useState<ScreenState>("upload");
-
-    // 特許PDF情報 & 解析データ
-    const [patentId, setPatentId] = useState<string>("");
-    const [fileName, setFileName] = useState<string>("");
-    const [patentData, setPatentData] = useState<PatentContent | null>(null);
-    const [patentImages, setPatentImages] = useState<PatentImage[]>([]);
-
-    return (
-        <>
-            {/* アップロード画面 */}
-            {screen === "upload" && (
-                <PatentUploadUI
-                    setScreen={setScreen}
-                    setPatentId={setPatentId}
-                    setFileName={setFileName}
-                    setPatentData={setPatentData}
-                    setPatentImages={setPatentImages}
-                />
-            )}
-
-            {/* 生成・解析画面 (データが存在する場合のみ表示) */}
-            {screen === "generating" && patentData && (
-                <GeneratingScreen
-                    fileName={fileName}
-                    patentId={patentId}
-                    patentData={patentData}
-                    patentImages={patentImages}
-                />
-            )}
-
-            {/* 結果画面 (将来拡張用) */}
-            {screen === "result" && <div>Result</div>}
-        </>
-    );
-}
+    frontend: # サービス名 `frontend`
+        build: ./frontend # `./frontend/Dockerfile` を使ってイメージをビルド
+        ports:
+            - "3000:3000" # コンテナの3000番ポート --> `http://localhost:3000` でアクセスできる
+        volumes:
+            - ./frontend:/app
+            - /app/node_modules # ホストのパスを指定せず、コンテナ専用のボリュームにする --> ホスト側でnpm installが必要 （Anonymous Volume 訳: 匿名ボリューム）
+        environment:
+            - NODE_ENV=development # 開発環境を明示
+            - NEXT_PUBLIC_API_URL=http://backend:8000
+            - WATCHPACK_POLLING=true # ホットリロードの安定化
+        depends_on:
+            - backend # `backend` コンテナを起動してから `frontend` を起動する
+        command: npm run dev # 実行コマンドを明示
 </file>
 
 <file path="frontend/app/home/idea/PatentUploadUI.tsx">
@@ -3912,98 +4358,6 @@ function FileRow({ file, onRemove }: { file: FileItem; onRemove: () => void }) {
 }
 </file>
 
-<file path="backend/src/routers/patent_process_api.py">
-# Patent_Survey_APP/backend/src/routers/patent_process_api.py
-
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from src.func.patent_images import extract_figures_from_pdf_bytes
-from src.func.patent_pdf import patent_text_extraction
-from src.schemas import patent_schemas
-from src.storage.patent_store import (
-    build_figure_url,
-    get_patent_figure_dir,
-    save_patent,
-)
-
-## upload_api.py / 特許PDFを処理するエンドポイント ##
-
-router = APIRouter(prefix="/patent", tags=["PDF処理"])
-
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-
-# ============================================================
-# エンドポイント
-# ============================================================
-
-
-@router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
-    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
-    pdf_bytes = await file.read()  # PDF を bytes として取得
-
-    if len(pdf_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"ファイルサイズが上限({MAX_FILE_SIZE / 1024 / 1024}MB)を超えています",
-        )
-
-    # テキスト抽出＆整形&クラスオブジェクト化
-    patent_doc = patent_text_extraction(pdf_bytes)
-
-    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
-    patent_id = save_patent(patent_doc)
-
-    # 図の抽出 & 保存
-    figure_dir = get_patent_figure_dir(patent_id)
-    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
-
-    # 図にメタデータを付与（URLなど）
-    images = [
-        {
-            "id": fig["id"],
-            "label": fig["label"],
-            "page": fig["page"],
-            "url": build_figure_url(patent_id, fig["filename"]),
-        }
-        for fig in figures
-    ]
-
-    return {
-        "filename": file.filename,
-        "patent_id": patent_id,
-        "patent_data": patent_doc.__dict__,
-        "images": images,
-    }
-</file>
-
-<file path="docker-compose.yml">
-services: # 管理するコンテナのリスト
-    backend: # サービス名 `backend`
-        build: ./backend # `./backend/Dockerfile` を使ってイメージをビルド
-        ports: # ポートマッピング
-            - "8000:8000" # コンテナの8000番ポート --> `http://localhost:8000` でアクセスできる
-        volumes: # ボリュームマウント
-            - ./backend:/app # ホストの `./backend` --> コンテナの `/app` --> ホストのコードを変更すると、即座にコンテナに反映される
-        environment:
-            - ENV=development
-        command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-    frontend: # サービス名 `frontend`
-        build: ./frontend # `./frontend/Dockerfile` を使ってイメージをビルド
-        ports:
-            - "3000:3000" # コンテナの3000番ポート --> `http://localhost:3000` でアクセスできる
-        volumes:
-            - ./frontend:/app
-            - /app/node_modules # ホストのパスを指定せず、コンテナ専用のボリュームにする --> ホスト側でnpm installが必要 （Anonymous Volume 訳: 匿名ボリューム）
-        environment:
-            - NODE_ENV=development # 開発環境を明示
-            - NEXT_PUBLIC_API_URL=http://backend:8000
-            - WATCHPACK_POLLING=true # ホットリロードの安定化
-        depends_on:
-            - backend # `backend` コンテナを起動してから `frontend` を起動する
-        command: npm run dev # 実行コマンドを明示
-</file>
-
 <file path="frontend/app/layout.tsx">
 // Patent_Survey_APP/frontend/app/layout.tsx
 
@@ -4049,617 +4403,6 @@ import { redirect } from "next/navigation";
 export default function Page() {
     redirect("/home");
 }
-</file>
-
-<file path="frontend/app/home/idea/GeneratingScreen.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/GeneratingScreen.tsx
-
-"use client";
-
-import "@/styles/markdown_style.css";
-import {
-    ArrowRight,
-    Bot,
-    CheckCircle2,
-    FileText,
-    Lightbulb,
-    Loader2,
-    Lock,
-    PanelRight,
-    RotateCw, // 再生成
-    Sparkles,
-    type LucideIcon, // アイコンの型
-} from "lucide-react";
-import { useMemo, useState } from "react";
-// 関数コンポーネント
-import { parseSourceText } from "./util/parseSourceText";
-import { formatPatentToString } from "./util/patentFormatter";
-// UIコンポーネント
-import { SourceSidebar } from "./components/SourceSidebar";
-import { CopyButton } from "./util/CopyButton";
-import { MarkdownRenderer } from "./util/MarkdownRenderer"; // 内部に`ReactMarkdown`と`remarkGfm`
-
-// ============================================================
-// 型定義
-// ============================================================
-
-// 特許の型
-import type { components } from "@/types/schema";
-type PatentContent = components["schemas"]["PatentContent"];
-type PatentImage = components["schemas"]["PatentImage"];
-
-// ステップ定義
-const STEPS = [
-    { id: 0, label: "テキスト抽出結果", icon: FileText },
-    { id: 1, label: "AI解析結果", icon: Bot },
-    { id: 2, label: "応用アイデア", icon: Lightbulb },
-] as const;
-
-// Propsの型
-interface GeneratingScreenProps {
-    fileName: string;
-    patentId: string;
-    patentData: PatentContent;
-    patentImages: PatentImage[];
-}
-
-// ============================================================
-// メインコンポーネント
-// ============================================================
-
-export const GeneratingScreen = ({
-    fileName,
-    patentId,
-    patentData,
-    patentImages,
-}: GeneratingScreenProps) => {
-    // ------------------------------------------------------------
-    // State定義
-    // ------------------------------------------------------------
-
-    // ステップ管理
-    const [currentStep, setCurrentStep] = useState<number>(0);
-    const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
-    // 原文参照サイドバー
-    const [isSourceOpen, setIsSourceOpen] = useState(false);
-    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
-    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
-    // 生成テキストデータ
-    const [generatedAnalysisText, setGeneratedAnalysisText] = useState("");
-    const [generatedIdeaText, setGeneratedIdeaText] = useState("");
-    // 生成ステータス管理
-    const [error, setError] = useState<string | null>(null);
-    // アイデア生成UI状態
-    const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
-    const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
-
-    // ------------------------------------------------------------
-    // データ処理
-    // ------------------------------------------------------------
-
-    // 全文取得（一度だけ実行）
-    const fullText = useMemo(() => formatPatentToString(patentData), [patentData]);
-    const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
-
-    // ------------------------------------------------------------
-    // API処理
-    // ------------------------------------------------------------
-
-    // 共通ストリーミング処理ヘルパー
-    const streamResponse = async (
-        url: string, // APIエンドポイント
-        body: object, // POSTに必要なボディ
-        onUpdate: (chunk: string) => void, // チャンク受診時のコールバック
-        onStart: () => void, // 開始時の状態更新コールバック
-        onComplete: () => void // 完了時の状態更新コールバック
-    ) => {
-        onStart();
-        setError(null);
-        try {
-            // リクエスト
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-            // レスポンス判定
-            if (!response.ok) {
-                // HTTPステータスコードに応じたエラー処理
-                if (response.status === 404) {
-                    throw new Error("特許データが見つかりませんでした");
-                } else if (response.status >= 500) {
-                    throw new Error("サーバーエラーが発生しました。時間をおいて再試行してください");
-                } else {
-                    throw new Error(`エラーが発生しました (${response.status})`);
-                }
-            }
-
-            if (!response.body) {
-                throw new Error("レスポンスが空です");
-            }
-            // ストリーム処理準備
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            // ストリーム処理
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                onUpdate(decoder.decode(value, { stream: true }));
-            }
-            // エラーハンドリング
-        } catch (err) {
-            console.error(err);
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("不明なエラーが発生しました");
-            }
-        } finally {
-            onComplete();
-        }
-    };
-
-    // ------------------------------------------------------------
-    // API呼び出しハンドラー
-    // ------------------------------------------------------------
-
-    // 特許解析ハンドラー
-    // 1. 解析開始
-    const handleStartAnalysis = () => {
-        // ステップを移動
-        setCurrentStep(1);
-        setMaxReachedStep((prev) => Math.max(prev, 1));
-        setGeneratedAnalysisText("");
-
-        streamResponse(
-            "http://localhost:8000/generate/patent",
-            { patent_id: patentId },
-            (chunk) => setGeneratedAnalysisText((prev) => prev + chunk),
-            () => setIsGeneratingAnalysis(true),
-            () => setIsGeneratingAnalysis(false)
-        );
-    };
-
-    // 2. アイデア生成開始
-    const handleStartIdea = () => {
-        // ステップを移動
-        setCurrentStep(2);
-        setMaxReachedStep((prev) => Math.max(prev, 2));
-        setGeneratedIdeaText("");
-
-        streamResponse(
-            "http://localhost:8000/generate/idea",
-            { patent_id: patentId, explanation_text: generatedAnalysisText },
-            (chunk) => setGeneratedIdeaText((prev) => prev + chunk),
-            () => setIsGeneratingIdea(true),
-            () => setIsGeneratingIdea(false)
-        );
-    };
-
-    return (
-        <div className="flex overflow-hidden p-8 h-screen-minus-header">
-            <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
-                {/* ヘッダー情報 */}
-                <HeaderInfo fileName={fileName} setIsSourceOpen={setIsSourceOpen} />
-
-                {/* タブナビゲーション */}
-                <StepTabs
-                    currentStep={currentStep}
-                    maxReachedStep={maxReachedStep}
-                    onTabClick={setCurrentStep}
-                />
-
-                {/* コンテンツエリア (スクロール可能領域) */}
-                <div className="flex-1 overflow-y-auto min-h-0 py-6 px-1">
-                    {/* STEP 0: テキスト抽出結果 */}
-                    {currentStep === 0 && (
-                        <PreviewSection
-                            text={fullText}
-                            onStart={handleStartAnalysis}
-                            // ▼既に解析結果があるか判定
-                            hasGenerated={generatedAnalysisText.length > 0}
-                        />
-                    )}
-
-                    {/* STEP 1: AI解析 */}
-                    {currentStep === 1 && (
-                        <AnalysisSection
-                            text={generatedAnalysisText}
-                            isGenerating={isGeneratingAnalysis}
-                            error={error}
-                            onNext={handleStartIdea}
-                            // ▼すでにアイデア結果があるか判定
-                            hasNextGenerated={generatedIdeaText.length > 0}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
-                        />
-                    )}
-
-                    {/* STEP 2: アイデア */}
-                    {currentStep === 2 && (
-                        <IdeaSection
-                            text={generatedIdeaText}
-                            isGenerating={isGeneratingIdea}
-                            error={error}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
-                        />
-                    )}
-                </div>
-            </div>
-
-            {/* 原文サイドバー (常にレンダリングしておき、表示状態を制御) */}
-            {isSourceOpen && (
-                <SourceSidebar
-                    isOpen={isSourceOpen}
-                    onClose={() => setIsSourceOpen(false)}
-                    fileName={fileName}
-                    sourceBlocks={sourceBlocks}
-                    activeParagraphId={activeParagraphId}
-                    patentImages={patentImages}
-                    selectedImage={selectedImage}
-                    setSelectedImage={setSelectedImage}
-                />
-            )}
-        </div>
-    );
-};
-
-// ============================================================
-// サブコンポーネント
-// ============================================================
-
-// ------------------------------------------------------------
-// 1. ヘッダー情報
-// ------------------------------------------------------------
-
-interface HeaderInfoProps {
-    fileName: string;
-    setIsSourceOpen: (v: boolean) => void;
-}
-
-const HeaderInfo = ({ fileName, setIsSourceOpen }: HeaderInfoProps) => (
-    <div className="flex justify-between items-center mb-6 shrink-0">
-        <div className="min-w-0 mr-4">
-            <h2 className="text-xl font-bold text-slate-800 mb-1">特許解析・アイデア生成</h2>
-            <div className="text-slate-500 text-sm flex items-center">
-                <span className="shrink-0">対象ファイル：</span>
-                <span className="font-medium text-slate-700 truncate max-w-md" title={fileName}>
-                    {fileName}
-                </span>
-            </div>
-        </div>
-        {/* 原文表示サイドバー開閉ボタン */}
-        <button
-            onClick={() => setIsSourceOpen(true)}
-            className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
-            <PanelRight size={16} />
-            <span>原文を隣に表示</span>
-        </button>
-    </div>
-);
-
-// ----------------------------------------------------------------------
-// 2. ステップタブナビゲーション
-// ----------------------------------------------------------------------
-
-interface StepTabsProps {
-    currentStep: number;
-    maxReachedStep: number; // 最大到達ステップ（未到達には特定のアクションを実行するまでロック）
-    onTabClick: (step: number) => void;
-}
-
-const StepTabs = ({ currentStep, maxReachedStep, onTabClick }: StepTabsProps) => {
-    return (
-        <div className="flex border-b border-slate-200 mb-2 shrink-0">
-            {STEPS.map((step) => {
-                const isActive = currentStep === step.id;
-                const isEnabled = step.id <= maxReachedStep;
-                const isCompleted = step.id < maxReachedStep;
-
-                // ロック中ならLock、それ以外は元のアイコン
-                const Icon = !isEnabled ? Lock : step.icon;
-
-                return (
-                    <button
-                        key={step.id}
-                        onClick={() => isEnabled && onTabClick(step.id)}
-                        disabled={!isEnabled}
-                        className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all
-                ${
-                    isActive
-                        ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/50"
-                        : isEnabled
-                        ? "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                        : "text-slate-300 cursor-not-allowed"
-                }`}>
-                        {/* アイコンコンテナ（バッジ配置用） */}
-                        <div className="relative">
-                            <Icon size={18} />
-
-                            {/* 完了バッジ: 右上に絶対配置 */}
-                            {isCompleted && (
-                                <div className="absolute -top-1.5 -right-1.5 bg-blue-50/50 rounded-full p-px shadow-sm">
-                                    <CheckCircle2
-                                        size={12}
-                                        className="text-green-500 fill-green-50"
-                                    />
-                                </div>
-                            )}
-                        </div>
-
-                        <span>{step.label}</span>
-                    </button>
-                );
-            })}
-        </div>
-    );
-};
-
-// ----------------------------------------------------------------------
-// 3. 統合アクションボタン
-// ----------------------------------------------------------------------
-
-interface StepActionButtonProps {
-    onClick: () => void;
-    isReRun: boolean; // 再生成かどうか
-    size?: "small" | "normal"; // 上部: small, 下部: normal
-    labelText: string; // ボタンに表示するテキスト
-    icon: LucideIcon; // コンポーネントそのものを渡す
-    colorTheme: "blue" | "emerald"; // 必要に応じて増やしていく
-}
-
-const StepActionButton = ({
-    onClick,
-    isReRun,
-    size = "normal",
-    labelText,
-    icon: Icon, // JSXとして使うため大文字にリネーム
-    colorTheme,
-}: StepActionButtonProps) => {
-    // Tailwindの動的クラス対策として、完全なクラス名を定義しておく
-    const variants = {
-        blue: {
-            initial: "bg-blue-600 hover:bg-blue-700 text-white",
-            retry: "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50",
-        },
-        emerald: {
-            initial: "bg-emerald-600 hover:bg-emerald-700 text-white",
-            retry: "bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50",
-        },
-    };
-
-    // 指定されたテーマのスタイルセットを取得
-    const themeStyles = variants[colorTheme];
-    const currentStyle = isReRun ? themeStyles.retry : themeStyles.initial;
-
-    return (
-        <button
-            onClick={onClick}
-            className={`flex items-center gap-2 font-bold rounded-lg shadow-sm transition-all
-            ${size === "small" ? "px-3 py-1.5 text-sm" : "px-6 py-3 text-base shadow-md"}
-            ${currentStyle}`}>
-            {isReRun ? (
-                <RotateCw size={size === "small" ? 14 : 18} />
-            ) : (
-                <Icon size={size === "small" ? 14 : 18} />
-            )}
-            <span>{labelText}</span>
-            {!isReRun && <ArrowRight size={size === "small" ? 14 : 18} />}
-        </button>
-    );
-};
-
-// ----------------------------------------------------------------------
-// 4. テキスト抽出結果セクション
-// ----------------------------------------------------------------------
-
-interface PreviewSectionProps {
-    text: string;
-    onStart: () => void;
-    hasGenerated: boolean; // 生成済みフラグ
-}
-
-const PreviewSection = ({ text, onStart, hasGenerated }: PreviewSectionProps) => {
-    return (
-        <div className="space-y-6">
-            {/* ツールバー */}
-            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
-                {/* 左側：ラベル */}
-                <div className="flex items-center gap-2 text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg text-sm font-medium">
-                    <FileText size={18} />
-                    <span>テキスト抽出結果</span>
-                </div>
-
-                {/* 右側：アクション (コピー & 小ボタン) */}
-                <div className="flex items-center gap-3">
-                    <CopyButton text={text} />
-                    {/* 上部アクションボタンを表示 */}
-                    <StepActionButton
-                        onClick={onStart}
-                        isReRun={hasGenerated}
-                        size="small"
-                        labelText={hasGenerated ? "解析をやり直す" : "解析を開始する"}
-                        icon={Sparkles}
-                        colorTheme="blue"
-                    />
-                </div>
-            </div>
-
-            {/* コンテンツ */}
-            <div className="bg-white px-8 py-6 rounded-xl shadow-sm border border-slate-200">
-                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{text}</p>
-            </div>
-
-            {/* 下部アクションエリア */}
-            <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
-                <StepActionButton
-                    onClick={onStart}
-                    isReRun={hasGenerated}
-                    size="normal"
-                    labelText={hasGenerated ? "解析をやり直す" : "解析を開始する"}
-                    icon={Sparkles}
-                    colorTheme="blue"
-                />
-            </div>
-        </div>
-    );
-};
-
-// ----------------------------------------------------------------------
-// 5. 解析結果セクション
-// ----------------------------------------------------------------------
-
-interface AnalysisSectionProps {
-    text: string;
-    isGenerating: boolean;
-    error: string | null;
-    onNext: () => void;
-    hasNextGenerated: boolean; // 次のステップ(アイデア)が生成済みか
-    setActiveParagraphId: (id: string) => void;
-    setIsSourceOpen: (v: boolean) => void;
-}
-
-const AnalysisSection = ({
-    text,
-    isGenerating,
-    error,
-    onNext,
-    hasNextGenerated,
-    setActiveParagraphId,
-    setIsSourceOpen,
-}: AnalysisSectionProps) => {
-    // ボタンの表示条件
-    const showActionButton = !isGenerating && text && !error;
-
-    return (
-        <div className="space-y-6">
-            {/* ツールバー */}
-            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
-                <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-medium">
-                    <Bot size={18} />
-                    <span>AI解析結果</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {/* コピーボタン */}
-                    {!isGenerating && text && <CopyButton text={text} />}
-                    {/* 上部アクションボタン */}
-                    {showActionButton && (
-                        <StepActionButton
-                            onClick={onNext}
-                            isReRun={hasNextGenerated}
-                            size="small"
-                            labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
-                            icon={Lightbulb}
-                            colorTheme="emerald"
-                        />
-                    )}
-                </div>
-            </div>
-
-            {/* コンテンツ */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-8 min-h-75">
-                {error && (
-                    <div className="mb-4 text-red-600 bg-red-50 p-4 rounded-lg font-medium">
-                        {error}
-                    </div>
-                )}
-
-                <div className="prose prose-slate max-w-none">
-                    <MarkdownRenderer
-                        content={text}
-                        onClickParagraph={(id) => {
-                            setActiveParagraphId(id);
-                            setIsSourceOpen(true);
-                        }}
-                    />
-                    {isGenerating && (
-                        <div className="flex items-center gap-2 mt-4 text-indigo-500 animate-pulse">
-                            <Loader2 size={20} className="animate-spin" />
-                            <span>解析中...</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* 下部アクションボタン */}
-            {showActionButton && (
-                <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
-                    <StepActionButton
-                        onClick={onNext}
-                        isReRun={hasNextGenerated}
-                        size="normal"
-                        labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
-                        icon={Lightbulb}
-                        colorTheme="emerald"
-                    />
-                </div>
-            )}
-        </div>
-    );
-};
-
-// 6. アイデアセクション
-
-interface IdeaSectionProps {
-    text: string;
-    isGenerating: boolean;
-    error: string | null;
-    setActiveParagraphId: (id: string) => void;
-    setIsSourceOpen: (v: boolean) => void;
-}
-
-const IdeaSection = ({
-    text,
-    isGenerating,
-    error,
-    setActiveParagraphId,
-    setIsSourceOpen,
-}: IdeaSectionProps) => {
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
-                <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg text-sm font-medium">
-                    <Lightbulb size={18} />
-                    <span>応用アイデア</span>
-                </div>
-                {!isGenerating && text && <CopyButton text={text} />}
-            </div>
-
-            <div className="bg-white rounded-xl shadow-md border border-emerald-100 px-8 ring-1 ring-emerald-50 min-h-75">
-                {error && (
-                    <div className="mb-4 text-red-600 bg-red-50 p-4 rounded-lg font-medium">
-                        {error}
-                    </div>
-                )}
-
-                <div className="prose prose-emerald max-w-none">
-                    <MarkdownRenderer
-                        content={text}
-                        onClickParagraph={(id) => {
-                            setActiveParagraphId(id);
-                            setIsSourceOpen(true);
-                        }}
-                    />
-                    {isGenerating && (
-                        <div className="flex items-center gap-2 mt-4 text-emerald-500 animate-pulse">
-                            <Loader2 size={20} className="animate-spin" />
-                            <span>思考中...</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* 完了メッセージなど */}
-            {!isGenerating && text && (
-                <div className="text-center text-slate-400 text-sm py-8">
-                    生成が完了しました。タブを切り替えて解析結果を確認できます。
-                </div>
-            )}
-        </div>
-    );
-};
 </file>
 
 <file path="frontend/package.json">
@@ -4792,6 +4535,892 @@ def read_root():
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 </file>
 
+<file path="frontend/app/home/idea/GeneratingScreen.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/GeneratingScreen.tsx
+
+"use client";
+
+import "@/styles/markdown_style.css";
+import {
+    ArrowRight,
+    Bot,
+    CheckCircle2,
+    FileText,
+    Lightbulb,
+    Loader2,
+    Lock,
+    MessageSquare,
+    PanelRight,
+    RotateCw, // 再生成
+    Send, // 追加: チャット送信アイコン
+    Sparkles,
+    type LucideIcon, // アイコンの型
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+// 関数コンポーネント
+import { parseSourceText } from "./util/parseSourceText";
+import { formatPatentToString } from "./util/patentFormatter";
+// UIコンポーネント
+import { SourceSidebar } from "./components/SourceSidebar"; // 原文確認サイドバー
+import { CopyButton } from "./util/CopyButton";
+import { MarkdownRenderer } from "./util/MarkdownRenderer"; // 内部に`ReactMarkdown`と`remarkGfm`
+
+// ============================================================
+// 型定義
+// ============================================================
+
+// 特許の型
+import type { components } from "@/types/schema";
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+// チャットメッセージの型
+type ChatMessage = {
+    role: "user" | "assistant";
+    content: string;
+};
+
+// ステップ定義
+const STEPS = [
+    { id: 0, label: "テキスト抽出結果", icon: FileText },
+    { id: 1, label: "AI解析結果", icon: Bot },
+    { id: 2, label: "応用アイデア", icon: Lightbulb },
+    { id: 3, label: "対話モード", icon: MessageSquare },
+] as const;
+
+// Propsの型
+interface GeneratingScreenProps {
+    fileName: string;
+    patentId: string;
+    patentData: PatentContent;
+    patentImages: PatentImage[];
+}
+
+// ============================================================
+// メインコンポーネント
+// ============================================================
+
+export const GeneratingScreen = ({
+    fileName,
+    patentId,
+    patentData,
+    patentImages,
+}: GeneratingScreenProps) => {
+    // ------------------------------------------------------------
+    // State定義
+    // ------------------------------------------------------------
+
+    // ステップ管理
+    const [currentStep, setCurrentStep] = useState<number>(0);
+    const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
+    // 原文参照サイドバー
+    const [isSourceOpen, setIsSourceOpen] = useState(false);
+    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
+    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
+    // 生成テキストデータ
+    const [generatedAnalysisText, setGeneratedAnalysisText] = useState("");
+    const [generatedIdeaText, setGeneratedIdeaText] = useState("");
+    // 生成ステータス管理
+    const [error, setError] = useState<string | null>(null);
+    const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+    const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
+    // チャット機能
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [isGeneratingChat, setIsGeneratingChat] = useState(false);
+
+    // ------------------------------------------------------------
+    // データ処理
+    // ------------------------------------------------------------
+
+    // 全文取得（一度だけ実行）
+    const fullText = useMemo(() => formatPatentToString(patentData), [patentData]);
+    const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
+
+    // ------------------------------------------------------------
+    // API処理
+    // ------------------------------------------------------------
+
+    // 共通ストリーミング処理ヘルパー
+    const streamResponse = async (
+        url: string, // APIエンドポイント
+        body: object, // POSTに必要なボディ
+        onUpdate: (chunk: string) => void, // チャンク受診時のコールバック
+        onStart: () => void, // 開始時の状態更新コールバック
+        onComplete: () => void // 完了時の状態更新コールバック
+    ) => {
+        onStart();
+        setError(null);
+        try {
+            // リクエスト
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            // レスポンス判定
+            if (!response.ok) {
+                // HTTPステータスコードに応じたエラー処理
+                if (response.status === 404) {
+                    throw new Error("特許データが見つかりませんでした");
+                } else if (response.status >= 500) {
+                    throw new Error("サーバーエラーが発生しました。時間をおいて再試行してください");
+                } else {
+                    throw new Error(`エラーが発生しました (${response.status})`);
+                }
+            }
+
+            if (!response.body) {
+                throw new Error("レスポンスが空です");
+            }
+            // ストリーム処理準備
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            // ストリーム処理
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onUpdate(decoder.decode(value, { stream: true }));
+            }
+            // エラーハンドリング
+        } catch (err) {
+            console.error(err);
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("不明なエラーが発生しました");
+            }
+        } finally {
+            onComplete();
+        }
+    };
+
+    // ------------------------------------------------------------
+    // API呼び出しハンドラー（特許解析＆アイデア生成）
+    // ------------------------------------------------------------
+
+    // 特許解析ハンドラー
+    // 1. 解析開始
+    const handleStartAnalysis = () => {
+        // ステップを移動
+        setCurrentStep(1);
+        setMaxReachedStep((prev) => Math.max(prev, 1));
+        setGeneratedAnalysisText("");
+
+        streamResponse(
+            "http://localhost:8000/generate/patent",
+            { patent_id: patentId },
+            (chunk) => setGeneratedAnalysisText((prev) => prev + chunk),
+            () => setIsGeneratingAnalysis(true),
+            () => setIsGeneratingAnalysis(false)
+        );
+    };
+
+    // 2. アイデア生成開始
+    const handleStartIdea = () => {
+        // ステップを移動
+        setCurrentStep(2);
+        setMaxReachedStep((prev) => Math.max(prev, 2));
+        setGeneratedIdeaText("");
+
+        streamResponse(
+            "http://localhost:8000/generate/idea",
+            { patent_id: patentId, explanation_text: generatedAnalysisText },
+            (chunk) => setGeneratedIdeaText((prev) => prev + chunk),
+            () => setIsGeneratingIdea(true),
+            () => setIsGeneratingIdea(false)
+        );
+    };
+
+    const handleStartChat = () => {
+        // ステップを移動
+        setCurrentStep(3);
+        setMaxReachedStep((prev) => Math.max(prev, 3));
+    };
+
+    // ------------------------------------------------------------
+    // API呼び出しハンドラー（チャット機能）
+    // ------------------------------------------------------------
+
+    // 3. チャット送信
+    const handleChatSubmit = async (userMessage: string) => {
+        if (!userMessage.trim()) return;
+
+        // ユーザーメッセージを即座に表示
+        setChatHistory((prev) => [...prev, { role: "user", content: userMessage }]);
+
+        // アシスタント応答の初期化
+        setChatHistory((prev) => [...prev, { role: "assistant", content: "" }]);
+
+        setIsGeneratingChat(true);
+        setError(null);
+
+        try {
+            const response = await fetch("http://localhost:8000/generate/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    patent_id: patentId,
+                    user_message: userMessage,
+                    analysis_text: generatedAnalysisText,
+                    idea_text: generatedIdeaText,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`エラーが発生しました (${response.status})`);
+            }
+
+            if (!response.body) {
+                throw new Error("レスポンスが空です");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let assistantText = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                assistantText += chunk;
+
+                // 最後のアシスタントメッセージを更新
+                setChatHistory((prev) => {
+                    const updated = [...prev];
+                    const lastIdx = updated.length - 1;
+                    if (updated[lastIdx]?.role === "assistant") {
+                        updated[lastIdx] = {
+                            ...updated[lastIdx],
+                            content: assistantText,
+                        };
+                    }
+                    return updated;
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            setError(err instanceof Error ? err.message : "不明なエラー");
+        } finally {
+            setIsGeneratingChat(false);
+        }
+    };
+
+    return (
+        <div className="flex overflow-hidden p-8 h-screen-minus-header">
+            <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
+                {/* ヘッダー情報 */}
+                <HeaderInfo fileName={fileName} setIsSourceOpen={setIsSourceOpen} />
+
+                {/* タブナビゲーション */}
+                <StepTabs
+                    currentStep={currentStep}
+                    maxReachedStep={maxReachedStep}
+                    onTabClick={setCurrentStep}
+                />
+
+                {/* コンテンツエリア (スクロール可能領域) */}
+                <div className="flex-1 overflow-y-auto min-h-0 py-6 px-1">
+                    {/* STEP 0: テキスト抽出結果 */}
+                    {currentStep === 0 && (
+                        <PreviewSection
+                            text={fullText}
+                            onStart={handleStartAnalysis}
+                            // ▼既に解析結果があるか判定
+                            hasGenerated={generatedAnalysisText.length > 0}
+                        />
+                    )}
+
+                    {/* STEP 1: AI解析 */}
+                    {currentStep === 1 && (
+                        <AnalysisSection
+                            text={generatedAnalysisText}
+                            isGenerating={isGeneratingAnalysis}
+                            error={error}
+                            onNext={handleStartIdea}
+                            // ▼既にアイデア結果があるか判定
+                            hasNextGenerated={generatedIdeaText.length > 0}
+                            setActiveParagraphId={setActiveParagraphId}
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
+                    )}
+
+                    {/* STEP 2: アイデア */}
+                    {currentStep === 2 && (
+                        <IdeaSection
+                            text={generatedIdeaText}
+                            isGenerating={isGeneratingIdea}
+                            error={error}
+                            onNext={handleStartChat}
+                            hasNextGenerated={maxReachedStep >= 3}
+                            setActiveParagraphId={setActiveParagraphId}
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
+                    )}
+                    {/* STEP 3: チャット機能 */}
+                    {currentStep === 3 && (
+                        <ChatSection
+                            chatHistory={chatHistory}
+                            isGenerating={isGeneratingChat}
+                            error={error}
+                            onSubmit={handleChatSubmit}
+                            setActiveParagraphId={setActiveParagraphId}
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
+                    )}
+                </div>
+            </div>
+
+            {/* 原文サイドバー (常にレンダリングしておき、表示状態を制御) */}
+            {isSourceOpen && (
+                <SourceSidebar
+                    isOpen={isSourceOpen}
+                    onClose={() => setIsSourceOpen(false)}
+                    fileName={fileName}
+                    sourceBlocks={sourceBlocks}
+                    activeParagraphId={activeParagraphId}
+                    patentImages={patentImages}
+                    selectedImage={selectedImage}
+                    setSelectedImage={setSelectedImage}
+                />
+            )}
+        </div>
+    );
+};
+
+// ============================================================
+// サブコンポーネント
+// ============================================================
+
+// TODO: レイアウトやデザインの一貫性が確保できたら別ファイルへ切り出す
+
+// ------------------------------------------------------------
+// 1. ヘッダー情報
+// ------------------------------------------------------------
+
+interface HeaderInfoProps {
+    fileName: string;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
+}
+
+const HeaderInfo = ({ fileName, setIsSourceOpen }: HeaderInfoProps) => (
+    <div className="flex justify-between items-center mb-6 shrink-0">
+        <div className="min-w-0 mr-4">
+            <h2 className="text-xl font-bold text-slate-800 mb-1">特許解析・アイデア生成</h2>
+            <div className="text-slate-500 text-sm flex items-center">
+                <span className="shrink-0">対象ファイル：</span>
+                <span className="font-medium text-slate-700 truncate max-w-md" title={fileName}>
+                    {fileName}
+                </span>
+            </div>
+        </div>
+        {/* 原文表示サイドバー開閉ボタン */}
+        <button
+            onClick={() => setIsSourceOpen(prev => !prev)}
+            className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
+            <PanelRight size={16} />
+            <span>原文を隣に表示</span>
+        </button>
+    </div>
+);
+
+// ----------------------------------------------------------------------
+// 2. ステップタブナビゲーション
+// ----------------------------------------------------------------------
+
+interface StepTabsProps {
+    currentStep: number;
+    maxReachedStep: number; // 最大到達ステップ（未到達には特定のアクションを実行するまでロック）
+    onTabClick: (step: number) => void;
+}
+
+const StepTabs = ({ currentStep, maxReachedStep, onTabClick }: StepTabsProps) => {
+    return (
+        // w-full を追加して全幅に
+        <div className="flex w-full border-b border-slate-200 mb-2 shrink-0">
+            {STEPS.map((step) => {
+                const isActive = currentStep === step.id;
+                const isEnabled = step.id <= maxReachedStep;
+                const isCompleted = step.id < maxReachedStep;
+
+                // ロック中ならLock、それ以外は元のアイコン
+                const Icon = !isEnabled ? Lock : step.icon;
+
+                return (
+                    <button
+                        key={step.id}
+                        onClick={() => isEnabled && onTabClick(step.id)}
+                        disabled={!isEnabled}
+                        // flex-1 justify-center を追加して均等配置
+                        className={`relative flex-1 justify-center flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all
+                ${
+                    isActive
+                        ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/50"
+                        : isEnabled
+                        ? "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                        : "text-slate-300 cursor-not-allowed"
+                }`}>
+                        {/* アイコンコンテナ（バッジ配置用） */}
+                        <div className="relative">
+                            <Icon size={18} />
+
+                            {/* 完了バッジ: 右上に絶対配置 */}
+                            {isCompleted && (
+                                <div className="absolute -top-1.5 -right-1.5 bg-blue-50/50 rounded-full p-px shadow-sm">
+                                    <CheckCircle2
+                                        size={12}
+                                        className="text-green-500 fill-green-50"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <span>{step.label}</span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 3. 統合アクションボタン
+// ----------------------------------------------------------------------
+
+interface StepActionButtonProps {
+    onClick: () => void;
+    isReRun: boolean; // 再生成かどうか
+    size?: "small" | "normal"; // 上部: small, 下部: normal
+    labelText: string; // ボタンに表示するテキスト
+    icon: LucideIcon; // コンポーネントそのものを渡す
+    colorTheme: "blue" | "emerald" | "purple"; // purpleを追加
+}
+
+const StepActionButton = ({
+    onClick,
+    isReRun,
+    size = "normal",
+    labelText,
+    icon: Icon, // JSXとして使うため大文字にリネーム
+    colorTheme,
+}: StepActionButtonProps) => {
+    // Tailwindの動的クラス対策として、完全なクラス名を定義しておく
+    const variants = {
+        blue: {
+            initial: "bg-blue-600 hover:bg-blue-700 text-white",
+            retry: "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50",
+        },
+        emerald: {
+            initial: "bg-emerald-600 hover:bg-emerald-700 text-white",
+            retry: "bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50",
+        },
+        // purpleテーマを追加
+        purple: {
+            initial: "bg-purple-600 hover:bg-purple-700 text-white",
+            retry: "bg-white text-purple-600 border border-purple-200 hover:bg-purple-50",
+        },
+    };
+
+    // 指定されたテーマのスタイルセットを取得
+    const themeStyles = variants[colorTheme];
+    const currentStyle = isReRun ? themeStyles.retry : themeStyles.initial;
+
+    return (
+        <button
+            onClick={onClick}
+            className={`flex items-center gap-2 font-bold rounded-lg shadow-sm transition-all
+            ${size === "small" ? "px-3 py-1.5 text-sm" : "px-6 py-3 text-base shadow-md"}
+            ${currentStyle}`}>
+            {isReRun ? (
+                <RotateCw size={size === "small" ? 14 : 18} />
+            ) : (
+                <Icon size={size === "small" ? 14 : 18} />
+            )}
+            <span>{labelText}</span>
+            {!isReRun && <ArrowRight size={size === "small" ? 14 : 18} />}
+        </button>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 4. テキスト抽出結果セクション
+// ----------------------------------------------------------------------
+
+interface PreviewSectionProps {
+    text: string;
+    onStart: () => void;
+    hasGenerated: boolean; // 生成済みフラグ
+}
+
+const PreviewSection = ({ text, onStart, hasGenerated }: PreviewSectionProps) => {
+    return (
+        <div className="space-y-6">
+            {/* ツールバー */}
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 py-4 border-b border-slate-500">
+                {/* 左側：ラベル */}
+                <div className="flex items-center gap-2 text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <FileText size={18} />
+                    <span>テキスト抽出結果</span>
+                </div>
+
+                {/* 右側：アクション (コピー & 小ボタン) */}
+                <div className="flex items-center gap-3">
+                    <CopyButton text={text} />
+                    {/* 上部アクションボタンを表示 */}
+                    <StepActionButton
+                        onClick={onStart}
+                        isReRun={hasGenerated}
+                        size="small"
+                        labelText={hasGenerated ? "解析をやり直す" : "解析を開始する"}
+                        icon={Sparkles}
+                        colorTheme="blue"
+                    />
+                </div>
+            </div>
+
+            {/* コンテンツ */}
+            <div className="bg-white px-8 py-6 rounded-xl shadow-sm border border-slate-200">
+                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{text}</p>
+            </div>
+
+            {/* 下部アクションエリア */}
+            <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
+                <StepActionButton
+                    onClick={onStart}
+                    isReRun={hasGenerated}
+                    size="normal"
+                    labelText={hasGenerated ? "解析をやり直す" : "解析を開始する"}
+                    icon={Sparkles}
+                    colorTheme="blue"
+                />
+            </div>
+        </div>
+    );
+};
+
+// ----------------------------------------------------------------------
+// 5. 解析結果セクション
+// ----------------------------------------------------------------------
+
+interface AnalysisSectionProps {
+    text: string;
+    isGenerating: boolean;
+    error: string | null;
+    onNext: () => void;
+    hasNextGenerated: boolean; // 次のステップ(アイデア)が生成済みか
+    setActiveParagraphId: (id: string) => void;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
+}
+
+const AnalysisSection = ({
+    text,
+    isGenerating,
+    error,
+    onNext,
+    hasNextGenerated,
+    setActiveParagraphId,
+    setIsSourceOpen,
+}: AnalysisSectionProps) => {
+    // ボタンの表示条件
+    const showActionButton = !isGenerating && text && !error;
+
+    return (
+        <div className="space-y-6">
+            {/* ツールバー */}
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 pb-4 border-b border-slate-500">
+                <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <Bot size={18} />
+                    <span>AI解析結果</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {/* コピーボタン */}
+                    {!isGenerating && text && <CopyButton text={text} />}
+                    {/* 上部アクションボタン */}
+                    {showActionButton && (
+                        <StepActionButton
+                            onClick={onNext}
+                            isReRun={hasNextGenerated}
+                            size="small"
+                            labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
+                            icon={Lightbulb}
+                            colorTheme="emerald" // 次のステップのテーマカラー
+                        />
+                    )}
+                </div>
+            </div>
+
+            {/* コンテンツ */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-8 min-h-75">
+                {error && (
+                    <div className="mb-4 text-red-600 bg-red-50 p-4 rounded-lg font-medium">
+                        {error}
+                    </div>
+                )}
+
+                <div className="prose prose-slate max-w-none">
+                    <MarkdownRenderer
+                        content={text}
+                        onClickParagraph={(id) => {
+                            setActiveParagraphId(id);
+                            setIsSourceOpen(true);
+                        }}
+                    />
+                    {isGenerating && (
+                        <div className="flex items-center gap-2 mt-4 text-indigo-500 animate-pulse">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span>解析中...</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 下部アクションボタン */}
+            {showActionButton && (
+                <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
+                    <StepActionButton
+                        onClick={onNext}
+                        isReRun={hasNextGenerated}
+                        size="normal"
+                        labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
+                        icon={Lightbulb}
+                        colorTheme="emerald"
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
+
+// 6. アイデアセクション
+
+interface IdeaSectionProps {
+    text: string;
+    isGenerating: boolean;
+    error: string | null;
+    onNext: () => void;
+    hasNextGenerated: boolean; // 次のステップが開始済みか
+    setActiveParagraphId: (id: string) => void;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
+}
+
+const IdeaSection = ({
+    text,
+    isGenerating,
+    error,
+    onNext,
+    hasNextGenerated,
+    setActiveParagraphId,
+    setIsSourceOpen,
+}: IdeaSectionProps) => {
+    // ボタンの表示条件
+    const showActionButton = !isGenerating && text && !error;
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 pb-4 border-b border-slate-500">
+                <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <Lightbulb size={18} />
+                    <span>応用アイデア</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    {/* コピーボタン */}
+                    {!isGenerating && text && <CopyButton text={text} />}
+                    {/* 上部アクションボタン */}
+                    {showActionButton && (
+                        <StepActionButton
+                            onClick={onNext}
+                            isReRun={hasNextGenerated}
+                            size="small"
+                            labelText={hasNextGenerated ? "対話画面に移動" : "対話画面に移動"}
+                            icon={MessageSquare}
+                            colorTheme="purple"
+                        />
+                    )}
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md border border-emerald-100 px-8 ring-1 ring-emerald-50 min-h-75">
+                {error && (
+                    <div className="mb-4 text-red-600 bg-red-50 p-4 rounded-lg font-medium">
+                        {error}
+                    </div>
+                )}
+
+                <div className="prose prose-emerald max-w-none">
+                    <MarkdownRenderer
+                        content={text}
+                        onClickParagraph={(id) => {
+                            setActiveParagraphId(id);
+                            setIsSourceOpen(true);
+                        }}
+                    />
+                    {isGenerating && (
+                        <div className="flex items-center gap-2 mt-4 text-emerald-500 animate-pulse">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span>思考中...</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 下部アクションボタン */}
+            {showActionButton && (
+                <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
+                    <StepActionButton
+                        onClick={onNext}
+                        isReRun={hasNextGenerated}
+                        size="normal"
+                        labelText={hasNextGenerated ? "対話画面に移動" : "対話画面に移動"}
+                        icon={MessageSquare}
+                        colorTheme="purple" // 次のステップ(Chat)に合わせてPurpleに変更
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
+
+// 7. チャットセクション (統合)
+
+interface ChatSectionProps {
+    chatHistory: ChatMessage[];
+    isGenerating: boolean;
+    error: string | null;
+    onSubmit: (message: string) => void;
+    setActiveParagraphId: (id: string) => void;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
+}
+
+export const ChatSection = ({
+    chatHistory,
+    isGenerating,
+    error,
+    onSubmit,
+    setActiveParagraphId,
+    setIsSourceOpen,
+}: ChatSectionProps) => {
+    const [inputValue, setInputValue] = useState("");
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // 新しいメッセージが追加されたら自動スクロール
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatHistory, isGenerating]);
+
+    const handleSubmit = () => {
+        if (!inputValue.trim() || isGenerating) return;
+        onSubmit(inputValue);
+        setInputValue("");
+    };
+
+    return (
+        <div className="flex flex-col h-full space-y-4">
+            {/* ツールバー */}
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 py-4 border-b border-slate-500">
+                <div className="flex items-center gap-2 text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <MessageSquare size={18} />
+                    <span>対話モード</span>
+                </div>
+            </div>
+
+            {/* チャット履歴 */}
+            <div className="flex-1 overflow-y-auto space-y-4 px-2 pb-22">
+                {chatHistory.length === 0 ? (
+                    <div className="text-center text-slate-400 py-12">
+                        <p>特許技術について質問してください。</p>
+                        <p className="text-xs mt-2">例: この技術の実現可能性は？</p>
+                    </div>
+                ) : (
+                    chatHistory.map((msg, idx) => (
+                        <div
+                            key={idx}
+                            className={`flex ${
+                                msg.role === "user" ? "justify-end" : "justify-start"
+                            }`}>
+                            {/* 吹き出しとボタンを縦に積むためのラッパー (flex-col) */}
+                            <div className="flex flex-col max-w-3xl">
+                                <div
+                                    className={`px-4 py-3 rounded-lg ${
+                                        msg.role === "user"
+                                            ? "bg-blue-100 text-slate-800"
+                                            : "bg-white border border-slate-200 shadow-sm"
+                                    }`}>
+                                    {msg.role === "user" ? (
+                                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                                    ) : (
+                                        <div className="prose prose-slate max-w-none p-1">
+                                            <MarkdownRenderer
+                                                content={msg.content}
+                                                onClickParagraph={(id) => {
+                                                    setActiveParagraphId(id);
+                                                    setIsSourceOpen(true);
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* コピーボタン（アシスタントかつ内容がある場合） */}
+                                {msg.role === "assistant" && msg.content && (
+                                    <div className="flex justify-start mt-2">
+                                        <CopyButton text={msg.content} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))
+                )}
+
+                {isGenerating && (
+                    <div className="flex items-center gap-2 text-purple-500 animate-pulse">
+                        <Loader2 size={20} className="animate-spin" />
+                        <span>考え中...</span>
+                    </div>
+                )}
+
+                {error && <div className="text-red-600 bg-red-50 p-4 rounded-lg">{error}</div>}
+
+                <div ref={messagesEndRef} />
+            </div>
+
+            {/* 入力エリア */}
+            <div className="absolute bottom-8 w-5xl max-w-3xl pt-5">
+                {/* 原文表示サイドバー開閉ボタン */}
+                <button
+                    onClick={() => setIsSourceOpen(prev => !prev)}
+                    className="mr-auto max-w-40 shrink-0 flex items-center justify-center gap-2 px-3 py-2 mb-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
+                    <PanelRight size={16} />
+                    <span>原文を隣に表示</span>
+                </button>
+                <div className="flex gap-2">
+                    <textarea
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit();
+                            }
+                        }}
+                        placeholder="質問を入力... (Shift+Enterで改行)"
+                        disabled={isGenerating}
+                        className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                    />
+                    <button
+                        onClick={handleSubmit}
+                        disabled={!inputValue.trim() || isGenerating}
+                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 transition-colors shrink-0 flex items-center justify-center">
+                        <Send size={20} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+</file>
+
 <file path="README.md">
 # Patent Survey App
 
@@ -4907,8 +5536,7 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ---
 
-## ディレクトリ構造（2025/12/29 時点）
-
+## ディレクトリ構造（2025/12/30 時点）
 ```
 Patent_Survey_APP
 ├─ backend
@@ -4935,9 +5563,8 @@ Patent_Survey_APP
 ├─ docker-compose.yml
 ├─ frontend
 │  ├─ app
-│  │  ├─ chat-ui
+│  │  ├─ chat-ui-test
 │  │  │  ├─ ChatInput.tsx
-│  │  │  ├─ KnowledgeTypes.ts
 │  │  │  ├─ MessageList.tsx
 │  │  │  └─ page.tsx
 │  │  ├─ favicon.ico
@@ -4952,7 +5579,7 @@ Patent_Survey_APP
 │  │  │  │  ├─ page.tsx
 │  │  │  │  ├─ PatentUploadUI.tsx
 │  │  │  │  └─ util
-│  │  │  │     ├─ FigureReference.tsx
+│  │  │  │     ├─ CopyButton.tsx
 │  │  │  │     ├─ MarkdownRenderer.tsx
 │  │  │  │     ├─ parseSourceText.ts
 │  │  │  │     ├─ patentFormatter.ts
@@ -4961,30 +5588,20 @@ Patent_Survey_APP
 │  │  │  └─ page.tsx
 │  │  ├─ layout.tsx
 │  │  ├─ MainLayout.tsx
-│  │  ├─ page.tsx
-│  │  └─ test
-│  │     └─ page.tsx
+│  │  └─ page.tsx
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
 │  ├─ images
 │  │  ├─ arrow_back.svg
-│  │  ├─ arrow_drop_down_icon.svg
-│  │  ├─ book_icon.svg
 │  │  ├─ check_icon.svg
 │  │  ├─ edit_document_icon.svg
-│  │  ├─ festival_icon.svg
 │  │  ├─ file.svg
-│  │  ├─ globe.svg
-│  │  ├─ group_icon.svg
-│  │  ├─ id_card_icon.svg
 │  │  ├─ info_icon.svg
 │  │  ├─ logout_icon.svg
 │  │  ├─ menu_icon.svg
 │  │  ├─ science.svg
 │  │  ├─ send_icon.svg
-│  │  ├─ setting_icon.svg
-│  │  ├─ side_icon.svg
-│  │  └─ window.svg
+│  │  └─ setting_icon.svg
 │  ├─ next.config.ts
 │  ├─ package-lock.json
 │  ├─ package.json
