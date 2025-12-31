@@ -58,6 +58,37 @@ def generate_content(prompt, client, tool_mode: str, system_instruction=None):
 
 
 # ============================================================
+# マルチターン対話用生成関数（NEW）
+# ============================================================
+
+
+def generate_content_multiturn(contents: list, client, system_instruction: str):
+    """
+    マルチターン対話用の生成関数
+
+    Args:
+        contents: Gemini API の contents 形式
+                [{"role": "user", "parts": [{"text": "..."}]}, ...]
+        client: Gemini client
+        system_instruction: システムプロンプト
+
+    Returns:
+        ストリーミングレスポンス
+    """
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+    )
+
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents=contents,
+        config=config,
+    )
+
+    return response
+
+
+# ============================================================
 # ストリーミング生成補助関数
 # ============================================================
 

@@ -11,17 +11,19 @@ import {
     Lightbulb,
     Loader2,
     Lock,
+    MessageSquare,
     PanelRight,
     RotateCw, // 再生成
+    Send, // 追加: チャット送信アイコン
     Sparkles,
     type LucideIcon, // アイコンの型
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 // 関数コンポーネント
 import { parseSourceText } from "./util/parseSourceText";
 import { formatPatentToString } from "./util/patentFormatter";
 // UIコンポーネント
-import { SourceSidebar } from "./components/SourceSidebar";
+import { SourceSidebar } from "./components/SourceSidebar"; // 原文確認サイドバー
 import { CopyButton } from "./util/CopyButton";
 import { MarkdownRenderer } from "./util/MarkdownRenderer"; // 内部に`ReactMarkdown`と`remarkGfm`
 
@@ -34,11 +36,18 @@ import type { components } from "@/types/schema";
 type PatentContent = components["schemas"]["PatentContent"];
 type PatentImage = components["schemas"]["PatentImage"];
 
+// チャットメッセージの型
+type ChatMessage = {
+    role: "user" | "assistant";
+    content: string;
+};
+
 // ステップ定義
 const STEPS = [
     { id: 0, label: "テキスト抽出結果", icon: FileText },
     { id: 1, label: "AI解析結果", icon: Bot },
     { id: 2, label: "応用アイデア", icon: Lightbulb },
+    { id: 3, label: "対話モード", icon: MessageSquare },
 ] as const;
 
 // Propsの型
@@ -75,9 +84,11 @@ export const GeneratingScreen = ({
     const [generatedIdeaText, setGeneratedIdeaText] = useState("");
     // 生成ステータス管理
     const [error, setError] = useState<string | null>(null);
-    // アイデア生成UI状態
     const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
     const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
+    // チャット機能
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [isGeneratingChat, setIsGeneratingChat] = useState(false);
 
     // ------------------------------------------------------------
     // データ処理
@@ -146,7 +157,7 @@ export const GeneratingScreen = ({
     };
 
     // ------------------------------------------------------------
-    // API呼び出しハンドラー
+    // API呼び出しハンドラー（特許解析＆アイデア生成）
     // ------------------------------------------------------------
 
     // 特許解析ハンドラー
@@ -182,6 +193,82 @@ export const GeneratingScreen = ({
         );
     };
 
+    const handleStartChat = () => {
+        // ステップを移動
+        setCurrentStep(3);
+        setMaxReachedStep((prev) => Math.max(prev, 3));
+    };
+
+    // ------------------------------------------------------------
+    // API呼び出しハンドラー（チャット機能）
+    // ------------------------------------------------------------
+
+    // 3. チャット送信
+    const handleChatSubmit = async (userMessage: string) => {
+        if (!userMessage.trim()) return;
+
+        // ユーザーメッセージを即座に表示
+        setChatHistory((prev) => [...prev, { role: "user", content: userMessage }]);
+
+        // アシスタント応答の初期化
+        setChatHistory((prev) => [...prev, { role: "assistant", content: "" }]);
+
+        setIsGeneratingChat(true);
+        setError(null);
+
+        try {
+            const response = await fetch("http://localhost:8000/generate/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    patent_id: patentId,
+                    user_message: userMessage,
+                    analysis_text: generatedAnalysisText,
+                    idea_text: generatedIdeaText,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`エラーが発生しました (${response.status})`);
+            }
+
+            if (!response.body) {
+                throw new Error("レスポンスが空です");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let assistantText = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                assistantText += chunk;
+
+                // 最後のアシスタントメッセージを更新
+                setChatHistory((prev) => {
+                    const updated = [...prev];
+                    const lastIdx = updated.length - 1;
+                    if (updated[lastIdx]?.role === "assistant") {
+                        updated[lastIdx] = {
+                            ...updated[lastIdx],
+                            content: assistantText,
+                        };
+                    }
+                    return updated;
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            setError(err instanceof Error ? err.message : "不明なエラー");
+        } finally {
+            setIsGeneratingChat(false);
+        }
+    };
+
     return (
         <div className="flex overflow-hidden p-8 h-screen-minus-header">
             <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
@@ -214,7 +301,7 @@ export const GeneratingScreen = ({
                             isGenerating={isGeneratingAnalysis}
                             error={error}
                             onNext={handleStartIdea}
-                            // ▼すでにアイデア結果があるか判定
+                            // ▼既にアイデア結果があるか判定
                             hasNextGenerated={generatedIdeaText.length > 0}
                             setActiveParagraphId={setActiveParagraphId}
                             setIsSourceOpen={setIsSourceOpen}
@@ -227,6 +314,19 @@ export const GeneratingScreen = ({
                             text={generatedIdeaText}
                             isGenerating={isGeneratingIdea}
                             error={error}
+                            onNext={handleStartChat}
+                            hasNextGenerated={maxReachedStep >= 3}
+                            setActiveParagraphId={setActiveParagraphId}
+                            setIsSourceOpen={setIsSourceOpen}
+                        />
+                    )}
+                    {/* STEP 3: チャット機能 */}
+                    {currentStep === 3 && (
+                        <ChatSection
+                            chatHistory={chatHistory}
+                            isGenerating={isGeneratingChat}
+                            error={error}
+                            onSubmit={handleChatSubmit}
                             setActiveParagraphId={setActiveParagraphId}
                             setIsSourceOpen={setIsSourceOpen}
                         />
@@ -255,13 +355,15 @@ export const GeneratingScreen = ({
 // サブコンポーネント
 // ============================================================
 
+// TODO: レイアウトやデザインの一貫性が確保できたら別ファイルへ切り出す
+
 // ------------------------------------------------------------
 // 1. ヘッダー情報
 // ------------------------------------------------------------
 
 interface HeaderInfoProps {
     fileName: string;
-    setIsSourceOpen: (v: boolean) => void;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 const HeaderInfo = ({ fileName, setIsSourceOpen }: HeaderInfoProps) => (
@@ -277,7 +379,7 @@ const HeaderInfo = ({ fileName, setIsSourceOpen }: HeaderInfoProps) => (
         </div>
         {/* 原文表示サイドバー開閉ボタン */}
         <button
-            onClick={() => setIsSourceOpen(true)}
+            onClick={() => setIsSourceOpen(prev => !prev)}
             className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
             <PanelRight size={16} />
             <span>原文を隣に表示</span>
@@ -297,7 +399,8 @@ interface StepTabsProps {
 
 const StepTabs = ({ currentStep, maxReachedStep, onTabClick }: StepTabsProps) => {
     return (
-        <div className="flex border-b border-slate-200 mb-2 shrink-0">
+        // w-full を追加して全幅に
+        <div className="flex w-full border-b border-slate-200 mb-2 shrink-0">
             {STEPS.map((step) => {
                 const isActive = currentStep === step.id;
                 const isEnabled = step.id <= maxReachedStep;
@@ -311,7 +414,8 @@ const StepTabs = ({ currentStep, maxReachedStep, onTabClick }: StepTabsProps) =>
                         key={step.id}
                         onClick={() => isEnabled && onTabClick(step.id)}
                         disabled={!isEnabled}
-                        className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all
+                        // flex-1 justify-center を追加して均等配置
+                        className={`relative flex-1 justify-center flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all
                 ${
                     isActive
                         ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50/50"
@@ -352,7 +456,7 @@ interface StepActionButtonProps {
     size?: "small" | "normal"; // 上部: small, 下部: normal
     labelText: string; // ボタンに表示するテキスト
     icon: LucideIcon; // コンポーネントそのものを渡す
-    colorTheme: "blue" | "emerald"; // 必要に応じて増やしていく
+    colorTheme: "blue" | "emerald" | "purple"; // purpleを追加
 }
 
 const StepActionButton = ({
@@ -372,6 +476,11 @@ const StepActionButton = ({
         emerald: {
             initial: "bg-emerald-600 hover:bg-emerald-700 text-white",
             retry: "bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50",
+        },
+        // purpleテーマを追加
+        purple: {
+            initial: "bg-purple-600 hover:bg-purple-700 text-white",
+            retry: "bg-white text-purple-600 border border-purple-200 hover:bg-purple-50",
         },
     };
 
@@ -410,7 +519,7 @@ const PreviewSection = ({ text, onStart, hasGenerated }: PreviewSectionProps) =>
     return (
         <div className="space-y-6">
             {/* ツールバー */}
-            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 py-4 border-b border-slate-500">
                 {/* 左側：ラベル */}
                 <div className="flex items-center gap-2 text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg text-sm font-medium">
                     <FileText size={18} />
@@ -463,7 +572,7 @@ interface AnalysisSectionProps {
     onNext: () => void;
     hasNextGenerated: boolean; // 次のステップ(アイデア)が生成済みか
     setActiveParagraphId: (id: string) => void;
-    setIsSourceOpen: (v: boolean) => void;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 const AnalysisSection = ({
@@ -481,7 +590,7 @@ const AnalysisSection = ({
     return (
         <div className="space-y-6">
             {/* ツールバー */}
-            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 pb-4 border-b border-slate-500">
                 <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-medium">
                     <Bot size={18} />
                     <span>AI解析結果</span>
@@ -498,7 +607,7 @@ const AnalysisSection = ({
                             size="small"
                             labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
                             icon={Lightbulb}
-                            colorTheme="emerald"
+                            colorTheme="emerald" // 次のステップのテーマカラー
                         />
                     )}
                 </div>
@@ -552,25 +661,45 @@ interface IdeaSectionProps {
     text: string;
     isGenerating: boolean;
     error: string | null;
+    onNext: () => void;
+    hasNextGenerated: boolean; // 次のステップが開始済みか
     setActiveParagraphId: (id: string) => void;
-    setIsSourceOpen: (v: boolean) => void;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 const IdeaSection = ({
     text,
     isGenerating,
     error,
+    onNext,
+    hasNextGenerated,
     setActiveParagraphId,
     setIsSourceOpen,
 }: IdeaSectionProps) => {
+    // ボタンの表示条件
+    const showActionButton = !isGenerating && text && !error;
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 py-2 border-b border-transparent">
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 pb-4 border-b border-slate-500">
                 <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg text-sm font-medium">
                     <Lightbulb size={18} />
                     <span>応用アイデア</span>
                 </div>
-                {!isGenerating && text && <CopyButton text={text} />}
+                <div className="flex items-center gap-3">
+                    {/* コピーボタン */}
+                    {!isGenerating && text && <CopyButton text={text} />}
+                    {/* 上部アクションボタン */}
+                    {showActionButton && (
+                        <StepActionButton
+                            onClick={onNext}
+                            isReRun={hasNextGenerated}
+                            size="small"
+                            labelText={hasNextGenerated ? "対話画面に移動" : "対話画面に移動"}
+                            icon={MessageSquare}
+                            colorTheme="purple"
+                        />
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-md border border-emerald-100 px-8 ring-1 ring-emerald-50 min-h-75">
@@ -597,12 +726,158 @@ const IdeaSection = ({
                 </div>
             </div>
 
-            {/* 完了メッセージなど */}
-            {!isGenerating && text && (
-                <div className="text-center text-slate-400 text-sm py-8">
-                    生成が完了しました。タブを切り替えて解析結果を確認できます。
+            {/* 下部アクションボタン */}
+            {showActionButton && (
+                <div className="flex justify-end pt-4 pb-12 border-t border-dashed border-slate-200">
+                    <StepActionButton
+                        onClick={onNext}
+                        isReRun={hasNextGenerated}
+                        size="normal"
+                        labelText={hasNextGenerated ? "対話画面に移動" : "対話画面に移動"}
+                        icon={MessageSquare}
+                        colorTheme="purple" // 次のステップ(Chat)に合わせてPurpleに変更
+                    />
                 </div>
             )}
+        </div>
+    );
+};
+
+// 7. チャットセクション (統合)
+
+interface ChatSectionProps {
+    chatHistory: ChatMessage[];
+    isGenerating: boolean;
+    error: string | null;
+    onSubmit: (message: string) => void;
+    setActiveParagraphId: (id: string) => void;
+    setIsSourceOpen: Dispatch<SetStateAction<boolean>>;
+}
+
+export const ChatSection = ({
+    chatHistory,
+    isGenerating,
+    error,
+    onSubmit,
+    setActiveParagraphId,
+    setIsSourceOpen,
+}: ChatSectionProps) => {
+    const [inputValue, setInputValue] = useState("");
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // 新しいメッセージが追加されたら自動スクロール
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatHistory, isGenerating]);
+
+    const handleSubmit = () => {
+        if (!inputValue.trim() || isGenerating) return;
+        onSubmit(inputValue);
+        setInputValue("");
+    };
+
+    return (
+        <div className="flex flex-col h-full space-y-4">
+            {/* ツールバー */}
+            <div className="flex items-center justify-between sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 pt-2 py-4 border-b border-slate-500">
+                <div className="flex items-center gap-2 text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <MessageSquare size={18} />
+                    <span>対話モード</span>
+                </div>
+            </div>
+
+            {/* チャット履歴 */}
+            <div className="flex-1 overflow-y-auto space-y-4 px-2 pb-22">
+                {chatHistory.length === 0 ? (
+                    <div className="text-center text-slate-400 py-12">
+                        <p>特許技術について質問してください。</p>
+                        <p className="text-xs mt-2">例: この技術の実現可能性は？</p>
+                    </div>
+                ) : (
+                    chatHistory.map((msg, idx) => (
+                        <div
+                            key={idx}
+                            className={`flex ${
+                                msg.role === "user" ? "justify-end" : "justify-start"
+                            }`}>
+                            {/* 吹き出しとボタンを縦に積むためのラッパー (flex-col) */}
+                            <div className="flex flex-col max-w-3xl">
+                                <div
+                                    className={`px-4 py-3 rounded-lg ${
+                                        msg.role === "user"
+                                            ? "bg-blue-100 text-slate-800"
+                                            : "bg-white border border-slate-200 shadow-sm"
+                                    }`}>
+                                    {msg.role === "user" ? (
+                                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                                    ) : (
+                                        <div className="prose prose-slate max-w-none p-1">
+                                            <MarkdownRenderer
+                                                content={msg.content}
+                                                onClickParagraph={(id) => {
+                                                    setActiveParagraphId(id);
+                                                    setIsSourceOpen(true);
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* コピーボタン（アシスタントかつ内容がある場合） */}
+                                {msg.role === "assistant" && msg.content && (
+                                    <div className="flex justify-start mt-2">
+                                        <CopyButton text={msg.content} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))
+                )}
+
+                {isGenerating && (
+                    <div className="flex items-center gap-2 text-purple-500 animate-pulse">
+                        <Loader2 size={20} className="animate-spin" />
+                        <span>考え中...</span>
+                    </div>
+                )}
+
+                {error && <div className="text-red-600 bg-red-50 p-4 rounded-lg">{error}</div>}
+
+                <div ref={messagesEndRef} />
+            </div>
+
+            {/* 入力エリア */}
+            <div className="absolute bottom-8 w-5xl max-w-3xl pt-5">
+                {/* 原文表示サイドバー開閉ボタン */}
+                <button
+                    onClick={() => setIsSourceOpen(prev => !prev)}
+                    className="mr-auto max-w-40 shrink-0 flex items-center justify-center gap-2 px-3 py-2 mb-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
+                    <PanelRight size={16} />
+                    <span>原文を隣に表示</span>
+                </button>
+                <div className="flex gap-2">
+                    <textarea
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit();
+                            }
+                        }}
+                        placeholder="質問を入力... (Shift+Enterで改行)"
+                        disabled={isGenerating}
+                        className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                    />
+                    <button
+                        onClick={handleSubmit}
+                        disabled={!inputValue.trim() || isGenerating}
+                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 transition-colors shrink-0 flex items-center justify-center">
+                        <Send size={20} />
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

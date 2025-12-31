@@ -40,7 +40,7 @@ export const CopyButton = ({
                 } ${className}`}
             title="クリップボードにコピー">
             {isCopied ? <Check size={14} /> : <Copy size={14} />}
-            <span>{isCopied ? "コピー完了" : "コピー"}</span>
+            <span>{isCopied ? "コピー完了" : "回答をコピー"}</span>
         </button>
     );
 };

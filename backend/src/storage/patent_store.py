@@ -3,8 +3,8 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Dict # 辞書型
-from uuid import uuid4 # ID生成
+from typing import Any, Dict, List
+from uuid import uuid4  # ID生成
 
 # ==========================================
 # 1. 特許テキストデータ（idで管理）
@@ -61,3 +61,51 @@ def cleanup_temp_files():
         # フォルダの中身ごと完全に削除
         shutil.rmtree(STATIC_BASE_PATH)
         print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
+
+
+# ==========================================
+# 3. チャット履歴管理
+# ==========================================
+
+# Gemini API の contents 形式で保存
+# {patent_id: [{"role": "user", "parts": [{"text": "..."}]}, ...]}
+chat_sessions: Dict[str, List[Dict[str, Any]]] = {}
+
+
+def save_chat_message(patent_id: str, role: str, text: str):
+    """
+    チャット履歴に追加（Gemini contents形式）
+
+    Args:
+        patent_id: 特許ID
+        role: "user" または "model"
+        text: メッセージテキスト
+    """
+    if patent_id not in chat_sessions:
+        chat_sessions[patent_id] = []
+
+    chat_sessions[patent_id].append({"role": role, "parts": [{"text": text}]})
+
+
+def get_chat_history(patent_id: str) -> List[Dict[str, Any]]:
+    """
+    チャット履歴を取得（Gemini contents形式）
+
+    Args:
+        patent_id: 特許ID
+
+    Returns:
+        Gemini API の contents 形式のリスト
+    """
+    return chat_sessions.get(patent_id, [])
+
+
+def clear_chat_history(patent_id: str):
+    """
+    チャット履歴をクリア（将来的な機能拡張用）
+
+    Args:
+        patent_id: 特許ID
+    """
+    if patent_id in chat_sessions:
+        chat_sessions[patent_id] = []
