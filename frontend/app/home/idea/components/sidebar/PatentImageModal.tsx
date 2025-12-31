@@ -1,14 +1,18 @@
-// Patent_Survey_APP/frontend/app/home/idea/components/PatentImageModal.tsx
+// Patent_Survey_APP/frontend/app/home/idea/components/sidebar/PatentImageModal.tsx
 
 import type { components } from "@/types/schema";
 type PatentImage = components["schemas"]["PatentImage"];
+
+// ============================================================
+// 原文参照サイドバー内で画像をクリックすると起動するモーダル
+// ============================================================
 
 type PatentImageModalProps = {
     image: PatentImage | null;
     onClose: () => void;
 };
 
-// 画像GET用
+// 画像GET用URL
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export const PatentImageModal = ({ image, onClose }: PatentImageModalProps) => {

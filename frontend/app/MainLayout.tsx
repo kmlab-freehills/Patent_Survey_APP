@@ -19,7 +19,7 @@ import { usePathname } from "next/navigation";
 import React, { useState } from "react";
 
 // ============================================================
-// Title
+// アプリ全体に適用するレイアウト（ヘッダー・ナビゲーションサイドバー等）
 // ============================================================
 
 // ナビゲーション定義
@@ -45,19 +45,14 @@ const navigation = [
     },
 ];
 
-export default function MainLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
+export default function MainLayout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const pathname = usePathname();
     // サイドバー開閉
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
     // 現在のページ名を取得
-    const currentPageName =
-        navigation.find((n) => n.href === pathname)?.name || "Home";
+    const currentPageName = navigation.find((n) => n.href === pathname)?.name || "Home";
 
     // サイドバーのスタイル定義
     const sidebarClasses = `
@@ -65,14 +60,13 @@ export default function MainLayout({
     bg-slate-900 text-slate-300 shadow-xl
     flex flex-col transition-all duration-300 ease-in-out
     md:relative
-    ${
-        isSidebarOpen
-            ? "translate-x-0 w-64"
-            : "-translate-x-full md:translate-x-0 md:w-20"
-    }`;
+    ${isSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-20"}`;
 
     return (
-        <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
+        <div
+            className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden"
+            // ▼子要素にサイドバーの幅を伝える
+            style={{ "--sidebar-width": isSidebarOpen ? "16rem" : "5rem" } as React.CSSProperties}>
             {/* モバイル端末時のサイドバーオーバーレイ */}
             {isSidebarOpen && (
                 <div
@@ -120,8 +114,7 @@ export default function MainLayout({
                                 key={item.id}
                                 href={item.href}
                                 onClick={() => {
-                                    if (window.innerWidth < 768)
-                                        setIsSidebarOpen(false);
+                                    if (window.innerWidth < 768) setIsSidebarOpen(false);
                                 }}
                                 className={`w-full flex items-center gap-3 px-4 py-3 transition-colors duration-200 group
                                     ${
@@ -180,20 +173,14 @@ export default function MainLayout({
 
                         <div className="hidden md:flex items-center text-sm text-slate-500">
                             <ChevronRight size={14} className="mr-2" />
-                            <span className="font-semibold text-slate-700">
-                                {currentPageName}
-                            </span>
+                            <span className="font-semibold text-slate-700">{currentPageName}</span>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3 pl-1">
                         <div className="text-right hidden sm:block">
-                            <div className="text-sm font-medium text-slate-700">
-                                特許 太郎
-                            </div>
-                            <div className="text-xs text-slate-500">
-                                知財部 マネージャー
-                            </div>
+                            <div className="text-sm font-medium text-slate-700">特許 太郎</div>
+                            <div className="text-xs text-slate-500">知財部 マネージャー</div>
                         </div>
                         <button className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200">
                             <User size={18} />
@@ -202,9 +189,7 @@ export default function MainLayout({
                 </header>
 
                 {/* メインコンテンツ */}
-                <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
-                    {children}
-                </div>
+                <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">{children}</div>
             </div>
         </div>
     );

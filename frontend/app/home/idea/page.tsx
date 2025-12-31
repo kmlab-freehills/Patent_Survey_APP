@@ -2,16 +2,20 @@
 
 "use client";
 
-import type { components } from "@/types/schema"; // 自動生成型定義
 import { useState } from "react";
-import { GeneratingScreen } from "./GeneratingScreen";
-import { PatentUploadUI } from "./PatentUploadUI";
+import { GeneratingScreen } from "./components/screen/GeneratingScreen";
+import { UploadScreen } from "./components/screen/PatentUploadScreen";
 
+import type { components } from "@/types/schema"; // 自動生成型定義
 type PatentContent = components["schemas"]["PatentContent"];
 type PatentImage = components["schemas"]["PatentImage"];
 
+// ============================================================
+// 特許解析～アイデア生成機能
+// ============================================================
+
 // 画面状態の型定義
-type ScreenState = "upload" | "generating" | "result";
+type ScreenState = "upload" | "generating";
 
 export default function IdeaPage() {
     const [screen, setScreen] = useState<ScreenState>("upload");
@@ -26,7 +30,7 @@ export default function IdeaPage() {
         <>
             {/* アップロード画面 */}
             {screen === "upload" && (
-                <PatentUploadUI
+                <UploadScreen
                     setScreen={setScreen}
                     setPatentId={setPatentId}
                     setFileName={setFileName}
@@ -44,9 +48,6 @@ export default function IdeaPage() {
                     patentImages={patentImages}
                 />
             )}
-
-            {/* 結果画面 (将来拡張用) */}
-            {screen === "result" && <div>Result</div>}
         </>
     );
 }

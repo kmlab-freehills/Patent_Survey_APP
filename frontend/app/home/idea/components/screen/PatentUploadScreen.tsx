@@ -1,10 +1,15 @@
-// Patent_Survey_APP/frontend/app/home/idea/PatentUploadUI.tsx
+// Patent_Survey_APP/frontend/app/home/idea/components/screen/PatentUploadScreen.tsx
 
 "use client";
 
 import type { components } from "@/types/schema";
 import { CheckCircle2, FileText, Send, UploadCloud, X } from "lucide-react";
 import React, { useCallback, useRef, useState } from "react";
+
+// ============================================================
+// Screen 1. 特許PDFアップロード画面
+// ============================================================
+
 
 // 特許PDFの型
 type PatentResponse = components["schemas"]["PatentUploadResponse"];
@@ -16,21 +21,21 @@ interface FileItem {
     size: string;
 }
 
-interface UploadUIProps {
-    setScreen: (state: "upload" | "generating" | "result") => void;
+interface UploadScreenProps {
+    setScreen: (state: "upload" | "generating") => void;
     setFileName: (fileName: string) => void;
     setPatentId: (patentId: string) => void;
     setPatentData: (data: PatentContent) => void;
     setPatentImages: (data: PatentImage[]) => void;
 }
 
-export const PatentUploadUI = ({
+export const UploadScreen = ({
     setScreen,
     setFileName,
     setPatentId,
     setPatentData,
     setPatentImages,
-}: UploadUIProps) => {
+}: UploadScreenProps) => {
     const [isDragging, setIsDragging] = useState(false);
     const [fileInfo, setFileInfo] = useState<FileItem | null>(null);
     const [rawFile, setRawFile] = useState<File | null>(null);
@@ -138,24 +143,16 @@ export const PatentUploadUI = ({
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    className={`
-            relative rounded-lg border-2 border-dashed p-12 text-center transition-all duration-200 ease-in-out
+                    className={`relative rounded-lg border-2 border-dashed p-12 text-center transition-all duration-200 ease-in-out
             ${
                 isDragging
                     ? "border-blue-500 bg-blue-50/50"
                     : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100/50"
-            }
-          `}>
+            }`}>
                     <div className="flex flex-col items-center justify-center gap-4">
                         <div
-                            className={`
-                p-4 rounded-full 
-                ${
-                    isDragging
-                        ? "bg-blue-100 text-blue-600"
-                        : "bg-white text-slate-400 shadow-sm"
-                }
-              `}>
+                            className={`p-4 rounded-full 
+                ${isDragging ? "bg-blue-100 text-blue-600" : "bg-white text-slate-400 shadow-sm"}`}>
                             <UploadCloud size={32} />
                         </div>
                         <div>
@@ -220,9 +217,7 @@ function FileRow({ file, onRemove }: { file: FileItem; onRemove: () => void }) {
 
             <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">
-                    <p className="font-medium text-slate-800 truncate pr-4">
-                        {file.name}
-                    </p>
+                    <p className="font-medium text-slate-800 truncate pr-4">{file.name}</p>
                     <button
                         onClick={onRemove}
                         className="text-slate-400 hover:text-red-500 opacity-100 transition-all"

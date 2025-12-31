@@ -1,13 +1,18 @@
-// Patent_Survey_APP/frontend/app/home/idea/components/SourceSidebar.tsx
+// Patent_Survey_APP/frontend/app/home/idea/components/sidebar/SourceSidebar.tsx
 
 import { useEffect, useRef } from "react";
-import { SourceBlock } from "../util/parseSourceText";
-// 画像
+import { SourceBlock } from "./sourcePatentTextProcess";
+// 画像周り
 import { FigureList } from "./FigureList";
 import { PatentImageModal } from "./PatentImageModal";
 
+// 自動生成型
 import type { components } from "@/types/schema";
 type PatentImage = components["schemas"]["PatentImage"];
+
+// ============================================================
+// 特許原文参照サイドバー（右側）
+// ============================================================
 
 type SourceSidebarProps = {
     isOpen: boolean;
@@ -20,7 +25,6 @@ type SourceSidebarProps = {
     setSelectedImage: (img: PatentImage | null) => void;
 };
 
-// 特許原文サイドバー（右）
 export const SourceSidebar = ({
     isOpen,
     onClose,
@@ -64,9 +68,7 @@ export const SourceSidebar = ({
             {/* サイドバーヘッダー */}
             <header className="flex justify-between items-center gap-4 py-3 px-4 border-b border-gray-200">
                 <div className="w-80 flex items-center gap-3">
-                    <h2 className="text-lg font-bold whitespace-nowrap">
-                        原文
-                    </h2>
+                    <h2 className="text-lg font-bold whitespace-nowrap">原文</h2>
                     <span className="text-sm pt-1 truncate">{fileName}</span>
                 </div>
                 <button
@@ -92,17 +94,13 @@ export const SourceSidebar = ({
                                 <div className="text-xs text-slate-400 mb-1">
                                     [段落: {block.id}]
                                 </div>
-                                <div className="whitespace-pre-wrap text-sm">
-                                    {block.text}
-                                </div>
+                                <div className="whitespace-pre-wrap text-sm">{block.text}</div>
                             </div>
                         );
                     }
 
                     return (
-                        <div
-                            key={index}
-                            className="whitespace-pre-wrap text-sm">
+                        <div key={index} className="whitespace-pre-wrap text-sm">
                             {block.text}
                         </div>
                     );
@@ -111,10 +109,7 @@ export const SourceSidebar = ({
 
             <FigureList images={patentImages} onSelect={setSelectedImage} />
 
-            <PatentImageModal
-                image={selectedImage}
-                onClose={() => setSelectedImage(null)}
-            />
+            <PatentImageModal image={selectedImage} onClose={() => setSelectedImage(null)} />
         </aside>
     );
 };

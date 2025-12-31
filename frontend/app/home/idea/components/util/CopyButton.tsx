@@ -1,16 +1,15 @@
+// Patent_Survey_APP/frontend/app/home/idea/components/util/CopyButton.tsx
+
 "use client";
 
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
-// テキストをクリップボードにコピーするボタンコンポーネント
-export const CopyButton = ({
-    text,
-    className = "",
-}: {
-    text: string;
-    className?: string;
-}) => {
+// ============================================================
+// 生成されたテキストをクリップボードにコピーするボタンコンポーネント
+// ============================================================
+
+export const CopyButton = ({ text, className = "" }: { text: string; className?: string }) => {
     const [isCopied, setIsCopied] = useState(false);
 
     const handleCopy = async () => {
