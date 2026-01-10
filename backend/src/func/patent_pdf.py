@@ -1,11 +1,10 @@
 # Patent_Survey_APP/backend/src/func/patent_pdf.py
 
-import io
+
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
-
-from pypdf import PdfReader
 
 """
 # J-PlatPat特許広報PDF テキスト整形コード
@@ -15,22 +14,6 @@ from pypdf import PdfReader
 理由: 特許文書という高精度が求められるドメインであるため
 補足: 前処理…J-PlatPatからダウンロードした特許PDFについて、pypdfでテキストを抽出→そのテキストに対する処理/作成中
 """
-
-
-# ============================================================
-# PDFファイル読み込み処理
-# ============================================================
-
-
-def read_pdf(pdf_bytes):
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    full_text = ""
-    for page_num in range(len(reader.pages)):
-        page = reader.pages[page_num]
-        full_text += page.extract_text()
-
-    return full_text
-
 
 # ============================================================
 # [1] 初期整形
@@ -47,17 +30,15 @@ def patent_text_cleanup(text):
     def clean_text(text):
         """特許テキスト整形関数"""
 
+        ## Step. 0 Unicode正規化（NFKC） ##
+        text = normalize_unicode(text)  # 全角数字・全角英字は半角に変換される
+
         ## Step.1 PDF特有のレイアウトを除去 ##
-        text = re.sub(
-            r"—{10,}.*", "", text, flags=re.DOTALL
-        )  # 区切り線（—が10個以上）以降を削除（フロントページの続き...は不要）
-        text = re.sub(
-            r"^\d+\n", "", text, flags=re.MULTILINE
-        )  # 行番号除去① 例)10\n20\n30\n40\n50
-        text = re.sub(
-            r"^\d+(\(\d+\))", r"\1", text, flags=re.MULTILINE
-        )  # 行番号除去② 例:50(30)→(30)
-        text = re.sub(r"JP .*?\d{4}\.\d{1,2}\.\d{1,2}\s*\n", "", text)  # 文書情報を除去
+        header_line_pattern = r"JP[\s\xa0]+\d+[\s\xa0]+[A-Z]\d*[\s\xa0]+\d{4}\.\d{1,2}\.\d{1,2}"
+
+        text = re.sub(r"̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶", "", text)  # 区切り線を除去
+        text = re.sub(r"フロントページの続き.*", "", text, flags=re.DOTALL)
+        text = re.sub(header_line_pattern, "", text)  # ヘッダーの文書番号を除去
         text = re.sub(r"\(\d+\)", "", text)  # (50)のような表記を除去
         text = re.sub(
             r"[ \t]*\n[ \t]*", "", text
@@ -67,47 +48,32 @@ def patent_text_cleanup(text):
         # 先に見出しの前後に改行を入れておくことで、後続の正規表現（範囲指定）を安全にする
         text = re.sub(r"【", "\n【", text)  # 【見出し】の前に改行を挿入
         text = re.sub(r"】", "】\n", text)  # 【見出し】の後に改行を挿入
+        text = re.sub(r"\n{2,}", "\n", text)  # 一度、連続する改行を1つにまとめる（直前処理で改行が1～2つ存在するため）
 
         ## Step.3 【要約】に対する処理 ##
-        text = re.sub(r"【課題】", r"[課題]\n", text)
-        text = re.sub(r"【解決手段】", r"[解決手段]\n", text)
-        text = re.sub(r"【選択図】", r"[選択図]\n", text)
+        text = re.sub(r"【課題】", r"[課題]", text)
+        text = re.sub(r"【解決手段】", r"[解決手段]", text)
+        text = re.sub(r"【選択図】", r"[選択図]", text)
 
         ## Step.4 【符号の説明】に対する処理 ##
-        text = format_symbol_section_safe(
-            text
-        )  # 当該セクション内のみに限定して置換を行う
+        text = format_symbol_section_safe(text)  # 当該セクション内のみに限定して置換を行う
 
         ## Step. 5 【図面の簡単な説明】に対する処理 ##
         text = format_draw_section(text)
 
-        ## Step.6 【段落番号】に対する処理 ##
-        text = re.sub(
-            r"【(\d{4})】", r"\n[段落: \1]\n", text
-        )  # 【数字4桁】を [段落:数字] + 改行に変換
-        text = re.sub(
-            r"(【符号の説明】)\s*\[段落: \d+\]\n", r"\1\n", text
-        )  # 【符号の説明】の段落番号は除去
-        text = re.sub(
-            r"(【図面の簡単な説明】)\s*\[段落: \d+\]\n", r"\1", text
-        )  # 【図面の簡単な説明】の段落番号は除去
-        text = re.sub(
-            r"(【特許文献】)\s*\[段落: \d+\]\n", r"\1", text
-        )  # 【特許文献】の段落番号は除去
-        text = re.sub(
-            r"【特許文献(\d)】", r"[特許文献: \1]\n", text
-        )  # 【特許文献X】を段落番号のフォーマットと合わせる
-        text = re.sub(
-            r"【請求項(\d+)】", r"[請求項: \1]\n", text
-        )  # 【請求項X】を段落番号のフォーマットと合わせる
+        ## Step.6 【段落番号】などに対する処理 ##
+
+        # [段落: 数字]の形式
+        text = re.sub(r"【(\d{4})】", r"\n[段落: \1]\n", text)  # 【数字4桁】を \n[段落: 数字]\n に変換
+        # [段落: 数字]の形式に合わせる（特許文献/請求項/表）
+        text = re.sub(r"【特許文献(\d)】", r"\n[特許文献: \1]\n", text)
+        text = re.sub(r"【請求項(\d+)】", r"\n[請求項: \1]\n", text)
+        text = re.sub(r"【表(\d+)】", r"\n[表: \1]\n", text)
 
         ## Step.7 最終レイアウト調整 ##
         text = re.sub(r"　", "", text)  # すべての全角空白を削除
-        text = re.sub(r"\n{2,}", "\n", text)  # 連続する改行を1つにまとめる
         text = re.sub(r"。", "。\n", text)  # 「。」の後に改行を挿入して可読性を向上
-        text = re.sub(
-            r"【", "\n【", text
-        )  # 【見出し】の前に改行を挿入（段落番号の処理で行が詰まった見出しへの対応）
+        text = re.sub(r"【", "\n【", text)  # 【見出し】の前に改行を挿入（段落番号の処理で行が詰まった見出しへの対応）
         text = re.sub(r"\n\n\n", r"\n\n", text)  # 2連続の空白行を1つに
 
         return text.strip()
@@ -117,19 +83,17 @@ def patent_text_cleanup(text):
 
         ## Step.1 置換準備 ##
         def full_number_to_half(match):
-            """全角数字を半角数字に変換する関数"""
+            """全角数字を半角数字に変換する関数（明示的）"""
             char = match.group(0)  # マッチした全角数字を1文字取得
-            return chr(
-                ord(char) - ord("０") + ord("0")
-            )  # Unicodeの差を利用して半角に変換
+            return chr(ord(char) - ord("０") + ord("0"))  # Unicodeの差を利用して半角に変換
 
         def full_alphabet_to_half(match):
-            """全角英字を半角に変換する関数"""
+            """全角英字を半角に変換する関数（明示的）"""
             char = match.group(0)
             return chr(ord(char) - ord("Ａ") + ord("A"))
 
         # 全角記号から半角記号への置換マップ {'全角': '半角'}
-        replace_map = {
+        REPLACE_MAP = {
             "（": "(",
             "）": ")",
             "「": '"',
@@ -166,63 +130,96 @@ def patent_text_cleanup(text):
         text = re.sub(r"[Ａ-Ｚ]", full_alphabet_to_half, text)
         text = re.sub(r"[ａ-ｚ]", full_alphabet_to_half, text)
 
-        # 全角記号や句読点をまとめて置換（replace_map参照）
-        for full, half in replace_map.items():
+        # 全角記号や句読点をまとめて置換（REPLACE_MAP参照）
+        for full, half in REPLACE_MAP.items():
             text = text.replace(full, half)
 
-        return text.strip()
+        ## Step. 3 例外処理 ##
+        text = re.sub(r"【 特 許 請 求 の 範 囲 】", "【特許請求の範囲】", text)
+
+        return text
 
     # ------------------------------------------------------------
     # 補助関数
     # ------------------------------------------------------------
 
+    def format_symbol_section_safe(text):
+        """【符号の説明】セクションの整形"""
+
+        def process(match):
+            header = match.group(1)  # 【符号の説明】＋【0032】
+            content = match.group(2)
+
+            content = re.sub(r"、\s*", "\n", content)
+
+            lines = []
+            for line in content.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+
+                # 子（例: 18 A 絞り部）
+                m_child = re.match(r"^([0-9]+)\s*([A-Z])\s*(.+)$", line)
+                if m_child:
+                    num, alpha, name = m_child.groups()
+                    lines.append(f"  -{num}{alpha}: {name}")
+                    continue
+
+                # 親（例：18 ガス供給用配管）
+                m_parent = re.match(r"^([0-9]+)\s*(.+)$", line)
+                if m_parent:
+                    num, name = m_parent.groups()
+                    lines.append(f"-{num}: {name}")
+                    continue
+
+                lines.append(line)
+
+            return header + "\n".join(lines)
+
+        pattern = r"(【符号の説明】\n(?:【\d+】\n)?)(.*?)(?=\n【|$)"
+        return re.sub(pattern, process, text, flags=re.DOTALL)
+
     def format_draw_section(text):
-        """【図面の簡単な説明】を整形/【図面の簡単な説明】内の【図◯】とそれ以外の【図◯】を区別/clean_text()内で使用"""
+        """【図面の簡単な説明】セクションの整形"""
 
-        def replace_figures(match):
-            header = match.group(1)  # 【図面の簡単な説明】
-            content = match.group(2)  # セクションの中身
+        def process(match):
+            header = match.group(1)  # 【図面の簡単な説明】＋【0009】
+            content = match.group(2)
 
-            content = re.sub(
-                r"【図(.+?)】", r"[図: \1]\n", content
-            )  # 【図X】を[図: X]に置換
-            content = re.sub(
-                r" \[図(.+?)\]", r"[図\1]", content
-            )  # [図X]前に存在する半角スペースを除去
-            return header + content
+            lines = []
+            for line in content.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
 
-        # 表記ゆれ対応
-        header_regex = r"(【(?:図面の簡単な説明|図面の説明|図面の概略説明)】)"
-        # 上記見出しから、次の「主要なセクション開始」または文末($) までを対象にする(肯定先読み)
-        pattern = header_regex + r"(.*?)(?=(?:【(?!(?:図|[0-9０-９])).+?】|$))"
+                # 【図1】 / 【図A】 / 【図1A】 --> [図: 1] など
+                m_fig = re.match(r"^【図\s*([０-９Ａ-Ｚ]+)】$", line)
+                m_fig = re.match(r"^【図\s*([0-9A-Z]+)】$", line)
+                if m_fig:
+                    fig_no = m_fig.group(1)
+                    lines.append(f"[図: {fig_no}]")
+                    continue
+
+                lines.append(line)
+
+            return header + "\n".join(lines)
+
+        pattern = (
+            r"(【(?:図面の簡単な説明|図面の簡単な説明|図面の説明|図面の概略説明)】\n"
+            r"(?:【\d+】\n)?)"
+            r"(.*?)(?=\n【(?!図)[^】]+】|$)"
+        )
 
         # re.DOTALL: . が改行にもマッチするようにする（改行が含まれていても対応可能に）
-        return re.sub(pattern, replace_figures, text, flags=re.DOTALL)
+        return re.sub(pattern, process, text, flags=re.DOTALL)
 
-    def format_symbol_section_safe(text):
-        """【符号の説明】セクションのみを抽出して整形処理を行う"""
+    def normalize_unicode(text):
+        """異字体の正規化関数"""
 
-        def process_content(match):
-            content = match.group(0)
+        # Unicode正規化（NFKC）
+        text = unicodedata.normalize("NFKC", text)
 
-            content = re.sub(
-                r"(\d+)　", r"\1： ", content
-            )  # 全角数字+全角空白→全角数字+：に置換
-            content = re.sub(
-                r"、(\d+)", r"\n\1", content
-            )  # 「、」+全角数字→改行＋全角数字に置換（※ここでだけ実行）
-            content = re.sub(
-                r"([\dＡ-Ｚａ-ｚ]+)　", r"  \1： ", content
-            )  # 英数の場合はインデント(階層構造)を付与
-            content = re.sub(
-                r"([\dＡ-Ｚａ-ｚ]+：)", r"- \1", content
-            )  # 箇条書きリスト付与
-            return content
-
-        # 【符号の説明】の見出し後から、次の【見出し】が来るまでをターゲットにする（前処理で見出しの前後に改行(\n)を入れているため、それを区切りとして利用）
-        pattern = r"(?<=【符号の説明】\n)(.*?)(?=\n【|$)"
-
-        return re.sub(pattern, process_content, text, flags=re.DOTALL)
+        return text
 
     # ------------------------------------------------------------
     # 実行部分
@@ -428,9 +425,7 @@ def parse_patent_text(text: str) -> PatentDocument:
             attr_name = HEADER_TO_ATTR[header_key]
             current_val = getattr(doc, attr_name)
             # 同じセクションが分散している場合は結合
-            new_val = (
-                (current_val + "\n\n" + content).strip() if current_val else content
-            )
+            new_val = (current_val + "\n\n" + content).strip() if current_val else content
             setattr(doc, attr_name, new_val)
         else:
             doc.others[header_key] = content
@@ -443,21 +438,31 @@ def parse_patent_text(text: str) -> PatentDocument:
 # ============================================================
 
 
+# 変更点: read_pdf() を削除し、patent_text_extraction() を修正
+
+
 def patent_text_extraction(pdf_bytes):
-    """特許PDFのテキストを抽出・整形しPatentDocumentに変換する関数"""
-    pdf_text = read_pdf(pdf_bytes)  # PDFのテキスト抽出
-    cleaned_text = patent_text_cleanup(pdf_text)  # 抽出されたテキストの整形・置換
-    patent_doc = parse_patent_text(cleaned_text)  # PatentDocumentオブジェクトに変換
-    missing_sections = patent_doc.get_missing_sections()  # 存在しないセクションの抽出
+    """
+    特許PDFのテキストを抽出・整形しPatentDocumentに変換
+
+    Note: Docling統合版
+        - テキスト抽出は patent_parser.py に委譲
+        - この関数は正規表現処理とPatentDocument変換のみ担当
+    """
+    from src.func.patent_parser import extract_plaintext_and_images
+
+    # Doclingで抽出
+    plaintext, images = extract_plaintext_and_images(pdf_bytes)
+
+    # 既存の正規表現処理を適用
+    cleaned_text = patent_text_cleanup(plaintext)
+    patent_doc = parse_patent_text(cleaned_text)
+
+    # 欠損セクション確認
+    missing_sections = patent_doc.get_missing_sections()
     if missing_sections:
         print("以下のセクションはこの文書に含まれていませんでした:")
         for section in missing_sections:
             print(f"- {section}")
-    else:
-        print("定義されたすべてのセクションが存在します。")
-    return patent_doc
 
-
-# 利用例
-# patent_doc = patent_text_extraction(pdf_bytes)
-# print(patent_doc.get_text(['abstract']))
+    return patent_doc, images  # 画像も返すように変更

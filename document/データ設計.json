@@ -1,0 +1,42 @@
+{
+    "session_id": "abc123",
+    "created_at": "2026-01-10T12:00:00Z",
+    "artifacts": {
+        "patent_summary": {
+            "step": 1,
+            "type": "single_shot",
+            "prompt_version": "summary_v3",
+            "input": {
+                "patent_id": "JPxxxxxx"
+            },
+            "output": "ここに特許要約全文"
+        },
+
+        "idea_generation": {
+            "step": 2,
+            "type": "single_shot",
+            "prompt_version": "idea_v2",
+            "input": {
+                "summary_ref": "patent_summary"
+            },
+            "output": "アイデア生成結果"
+        }
+    },
+
+    "conversation": {
+        "type": "multi_turn",
+        "context": {
+            "use_artifacts": ["patent_summary", "idea_generation"]
+        },
+        "messages": [
+            {
+                "role": "user",
+                "content": "このアイデアをさらに具体化して"
+            },
+            {
+                "role": "assistant",
+                "content": "はい、以下のように..."
+            }
+        ]
+    }
+}

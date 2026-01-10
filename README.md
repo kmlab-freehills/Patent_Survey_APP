@@ -116,29 +116,32 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ## ディレクトリ構造（2026/1/1 時点）
 
+
 ```
 Patent_Survey_APP
 ├─ backend
+│  ├─ .python-version
 │  ├─ config.py
 │  ├─ Dockerfile
 │  ├─ main.py
-│  ├─ requirements.txt
-│  └─ src
-│     ├─ func
-│     │  ├─ gemini_client.py
-│     │  ├─ generate_func.py
-│     │  ├─ patent_images.py
-│     │  └─ patent_pdf.py
-│     ├─ prompt
-│     │  ├─ idea_prompt.py
-│     │  └─ system_prompt.py
-│     ├─ routers
-│     │  ├─ generate_api.py
-│     │  └─ patent_process_api.py
-│     ├─ schemas
-│     │  └─ patent_schemas.py
-│     └─ storage
-│        └─ patent_store.py
+│  ├─ pyproject.toml
+│  ├─ src
+│  │  ├─ func
+│  │  │  ├─ gemini_client.py
+│  │  │  ├─ generate_func.py
+│  │  │  ├─ patent_images.py
+│  │  │  └─ patent_pdf.py
+│  │  ├─ prompt
+│  │  │  ├─ idea_prompt.py
+│  │  │  └─ system_prompt.py
+│  │  ├─ routers
+│  │  │  ├─ generate_api.py
+│  │  │  └─ patent_process_api.py
+│  │  ├─ schemas
+│  │  │  └─ patent_schemas.py
+│  │  └─ storage
+│  │     └─ patent_store.py
+│  └─ uv.lock
 ├─ docker-compose.yml
 ├─ frontend
 │  ├─ app
@@ -195,8 +198,10 @@ Patent_Survey_APP
 │  ├─ tsconfig.json
 │  └─ types
 │     └─ schema.ts
+├─ notebooks
 ├─ README.md
 ├─ repomix-output.xml
+├─ repomix.config.json
 └─ SETUP.md
 
 ```

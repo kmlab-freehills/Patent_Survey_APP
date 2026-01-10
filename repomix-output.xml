@@ -1,10 +1,10 @@
-This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
 
 <file_summary>
 This section contains a summary of this file.
 
 <purpose>
-This file contains a packed representation of the entire repository's contents.
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
 It is designed to be easily consumable by AI systems for analysis, code review,
 or other automated processes.
 </purpose>
@@ -27,85 +27,1994 @@ The content is organized as follows:
   between different files in the repository.
 - Be aware that this file may contain sensitive information. Handle it with
   the same level of security as you would the original repository.
+- Pay special attention to the Repository Description. These contain important context and guidelines specific to this project.
 </usage_guidelines>
 
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: **/*
+- Files matching these patterns are excluded: additional-folder, **/*.log, .gitignore, frontend/eslint.config.mjs, frontend/next.config.ts, frontend/postcss.config.mjs, frontend/tsconfig.json, frontend/types/schema.ts, repomix.config.json
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
-- Files are sorted by Git change count (files with more changes are at the bottom)
 </notes>
 
 </file_summary>
 
-<directory_structure>
-.gitignore
-backend/.env.example
-backend/config.py
-backend/Dockerfile
-backend/main.py
-backend/requirements.txt
-backend/src/func/gemini_client.py
-backend/src/func/generate_func.py
-backend/src/func/patent_images.py
-backend/src/func/patent_pdf.py
-backend/src/prompt/idea_prompt.py
-backend/src/prompt/system_prompt.py
-backend/src/routers/generate_api.py
-backend/src/routers/patent_process_api.py
-backend/src/schemas/patent_schemas.py
-backend/src/storage/patent_store.py
-docker-compose.yml
-frontend/.gitignore
-frontend/app/favicon.ico
-frontend/app/globals.css
-frontend/app/home/idea/components/screen/GeneratingScreen.tsx
-frontend/app/home/idea/components/screen/PatentUploadScreen.tsx
-frontend/app/home/idea/components/section/AnalysisSection.tsx
-frontend/app/home/idea/components/section/ChatSection.tsx
-frontend/app/home/idea/components/section/HeaderSection.tsx
-frontend/app/home/idea/components/section/IdeaSection.tsx
-frontend/app/home/idea/components/section/PreviewSection.tsx
-frontend/app/home/idea/components/sidebar/FigureList.tsx
-frontend/app/home/idea/components/sidebar/PatentImageModal.tsx
-frontend/app/home/idea/components/sidebar/sourcePatentTextProcess.ts
-frontend/app/home/idea/components/sidebar/SourceSidebar.tsx
-frontend/app/home/idea/components/util/ActionButton.tsx
-frontend/app/home/idea/components/util/CopyButton.tsx
-frontend/app/home/idea/components/util/MarkdownRenderer.tsx
-frontend/app/home/idea/page.tsx
-frontend/app/home/layout.tsx
-frontend/app/home/page.tsx
-frontend/app/layout.tsx
-frontend/app/MainLayout.tsx
-frontend/app/page.tsx
-frontend/Dockerfile
-frontend/eslint.config.mjs
-frontend/images/arrow_back.svg
-frontend/images/check_icon.svg
-frontend/images/edit_document_icon.svg
-frontend/images/file.svg
-frontend/images/info_icon.svg
-frontend/images/logout_icon.svg
-frontend/images/menu_icon.svg
-frontend/images/science.svg
-frontend/images/send_icon.svg
-frontend/images/setting_icon.svg
-frontend/next.config.ts
-frontend/package.json
-frontend/postcss.config.mjs
-frontend/README.md
-frontend/styles/chat_input_style.css
-frontend/styles/markdown_style.css
-frontend/tsconfig.json
-frontend/types/schema.ts
-README.md
-SETUP.md
-</directory_structure>
+<user_provided_header>
+プロジェクトのコードベース
+</user_provided_header>
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="backend/.env.example">
+# 対応する環境変数を挿入し、.envと改名
+
+# GeminiのAPIキー（必須）
+GEMINI_API_KEY="ここにあなたのAPIキーを入れる"
+
+# フロントエンドのURL（CORS許可設定用）
+# Dockerで立ち上げた場合、ブラウザからは localhost:3000 としてアクセスする
+FRONTEND_URL="http://localhost:3000"
+
+# 終了時の一時ファイル削除設定
+CLEANUP_ON_EXIT="true"
+</file>
+
+<file path="backend/.python-version">
+3.12
+</file>
+
+<file path="backend/config.py">
+# Patent_Survey_APP/backend/config.py
+
+import os
+
+from dotenv import load_dotenv
+
+# .envファイル読み込み
+load_dotenv()
+
+# Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# フロントエンド側のURL
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+# 終了時に一時ファイルを削除するかどうか
+CLEANUP_ON_EXIT = os.getenv("CLEANUP_ON_EXIT")
+</file>
+
+<file path="backend/Dockerfile">
+# Patent_Survey_APP/backend/Dockerfile
+
+## ベースイメージ ##
+# Docker Hubから公式のPython 3.11イメージを取得（-slim --> 軽量版）
+FROM python:3.12-slim
+
+## OpenCV/RapidOCRに必要なシステムライブラリをインストール ##
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+## uvをインストール ##
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+## uvのvenv作成場所を明示 ##
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+
+## 依存関係定義のみ先にコピー ##
+COPY pyproject.toml uv.lock ./
+
+## 依存関係のインストール ##
+# uv syncを実行（--frozen: lockファイル厳密使用, --no-dev: 本番用依存のみ）
+RUN uv sync --frozen --no-dev
+
+## applicationコードをコピー ##
+# ホストの backend/ ディレクトリの全ファイルを、コンテナ内の /app/ にコピー（main.pyなどがコピーされる）
+COPY . .
+
+## FastAPI 開発サーバーのポート（明示的） ##
+EXPOSE 8000
+
+## コンテナ起動時に実行するコマンド ##
+# FastAPIサーバーを起動するコマンド
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+</file>
+
+<file path="backend/main.py">
+# Patent_Survey_APP/backend/main.py
+
+import os
+from contextlib import asynccontextmanager  # ライフサイクルイベント
+
+import config
+from fastapi import FastAPI  # アプリ本体
+from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
+from src.routers import generate_api, patent_process_api  # APIエンドポイント
+from src.storage.patent_store import (
+    STATIC_BASE_PATH,
+    cleanup_temp_files,
+)  # 一時ファイル処理用
+from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
+
+# ============================================================
+# ライフサイクルイベント（起動・終了時の処理）
+# ============================================================
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    アプリケーションのライフサイクル管理
+    - yield前: アプリ起動時の処理
+    - yield後: アプリ終了時の処理
+    """
+
+    # --- 起動時の処理 ---
+    print("アプリケーションを起動しています...")
+    if not os.path.exists(STATIC_BASE_PATH):
+        os.makedirs(STATIC_BASE_PATH, exist_ok=True)
+
+    yield  # ← ここでアプリケーションが実行される
+
+    # --- 終了時の処理 ---
+    print("アプリケーションを終了しています...")
+    if config.CLEANUP_ON_EXIT == "true":
+        cleanup_temp_files()  # 一時ファイル削除実行
+
+
+# ============================================================
+# アプリケーションのセットアップ
+# ============================================================
+
+app = FastAPI(
+    title="Patent Survey App",
+    description="フリーヒルズラボ",
+    version="1.0.0",
+    lifespan=lifespan,  # ← lifespanを指定
+)
+
+FRONTEND_URL = config.FRONTEND_URL or ""
+
+# 特許画像保存先
+os.makedirs(STATIC_BASE_PATH, exist_ok=True)  # マウント前に確実にディレクトリを作成
+app.mount("/static/patents", StaticFiles(directory=STATIC_BASE_PATH), name="static")
+
+# ============================================================
+# CORS設定（フロントエンドとの通信を許可）
+# ============================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL],  # フロントエンド の URL を指定
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],  # 必要なメソッドのみ許可
+    allow_headers=["Content-Type", "Authorization"],  # 必要なヘッダーのみ許可
+)
+
+
+# ============================================================
+# ルーター登録
+# ============================================================
+
+app.include_router(generate_api.router)  # LLM生成API
+app.include_router(patent_process_api.router)  # 特許PDF処理API
+
+
+# ============================================================
+# エンドポイント（テスト用）
+# ===========================================================
+
+
+# 動作確認
+@app.get("/")
+def read_root():
+    return {"message": "Hello World"}
+
+
+# 実行コマンド:
+# uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+</file>
+
+<file path="backend/pyproject.toml">
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "docling>=2.66.0",
+    "dotenv>=0.9.9",
+    "fastapi>=0.128.0",
+    "google-genai>=1.57.0",
+    "torch>=2.6.0",
+    "uvicorn>=0.40.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }
+torchvision = { index = "pytorch-cu124" }
+
+[tool.ruff]
+line-length = 120
+</file>
+
+<file path="backend/src/func/gemini_client.py">
+# Patent_Survey_APP/backend/src/func/gemini_client.py
+
+# Gemini-APIのクライアント認証を実行する --> clientをインポートして利用
+
+import config
+from google import genai
+
+client = genai.Client(api_key=config.GEMINI_API_KEY)
+</file>
+
+<file path="backend/src/func/generate_func.py">
+# Patent_Survey_APP/backend/src/func/generate_func.py
+
+from google.genai import types
+from google.genai.types import GenerateContentConfig
+
+# ============================================================
+# テキスト生成実行関数
+# ============================================================
+
+
+def generate_content(prompt, client, tool_mode: str, system_instruction=None):
+    """
+    tool_mode:
+        "text"       : ツールなし（純粋なテキスト生成）
+        "search"     : Google Search のみ
+        "search_url" : URL context + Google Search
+    """
+
+    tools = None
+
+    # テキスト生成のみ
+    if tool_mode == "text":
+        pass
+
+    # Google Searchのみ
+    elif tool_mode == "search":
+        grounding_tool = types.Tool(google_search=types.GoogleSearch())
+        tools = [grounding_tool]
+
+    # URL context + Google Search を両方指定
+    elif tool_mode == "search_url":
+        tools = [
+            {"url_context": {}},
+            {"google_search": {}},
+        ]
+
+    else:
+        raise ValueError(f"Unknown tool_mode: {tool_mode}")
+
+    # config生成ツールがある場合のみ生成
+    if tools is not None:
+        config = GenerateContentConfig(
+            tools=tools,
+            system_instruction=system_instruction,
+        )
+    else:
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+        )
+
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=config,
+    )
+
+    return response
+
+
+# ============================================================
+# マルチターン対話用生成関数
+# ============================================================
+
+
+def generate_content_multiturn(contents: list, client, system_instruction: str):
+    """
+    マルチターン対話用の生成関数
+
+    Args:
+        contents: Gemini API の contents 形式
+                [{"role": "user", "parts": [{"text": "..."}]}, ...]
+        client: Gemini client
+        system_instruction: システムプロンプト
+
+    Returns:
+        ストリーミングレスポンス
+    """
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+    )
+
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents=contents,
+        config=config,
+    )
+
+    return response
+
+
+# ============================================================
+# ストリーミング生成補助関数
+# ============================================================
+
+
+def stream(response_stream):
+    full_text = ""
+    thoughts = ""
+    answer = ""
+
+    for chunk in response_stream:
+        if (
+            not chunk.candidates
+        ):  # ツール呼び出し中などで candidates が None の場合があるので防御的に
+            continue
+
+        for part in chunk.candidates[0].content.parts:
+            if not getattr(part, "text", None):
+                continue  # 何も送らない
+
+            # 思考テキスト
+            if getattr(part, "thought", False):
+                if not thoughts:
+                    yield ""
+                thoughts += part.text
+                full_text += part.text
+                yield part.text
+
+            # 回答テキスト
+            else:
+                if not answer:
+                    yield ""
+                answer += part.text
+                full_text += part.text
+                yield part.text
+
+    return
+</file>
+
+<file path="backend/src/func/patent_images.py">
+# Patent_Survey_APP/backend/src/func/patent_images.py
+
+import os
+from io import BytesIO
+
+from PIL import Image
+from pypdf import PdfReader
+
+
+def extract_figures_from_pdf_bytes(
+    pdf_bytes: bytes,
+    output_dir: str,
+    min_width=100,
+    min_height=100,
+):
+    os.makedirs(output_dir, exist_ok=True)
+
+    reader = PdfReader(BytesIO(pdf_bytes))
+    raw_figures = []
+
+    # ------------------------------------------------------------
+    # 画像のみ抽出（番号は後で付与※逆順に格納されるため）
+    # ------------------------------------------------------------
+
+    for page_index, page in enumerate(reader.pages):
+        if page_index == 0:  # 書誌情報ページは除外
+            continue
+
+        try:
+            images = page.images
+        except Exception:
+            continue
+
+        for img in images:
+            image_bytes = img.data
+
+            try:
+                with Image.open(BytesIO(image_bytes)) as im:
+                    width, height = im.size
+                    if width < min_width or height < min_height:
+                        continue
+
+                    raw_figures.append(
+                        {
+                            "page": page_index + 1,
+                            "image": im.copy(),  # 後で使う
+                        }
+                    )
+
+            except Exception:
+                continue
+
+    # ------------------------------------------------------------
+    # 逆順にして処理して番号を付与
+    # ------------------------------------------------------------
+
+    figures = []
+    for index, fig in enumerate(reversed(raw_figures), start=1):
+        fig_id = f"fig_{index:03d}"
+        filename = f"{fig_id}.png"
+        save_path = os.path.join(output_dir, filename)
+
+        fig["image"].save(save_path, format="PNG")
+
+        figures.append(
+            {
+                "id": fig_id,
+                "label": f"図{index}",
+                "page": fig["page"],
+                "filename": filename,
+            }
+        )
+
+    return figures
+</file>
+
+<file path="backend/src/func/patent_pdf.py">
+# Patent_Survey_APP/backend/src/func/patent_pdf.py
+
+import io
+import re
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+from pypdf import PdfReader
+
+"""
+# J-PlatPat特許広報PDF テキスト整形コード
+
+目的: LLMによる分析で与える際のテキスト処理
+原則: わずかなトークンコストで得られる明確性は、常に優先すべき
+理由: 特許文書という高精度が求められるドメインであるため
+補足: 前処理…J-PlatPatからダウンロードした特許PDFについて、pypdfでテキストを抽出→そのテキストに対する処理/作成中
+"""
+
+
+# ============================================================
+# PDFファイル読み込み処理
+# ============================================================
+
+
+def read_pdf(pdf_bytes):
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    full_text = ""
+    for page_num in range(len(reader.pages)):
+        page = reader.pages[page_num]
+        full_text += page.extract_text()
+
+    return full_text
+
+
+# ============================================================
+# [1] 初期整形
+# ============================================================
+
+
+def patent_text_cleanup(text):
+    """PDFから抽出されたテキストを整形・置換するラッパー関数"""
+
+    # ------------------------------------------------------------
+    # 整形メイン関数
+    # ------------------------------------------------------------
+
+    def clean_text(text):
+        """特許テキスト整形関数"""
+
+        ## Step.1 PDF特有のレイアウトを除去 ##
+        text = re.sub(
+            r"—{10,}.*", "", text, flags=re.DOTALL
+        )  # 区切り線（—が10個以上）以降を削除（フロントページの続き...は不要）
+        text = re.sub(
+            r"^\d+\n", "", text, flags=re.MULTILINE
+        )  # 行番号除去① 例)10\n20\n30\n40\n50
+        text = re.sub(
+            r"^\d+(\(\d+\))", r"\1", text, flags=re.MULTILINE
+        )  # 行番号除去② 例:50(30)→(30)
+        text = re.sub(r"JP .*?\d{4}\.\d{1,2}\.\d{1,2}\s*\n", "", text)  # 文書情報を除去
+        text = re.sub(r"\(\d+\)", "", text)  # (50)のような表記を除去
+        text = re.sub(
+            r"[ \t]*\n[ \t]*", "", text
+        )  # 全ての改行と周辺の空白を一旦削除（PDFの幅に合わせて改行されているため）
+
+        ## Step.2 【見出し】の構造化 ##
+        # 先に見出しの前後に改行を入れておくことで、後続の正規表現（範囲指定）を安全にする
+        text = re.sub(r"【", "\n【", text)  # 【見出し】の前に改行を挿入
+        text = re.sub(r"】", "】\n", text)  # 【見出し】の後に改行を挿入
+
+        ## Step.3 【要約】に対する処理 ##
+        text = re.sub(r"【課題】", r"[課題]\n", text)
+        text = re.sub(r"【解決手段】", r"[解決手段]\n", text)
+        text = re.sub(r"【選択図】", r"[選択図]\n", text)
+
+        ## Step.4 【符号の説明】に対する処理 ##
+        text = format_symbol_section_safe(
+            text
+        )  # 当該セクション内のみに限定して置換を行う
+
+        ## Step. 5 【図面の簡単な説明】に対する処理 ##
+        text = format_draw_section(text)
+
+        ## Step.6 【段落番号】に対する処理 ##
+        text = re.sub(
+            r"【(\d{4})】", r"\n[段落: \1]\n", text
+        )  # 【数字4桁】を [段落:数字] + 改行に変換
+        text = re.sub(
+            r"(【符号の説明】)\s*\[段落: \d+\]\n", r"\1\n", text
+        )  # 【符号の説明】の段落番号は除去
+        text = re.sub(
+            r"(【図面の簡単な説明】)\s*\[段落: \d+\]\n", r"\1", text
+        )  # 【図面の簡単な説明】の段落番号は除去
+        text = re.sub(
+            r"(【特許文献】)\s*\[段落: \d+\]\n", r"\1", text
+        )  # 【特許文献】の段落番号は除去
+        text = re.sub(
+            r"【特許文献(\d)】", r"[特許文献: \1]\n", text
+        )  # 【特許文献X】を段落番号のフォーマットと合わせる
+        text = re.sub(
+            r"【請求項(\d+)】", r"[請求項: \1]\n", text
+        )  # 【請求項X】を段落番号のフォーマットと合わせる
+
+        ## Step.7 最終レイアウト調整 ##
+        text = re.sub(r"　", "", text)  # すべての全角空白を削除
+        text = re.sub(r"\n{2,}", "\n", text)  # 連続する改行を1つにまとめる
+        text = re.sub(r"。", "。\n", text)  # 「。」の後に改行を挿入して可読性を向上
+        text = re.sub(
+            r"【", "\n【", text
+        )  # 【見出し】の前に改行を挿入（段落番号の処理で行が詰まった見出しへの対応）
+        text = re.sub(r"\n\n\n", r"\n\n", text)  # 2連続の空白行を1つに
+
+        return text.strip()
+
+    def replacement_cleanup(text):
+        """特許テキスト置換関数"""
+
+        ## Step.1 置換準備 ##
+        def full_number_to_half(match):
+            """全角数字を半角数字に変換する関数"""
+            char = match.group(0)  # マッチした全角数字を1文字取得
+            return chr(
+                ord(char) - ord("０") + ord("0")
+            )  # Unicodeの差を利用して半角に変換
+
+        def full_alphabet_to_half(match):
+            """全角英字を半角に変換する関数"""
+            char = match.group(0)
+            return chr(ord(char) - ord("Ａ") + ord("A"))
+
+        # 全角記号から半角記号への置換マップ {'全角': '半角'}
+        replace_map = {
+            "（": "(",
+            "）": ")",
+            "「": '"',
+            "」": '"',
+            "『": '"',
+            "』": '"',
+            "《": '"',
+            "》": '"',
+            "〈": '"',
+            "〉": '"',
+            "〔": "[",
+            "〕": "]",
+            "［": "[",
+            "］": "]",
+            "｛": "{",
+            "｝": "}",
+            "‘": "`",
+            "’": "`",
+            "“": '"',
+            "”": '"',
+            "′": "`",
+            "．": ".",
+            "／": "/",
+            "：": ":",
+            "；": ";",
+            "＜": "<",
+            "＞": ">",
+            "％": "%",
+        }
+
+        ## Step.2 置換実行 ##
+        # 全角英数を半角に変換（全角英数 ０〜９・Ａ～Ｚ・ａ～ｚ → 半角英数 0〜9・A～Z・a～z）
+        text = re.sub(r"[０-９]", full_number_to_half, text)
+        text = re.sub(r"[Ａ-Ｚ]", full_alphabet_to_half, text)
+        text = re.sub(r"[ａ-ｚ]", full_alphabet_to_half, text)
+
+        # 全角記号や句読点をまとめて置換（replace_map参照）
+        for full, half in replace_map.items():
+            text = text.replace(full, half)
+
+        return text.strip()
+
+    # ------------------------------------------------------------
+    # 補助関数
+    # ------------------------------------------------------------
+
+    def format_draw_section(text):
+        """【図面の簡単な説明】を整形/【図面の簡単な説明】内の【図◯】とそれ以外の【図◯】を区別/clean_text()内で使用"""
+
+        def replace_figures(match):
+            header = match.group(1)  # 【図面の簡単な説明】
+            content = match.group(2)  # セクションの中身
+
+            content = re.sub(
+                r"【図(.+?)】", r"[図: \1]\n", content
+            )  # 【図X】を[図: X]に置換
+            content = re.sub(
+                r" \[図(.+?)\]", r"[図\1]", content
+            )  # [図X]前に存在する半角スペースを除去
+            return header + content
+
+        # 表記ゆれ対応
+        header_regex = r"(【(?:図面の簡単な説明|図面の説明|図面の概略説明)】)"
+        # 上記見出しから、次の「主要なセクション開始」または文末($) までを対象にする(肯定先読み)
+        pattern = header_regex + r"(.*?)(?=(?:【(?!(?:図|[0-9０-９])).+?】|$))"
+
+        # re.DOTALL: . が改行にもマッチするようにする（改行が含まれていても対応可能に）
+        return re.sub(pattern, replace_figures, text, flags=re.DOTALL)
+
+    def format_symbol_section_safe(text):
+        """【符号の説明】セクションのみを抽出して整形処理を行う"""
+
+        def process_content(match):
+            content = match.group(0)
+
+            content = re.sub(
+                r"(\d+)　", r"\1： ", content
+            )  # 全角数字+全角空白→全角数字+：に置換
+            content = re.sub(
+                r"、(\d+)", r"\n\1", content
+            )  # 「、」+全角数字→改行＋全角数字に置換（※ここでだけ実行）
+            content = re.sub(
+                r"([\dＡ-Ｚａ-ｚ]+)　", r"  \1： ", content
+            )  # 英数の場合はインデント(階層構造)を付与
+            content = re.sub(
+                r"([\dＡ-Ｚａ-ｚ]+：)", r"- \1", content
+            )  # 箇条書きリスト付与
+            return content
+
+        # 【符号の説明】の見出し後から、次の【見出し】が来るまでをターゲットにする（前処理で見出しの前後に改行(\n)を入れているため、それを区切りとして利用）
+        pattern = r"(?<=【符号の説明】\n)(.*?)(?=\n【|$)"
+
+        return re.sub(pattern, process_content, text, flags=re.DOTALL)
+
+    # ------------------------------------------------------------
+    # 実行部分
+    # ------------------------------------------------------------
+
+    cleaned_text = clean_text(text)
+    cleaned_text = replacement_cleanup(cleaned_text)
+
+    return cleaned_text
+
+
+# ============================================================
+# [2] クラスオブジェクト化
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. 設定・マッピング定義（クラスより先に定義）
+# ------------------------------------------------------------
+
+
+SECTION_MAPPING = {
+    "abstract": ["要約"],
+    "claims": ["特許請求の範囲", "請求の範囲"],
+    "tech_field": ["技術分野"],
+    "background": ["背景技術", "従来の技術"],
+    "problem_to_solve": ["発明が解決しようとする課題"],
+    "means_to_solve": ["課題を解決するための手段"],
+    "effect": ["発明の効果"],
+    "drawings_desc": ["図面の簡単な説明", "図面の説明"],
+    "embodiments": [
+        "発明を実施するための形態",
+        "発明を実施するための最良の形態",
+        "実施例",
+    ],
+    "symbols_desc": ["符号の説明"],
+    "industrial_applicability": ["産業上の利用可能性"],
+}
+
+# 完全に無視する見出し
+IGNORE_HEADERS = {"特許文献", "先行技術文献", "非特許文献"}
+
+# パース用逆引きマップ（【見出し】 -> 属性）
+HEADER_TO_ATTR = {}
+for attr, headers in SECTION_MAPPING.items():
+    for h in headers:
+        HEADER_TO_ATTR[h] = attr
+
+# 表示・判定用逆引きマップ（属性名 -> 【代表見出し】）
+ATTR_TO_HEADER = {attr: headers[0] for attr, headers in SECTION_MAPPING.items()}
+
+
+# ------------------------------------------------------------
+# 2. データ構造の定義
+# ------------------------------------------------------------
+
+
+@dataclass
+class PatentDocument:
+    """特許文書の構造化データクラス"""
+
+    # 主要セクション
+    abstract: str = ""  # 要約
+    claims: str = ""  # 特許請求の範囲
+    tech_field: str = ""  # 技術分野
+    background: str = ""  # 背景技術
+    problem_to_solve: str = ""  # 発明が解決しようとする課題
+    means_to_solve: str = ""  # 課題を解決するための手段
+    effect: str = ""  # 発明の効果
+    drawings_desc: str = ""  # 図面の簡単な説明
+    embodiments: str = ""  # 発明を実施するための形態
+    symbols_desc: str = ""  # 符号の説明
+    industrial_applicability: str = ""  # 産業上の利用可能性
+
+    # その他（未知のセクション）
+    others: Dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self):
+        return {k: v for k, v in self.__dict__.items() if v}
+
+    def get_text(self, target_sections: Optional[List[str]] = None) -> str:
+        """
+        指定されたセクションを結合してテキストとして返します。
+
+        Args:
+            target_sections (list, optional): 取得したいセクション名のリスト。
+                Noneの場合は「中身が存在する全てのセクション」を結合します。
+                例: ['abstract', 'claims']
+                セクション一覧:
+                'claims'
+                'tech_field'
+                'background'
+                'problem_to_solve'
+                'means_to_solve'
+                'effect'
+                'drawings_desc'
+                'embodiments'
+                'symbols_desc'
+                'industrial_applicability'
+
+        Returns:
+            str: 整形済みの結合テキスト
+        """
+        parts = []
+
+        # 1. 取得対象の決定
+        if target_sections is None:
+            # 全属性を対象にする（othersは後で個別に処理）
+            targets = list(ATTR_TO_HEADER.keys())
+            include_others = True
+        else:
+            targets = target_sections
+            include_others = False  # 明示指定の場合はリストに含まれていれば処理する
+
+        # 2. 標準セクションの結合
+        for attr in targets:
+            # othersに含まれるキーが指定された場合の処理（例: '図1'など）
+            if attr in self.others:
+                header = f"【{attr}】"
+                content = self.others[attr]
+                parts.append(f"{header}\n{content}")
+                continue
+
+            # クラス属性として存在する場合
+            if hasattr(self, attr):
+                content = getattr(self, attr)
+                if content:  # 中身がある場合のみ追加
+                    # 属性名から日本語見出しに変換（見つからなければ属性名をそのまま使う）
+                    header_text = ATTR_TO_HEADER.get(attr, attr)
+                    header = f"【{header_text}】"
+                    parts.append(f"{header}\n{content}")
+            else:
+                # 属性もothersにもない場合（Typoなど）は無視またはWarn
+                pass
+
+        # 3. others（その他）の全結合（target_sectionsがNoneの場合のみ）
+        if include_others and self.others:
+            for header_key, content in self.others.items():
+                header = f"【{header_key}】"
+                parts.append(f"{header}\n{content}")
+
+        return "\n\n".join(parts)
+
+    def get_missing_sections(self) -> List[str]:
+        """
+        データクラスに定義されているが、解析結果に含まれなかった（空の）セクション名のリストを返す。
+
+        Returns:
+            List[str]: 欠損しているセクションの日本語見出しリスト
+            例: ['産業上の利用可能性', '発明の効果']
+        """
+        missing = []
+        # 自身の属性を走査
+        for attr, value in self.__dict__.items():
+            # 'others' は動的辞書なので欠損チェックの対象外
+            if attr == "others":
+                continue
+
+            # 値が空文字の場合、欠損とみなす
+            if not value:
+                # 属性名を日本語の見出しに変換してリストに追加
+                # マップにない場合（まずありえないが）は属性名をそのまま使う
+                header_name = ATTR_TO_HEADER.get(attr, attr)
+                missing.append(header_name)
+
+        return missing
+
+
+# ------------------------------------------------------------
+# 3. パース処理関数
+# ------------------------------------------------------------
+
+
+def parse_patent_text(text: str) -> PatentDocument:
+    """整形済みテキストを解析してPatentDocumentオブジェクトを返す"""
+
+    doc = PatentDocument()
+
+    # 「改行」または「文頭」の直後にある【見出し】で分割する
+    parts = re.split(r"((?:^|\n)【.*?】)", text)
+
+    # parts[0] は最初の見出しより前のテキスト（ゴミ or 書誌情報）のため無視
+    # parts[1]が見出し, parts[2]が中身... の順で処理
+    for i in range(1, len(parts), 2):
+        if i + 1 >= len(parts):
+            break
+
+        header_raw = parts[i].strip()  # 【見出し】
+        content = parts[i + 1].strip()  # 本文
+
+        # 見出しから余計な文字（【】や改行）を除去してキー化
+        header_key = re.sub(r"[【】\n]", "", header_raw)
+
+        # 中身が空の場合はスキップ（例: 【発明の詳細な説明】の直後に【技術分野】が来る場合など）
+        if not content:
+            continue
+
+        # 除外リストに含まれるかチェック（保存せずにスキップ）
+        if header_key in IGNORE_HEADERS:
+            continue
+
+        # マッピング処理
+        if header_key in HEADER_TO_ATTR:
+            attr_name = HEADER_TO_ATTR[header_key]
+            current_val = getattr(doc, attr_name)
+            # 同じセクションが分散している場合は結合
+            new_val = (
+                (current_val + "\n\n" + content).strip() if current_val else content
+            )
+            setattr(doc, attr_name, new_val)
+        else:
+            doc.others[header_key] = content
+
+    return doc
+
+
+# ============================================================
+# [3] メイン処理
+# ============================================================
+
+
+def patent_text_extraction(pdf_bytes):
+    """特許PDFのテキストを抽出・整形しPatentDocumentに変換する関数"""
+    pdf_text = read_pdf(pdf_bytes)  # PDFのテキスト抽出
+    cleaned_text = patent_text_cleanup(pdf_text)  # 抽出されたテキストの整形・置換
+    patent_doc = parse_patent_text(cleaned_text)  # PatentDocumentオブジェクトに変換
+    missing_sections = patent_doc.get_missing_sections()  # 存在しないセクションの抽出
+    if missing_sections:
+        print("以下のセクションはこの文書に含まれていませんでした:")
+        for section in missing_sections:
+            print(f"- {section}")
+    else:
+        print("定義されたすべてのセクションが存在します。")
+    return patent_doc
+
+
+# 利用例
+# patent_doc = patent_text_extraction(pdf_bytes)
+# print(patent_doc.get_text(['abstract']))
+</file>
+
+<file path="backend/src/prompt/idea_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
+
+# ============================================================
+# 特許解析プロンプト
+# ============================================================
+
+
+def build_patent_prompt(patent_doc):
+    prompt = f"""
+
+## 1. 基本原則
+- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
+- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
+- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
+
+## 2. 該当記述がない場合の対応
+各項目について、以下の基準で判断してください：
+
+1. **明確な記述がある** → そのまま抽出
+2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
+3. **該当する記述が見当たらない** → 「該当記述なし」と明記
+
+## 3. 出典の明記
+可能な限り、抽出した情報の出典を明示してください：
+- 段落番号、図番号、表番号などを併記
+  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
+
+## 4. 分類に関する補足
+
+### 複数項目に該当する要素の扱い
+同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
+
+例:
+- 項目2-1: 「温度センサー」（物理的構成要素として）
+- 項目3-1: 「温度センシング技術」（検出原理として）
+- 項目3-2: 「周囲温度の測定」（要素機能として）
+
+### 不明確な分類の場合
+どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
+
+## 5. 出力テンプレート
+
+抽出内容は、以下の構造で記述してください。
+
+```markdown
+# [特許の名称]
+
+## 1. 発明の技術分野
+【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
+
+---
+
+## 2. 技術の物理的構成
+
+### 2-1. 構成要素（部材・部品）
+**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
+- 該当例: モーター、センサー筐体、フレーム、ギア、配線
+- 非該当例: ソフトウェア、アルゴリズム、製造方法
+
+### 2-2. 構成材料・原料
+構成要素を**作るための材料・材質**を箇条書きでリストアップ。
+- 該当例: 金属、樹脂、化学物質、合金、繊維
+- 非該当例: 完成した部品（それは2-1に記載）
+
+### 2-3. 形態・形状・構造
+技術が「どのような形・構造」をしているかを記述。
+- 全体の形状、配置関係、構造的特徴など
+
+---
+
+## 3. 技術の機能的構成
+
+### 3-1. 基盤技術・要素技術
+**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
+- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
+- 非該当例: 物理的な部品（それは2-1に記載）
+
+### 3-2. 要素機能（部品レベル）
+各構成要素が果たす**個別の役割**を記述。
+
+### 3-3. システム機能（全体レベル）
+技術全体として実現される**主要な機能**を記述。
+
+### 3-4. 動作フロー（該当記述がある場合のみ）
+技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
+
+---
+
+## 4. 定量データ・仕様情報
+
+以下のルールで数値データを抽出してください：
+
+**抽出原則:**
+1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
+2. **文脈を保持**: 数値が何を示すかを明記
+3. **出典を明記**: 段落番号、図番号、表番号を併記
+4. **範囲と条件**: 数値に条件がある場合、その条件も記載
+
+**抽出対象:**
+- 寸法・サイズ
+- 物理量
+- 性能指標
+- 配合・比率
+- その他の定量的記述
+```
+
+## 対象資料
+<document>
+{patent_doc.get_text()}
+</document>
+""".strip()
+    return prompt
+
+
+# ============================================================
+# アイデア生成プロンプト
+# ============================================================
+
+
+def build_idea_prompt(patent_doc, explanation_text):
+    prompt = f"""
+特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
+
+## アイデア生成の指針
+
+### 基本的な問い
+すべてのアイデアは、以下の問いに答えるものとしてください：
+
+1. **誰の課題を解決するのか？**（ターゲットの明確化）
+2. **どのように解決するのか？**（技術との接続）
+3. **なぜこの技術が適しているのか？**（技術的優位性）
+
+### アイデアの多様性
+以下のような多様性を持つアイデアを含めてください：
+
+- **近接応用**: 特許文書に記載された用途に近い応用
+- **遠隔転用**: 全く異なる分野への転用
+- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
+
+## 重要な原則
+
+### 1. 事実と推測の明確な分離
+あなたが生成するアイデアは、以下の2つの要素から構成されます：
+
+**【事実層】特許文書に基づく技術的事実**
+- フェーズ1で抽出された情報のみを使用
+- 引用または要約の形式で明示
+
+**【推測層】あなたの創造的な解釈・応用**
+- 事実層を出発点とした、論理的な推論
+- 市場ニーズや応用可能性の想定
+- **必ず[推測]とマークする**
+
+### 2. 推測の誠実な表現
+推測箇所では、以下のような表現を使用してください：
+
+- 「〜の可能性がある」
+- 「〜が期待される」
+- 「〜と想定される」
+- 「〜への応用が考えられる」
+
+**絶対に使用しないこと：**
+- 断定的な表現（「〜である」「〜できる」）
+- 根拠なき数値（「約○○%向上」）
+- 架空の事例（「A社では〜」）
+
+## 出力テンプレート
+
+各アイデアは、以下の構造で記述してください。
+
+```markdown
+# [特許の名称] アイデアリスト
+
+---
+
+## アイデア1: [名称]
+
+### 技術的基盤（事実層）
+
+この特許技術は、以下の特性を持つ：
+- [特許文書からの引用または要約箇所を出典と共にリストアップ]
+
+### アイデアの概要（推測層）
+
+[上記の技術的基盤を出発点として、どのような応用が考えられるか]
+
+### 解決できる課題（推測層）
+
+[このアイデアがどのような課題を解決するか]
+
+### ターゲット像（推測層）
+
+- 企業: [想定される企業・組織]
+- 消費者: [想定される消費者層]
+
+### 提供価値（推測層）
+
+[このアイデアが提供するベネフィット]
+
+### 技術的接続点（事実層 + 推測層）
+
+特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
+根拠: （[段落: xxxx]参照）
+
+### 実装上の検討事項（推測層）
+
+- 技術的ハードル: [想定される課題]
+- 市場・規制リスク: [想定されるリスク]
+
+---
+
+## アイデア2: [名称]
+...(省略)
+```
+
+## 対象技術に関する資料
+
+### 特許技術の構造化
+<document>
+{explanation_text}
+</document>
+
+### 特許原文（前提）
+<document>
+{patent_doc.get_text()}
+</document>
+
+---
+
+上記の指示と資料に基づき、アイデアを生成してください。
+""".strip()
+    return prompt
+</file>
+
+<file path="backend/src/prompt/system_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/system_prompt.py
+
+# ============================================================
+# 特許解析＆アイデア生成共通システムプロンプト
+# ============================================================
+
+SYSTEM_PROMPT_PATENT = """
+# システムプロンプト: 特許解析サポートAI
+
+## あなたの役割
+
+あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
+ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
+
+## 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 情報の3層構造
+
+あなたが扱う情報は、以下の3つの層に明確に分類されます：
+
+### 【第1層: 検証可能な事実】
+
+- 特許文書に明記された情報
+- 直接観測・引用できる内容
+- **必ず出典を明記**
+    - 例: [段落: xxxx]
+
+### 【第2層: 論理的推論】
+
+- 第1層の事実から導かれる推論
+- 特許文書内の複数情報の統合
+- **推論であることを明示**
+    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
+
+### 【第3層: 創造的応用】
+
+- 事実を新しい文脈に適用
+- 市場ニーズや応用可能性の想定
+- **明確に[推測]とマーク**
+    - 例: Xは、Zに応用できる可能性がある。[推測]
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # **入れ子にしない**
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+### 3. 複数出典の扱い
+
+同じ情報が複数箇所に記載されている場合：
+
+**原則: 代表的な1-2箇所のみを記載**
+
+ただし、以下の場合は複数出典が有益：
+
+- 異なる側面を示す場合（構造と機能）
+- 異なる情報源タイプ（請求項と実施例）
+
+### 4. 出典なしで記述してよい場合
+
+以下は出典を省略可：
+
+- 明らかに文書全体の前提となる基本概念
+- 文書タイトルや技術分野
+
+""".strip()
+
+
+# ============================================================
+# 対話用システムプロンプト
+# ============================================================
+
+
+def build_chat_system_instruction(
+    patent_doc, analysis_text: str = "", idea_text: str = ""
+):
+    """
+    チャット用システムプロンプト生成
+    特許原文と生成済みテキストを文脈として含める
+
+    Args:
+        patent_doc: PatentDocumentオブジェクト
+        analysis_text: 解析結果テキスト（生成済みの場合）
+        idea_text: アイデアテキスト（生成済みの場合）
+
+    Returns:
+        システムプロンプト文字列
+    """
+
+    base_instruction = """
+# システムプロンプト: 特許技術対話サポートAI
+
+## あなたの役割
+
+特許文書の内容を理解したユーザーとの対話を通じて、技術の深い理解と応用を支援します。
+
+## 特許文書が最高権威
+
+- すべての回答は特許文書を基盤としている必要があります。
+- 特許文書に基づく「個別事実」と「一般論」は明確に区別されている必要があります。
+
+---
+
+## 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # **入れ子にしない**
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+---
+
+## 一般論の慎重な扱い
+
+一般論は、具体的な情報源を明示しなかったとしても、説得力があるため**盲信されやすい**です。
+
+そのため、特許に基づく「個別事実」とあなたの学習データに基づく「一般論」は**明確に区別**されている必要があります。
+
+### 一般論の性質
+
+- 特許文書に記載されていない内容です
+- あなたの学習データに基づく推測です
+- あくまで参考情報としての位置づけであり、絶対的な事実ではありません
+
+### 一般論の原則
+
+- 一般論は「方向性を示す」ものであり、「詳細な情報を提供する」ものではありません
+- 一般論であっても、断定的な表現は避けてください
+
+### 一般論提供時のガイドライン
+
+特許文書に明記されていない一般論を提供する際は、必ず注意喚起を実施してください。
+また、詳細情報が必要な場合は、専門文献や外部リソースへの誘導を行ってください。
+
+**提供してよい場合:**
+- ユーザーが明示的に質問している
+- 特許文書に該当記述がない
+- 物理法則や工学知見などの一般論が直接関連する
+
+**提供する際の形式:**
+```
+【特許文書の記述】
+[該当箇所の引用または「該当記述なし」]
+
+【参考: 一般的な工学知識】
+[説明]
+
+【注意】
+[注意事項に関する言及]
+```
+
+**絶対に避けること:**
+- 特許文書の記述を全面否定すること
+- 「実現不可能」という断定
+- 根拠のない数値的断定
+
+### ユーザーに提示する注意事項について
+
+注意事項が定型化してしまうと、ユーザーに対する効果が低下します。
+そのため、文脈に応じた注意喚起を実施してください。
+
+**注意事項の例:**
+```
+(...技術的課題に関する一般論の後)
+【注意】
+上記はAIの学習に基づく一般的な工学的考察であり、この特許技術の具体的な実装における課題ではありません。
+実際の設計では、専門家による詳細な検証が必要です。
+
+(...規制に関する一般論の後)
+【注意】
+上記はAIの学習に基づく一般的な規制環境の概要です。
+実際の運用では、地域・国・用途により異なる規制が適用されるため、法務専門家への相談を推奨します。
+```
+
+---
+
+## 対話の指針
+
+### 質問の意図を理解する
+
+ユーザーの質問は、以下のいずれかに分類されます:
+
+1. **事実確認**: 特許に何が書いてあるか
+   → 該当箇所を引用
+
+2. **技術的詳細**: 仕組みの理解
+   → 特許の記述を基に説明
+
+3. **実現可能性**: 本当にできるのか
+   → 特許の記述 + 不明な点の指摘
+
+4. **応用可能性**: 他に使えないか
+   → 特許の原理を基に推測（`[推測]`付き）
+
+5. **一般知識**: 物理法則や工学的制約など
+   → 上記の「一般論の形式」で提供
+
+6. **その他**: いずれにも該当しない場合
+   → システムプロンプトの原則・指針に沿って誠実な対応を実施
+"""
+
+    # 文脈情報を追加
+    context_section = "\n\n---\n\n## 文脈情報\n\n"
+
+    # 特許原文
+    context_section += "### 特許原文\n\n"
+    context_section += "<document title='Patent'>\n"
+    context_section += patent_doc.get_text()
+    context_section += "\n</document>\n\n"
+
+    # 解析結果（存在する場合）
+    if analysis_text:
+        context_section += "### 特許の解析結果（LLMによる生成）\n\n"
+        context_section += "<document title='Patent-Analysis-by-LLM'>\n"
+        context_section += analysis_text
+        context_section += "\n</document>\n\n"
+
+    # アイデア結果（存在する場合）
+    if idea_text:
+        context_section += "### 応用アイデア（LLMによる生成）\n\n"
+        context_section += "<document title='Patent-Idea-by-LLM'>\n"
+        context_section += idea_text
+        context_section += "\n</document>\n\n"
+
+    context_section += "---\n\n"
+    context_section += "これらの情報を基に、ユーザーの質問に答えてください。"
+
+    # 統合
+    system_instruction = base_instruction + context_section
+
+    return system_instruction.strip()
+</file>
+
+<file path="backend/src/routers/generate_api.py">
+# Patent_Survey_APP/backend/src/routers/generate_api.py
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from src.func import gemini_client, generate_func
+from src.prompt import idea_prompt, system_prompt
+from src.storage.patent_store import (
+    get_chat_history,
+    get_patent,
+    save_chat_message,
+)
+
+## generate_api.py / LLM生成のAPIエンドポイント ##
+
+router = APIRouter(prefix="/generate", tags=["LLM生成"])
+client = gemini_client.client
+
+# ============================================================
+# リクエストボディのモデル定義
+# ============================================================
+
+
+# LLMテキスト生成
+class GenerateRequest(BaseModel):
+    prompt: str
+    tool_mode: str
+
+
+# 特許解析
+class GeneratePatentRequest(BaseModel):
+    patent_id: str
+
+
+# アイデア生成
+class GenerateIdeaRequest(BaseModel):
+    patent_id: str
+    explanation_text: str  # フロントエンドから受け取る解説文
+
+
+# チャットセッション
+class ChatRequest(BaseModel):
+    patent_id: str
+    user_message: str
+    analysis_text: str = ""  # 解析結果（生成済みの場合）
+    idea_text: str = ""  # アイデア結果（生成済みの場合）
+
+
+# ============================================================
+# エンドポイント
+# ============================================================
+
+
+# シンプルなテキスト生成
+@router.post("/content", summary="テキスト生成")
+async def generate(data: GenerateRequest):
+    """
+    Gemini APIを使用してテキストをストリーミング生成
+    """
+
+    # ストリーミング生成
+    def stream_output():
+        prompt = data.prompt
+        tool_mode = data.tool_mode
+        response = generate_func.generate_content(prompt, client, tool_mode)
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# 特許解析
+@router.post("/patent")
+async def generate_from_patent(data: GeneratePatentRequest):
+    # 1. 保存された原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. プロンプト構築
+    prompt = idea_prompt.build_patent_prompt(patent_doc)
+
+    # 3. ストリーミング生成
+    def stream_output():
+        response = generate_func.generate_content(
+            prompt=prompt,
+            client=client,
+            tool_mode="text",
+            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+        )
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# アイデア生成
+@router.post("/idea")
+async def generate_idea(data: GenerateIdeaRequest):
+    # 1. 保存された特許原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. プロンプトを構築（解説文 + 原文）
+    prompt = idea_prompt.build_idea_prompt(patent_doc, data.explanation_text)
+
+    # 3. ストリーミング生成
+    def stream_output():
+        response = generate_func.generate_content(
+            prompt=prompt,
+            client=client,
+            tool_mode="text",
+            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
+        )
+        for chunk in generate_func.stream(response):
+            if not chunk:
+                continue
+            yield chunk
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+
+
+# チャットセッション
+@router.post("/chat")
+async def chat_with_context(data: ChatRequest):
+    """
+    特許文脈を保持したマルチターンチャット
+    """
+    # 1. 特許原文を取得
+    patent_doc = get_patent(data.patent_id)
+    if not patent_doc:
+        raise HTTPException(status_code=404, detail="Patent not found")
+
+    # 2. チャット履歴を取得（Gemini contents形式）
+    history = get_chat_history(data.patent_id)
+
+    # 3. 新しいユーザーメッセージを追加
+    history.append({"role": "user", "parts": [{"text": data.user_message}]})
+
+    # 4. システムプロンプトを構築（特許原文 + 生成済みテキストを含む）
+    system_instruction = system_prompt.build_chat_system_instruction(
+        patent_doc=patent_doc,
+        analysis_text=data.analysis_text,
+        idea_text=data.idea_text,
+    )
+
+    # 5. ユーザーメッセージを履歴に保存
+    save_chat_message(data.patent_id, "user", data.user_message)
+
+    # 6. マルチターン生成
+    def stream_output():
+        full_response = ""
+        try:
+            response = generate_func.generate_content_multiturn(
+                contents=history, client=client, system_instruction=system_instruction
+            )
+
+            for chunk in generate_func.stream(response):
+                if not chunk:
+                    continue
+                full_response += chunk
+                yield chunk
+
+            # 完了後、モデルの応答を履歴に保存
+            save_chat_message(data.patent_id, "model", full_response)
+
+        except Exception as e:
+            error_msg = f"生成エラー: {str(e)}"
+            print(error_msg)
+            yield error_msg
+
+    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
+</file>
+
+<file path="backend/src/routers/patent_process_api.py">
+# Patent_Survey_APP/backend/src/routers/patent_process_api.py
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from src.func.patent_images import extract_figures_from_pdf_bytes
+from src.func.patent_pdf import patent_text_extraction
+from src.schemas import patent_schemas
+from src.storage.patent_store import (
+    build_figure_url,
+    get_patent_figure_dir,
+    save_patent,
+)
+
+## upload_api.py / 特許PDFを処理するエンドポイント ##
+
+router = APIRouter(prefix="/patent", tags=["PDF処理"])
+
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# ============================================================
+# エンドポイント
+# ============================================================
+
+
+@router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
+async def upload_pdf(file: UploadFile = File(...)):
+    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
+    pdf_bytes = await file.read()  # PDF を bytes として取得
+
+    if len(pdf_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"ファイルサイズが上限({MAX_FILE_SIZE / 1024 / 1024}MB)を超えています",
+        )
+
+    # テキスト抽出＆整形&クラスオブジェクト化
+    patent_doc = patent_text_extraction(pdf_bytes)
+
+    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
+    patent_id = save_patent(patent_doc)
+
+    # 図の抽出 & 保存
+    figure_dir = get_patent_figure_dir(patent_id)
+    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
+
+    # 図にメタデータを付与（URLなど）
+    images = [
+        {
+            "id": fig["id"],
+            "label": fig["label"],
+            "page": fig["page"],
+            "url": build_figure_url(patent_id, fig["filename"]),
+        }
+        for fig in figures
+    ]
+
+    return {
+        "filename": file.filename,
+        "patent_id": patent_id,
+        "patent_data": patent_doc.__dict__,
+        "images": images,
+    }
+</file>
+
+<file path="backend/src/schemas/patent_schemas.py">
+# Patent_Survey_APP/backend/src/schemas/patent_schemas.py
+
+from typing import Dict
+
+from pydantic import BaseModel, Field
+
+# ============================================================
+# 特許PDF処理時に使用するスキーマ
+# ============================================================
+
+
+# 特許文書の中身そのもののスキーマ
+class PatentContent(BaseModel):
+    abstract: str = Field(..., description="要約")
+    claims: str = Field(..., description="特許請求の範囲")
+    tech_field: str = Field("", description="技術分野")
+    background: str = Field("", description="背景技術")
+    problem_to_solve: str = Field("", description="解決しようとする課題")
+    means_to_solve: str = Field("", description="解決手段")
+    effect: str = Field("", description="発明の効果")
+    drawings_desc: str = Field("", description="図面の簡単な説明")
+    embodiments: str = Field("", description="実施形態")
+    symbols_desc: str = Field("", description="符号の説明")
+    industrial_applicability: str = Field("", description="産業上の利用可能性")
+    others: Dict[str, str] = Field(
+        default_factory=dict, description="その他のセクション"
+    )
+
+
+# 特許文書から抽出した図のスキーマ
+class PatentImage(BaseModel):
+    id: str  # 参照用
+    label: str  # 図1（表示用）
+    page: int
+    url: str  # フロントエンドからアクセス(GET)するためのURL
+
+
+# APIが返す全体のレスポンススキーマ
+class PatentUploadResponse(BaseModel):
+    filename: str
+    patent_id: str
+    patent_data: PatentContent  # ここで上記のクラスをネストする
+    images: list[PatentImage]
+</file>
+
+<file path="backend/src/storage/patent_store.py">
+# backend/src/storage/patent_store.py
+
+import os
+import shutil
+from pathlib import Path
+from typing import Any, Dict, List
+from uuid import uuid4  # ID生成
+
+# ==========================================
+# 1. 特許テキストデータ（idで管理）
+# ==========================================
+
+# サーバ再起動で消える一時ストレージ（DBを使わず変数をアプリ内で共有する）
+
+patent_store: Dict[str, object] = {}
+
+
+# 保存用
+def save_patent(patent_doc) -> str:
+    patent_id = str(uuid4())
+    patent_store[patent_id] = patent_doc  # {id: 本文}
+    return patent_id
+
+
+# 取得用
+def get_patent(patent_id: str):
+    return patent_store.get(patent_id)
+
+
+# ==========================================
+# 2. 特許画像データ（一時フォルダで管理）
+# ==========================================
+
+# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
+
+
+# .parent.parent.parent で src -> storage -> backend へ遡る
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# 2. プロジェクトルート直下に一時フォルダを作成
+STATIC_DIR_NAME = "temp_patents"
+STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
+
+STATIC_BASE_URL = "/static/patents"
+
+
+def get_patent_figure_dir(patent_id: str) -> str:
+    # Pathオブジェクトを使って結合し、文字列で返す
+    path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
+    return str(path)
+
+
+# アクセス用URL作成
+def build_figure_url(patent_id: str, filename: str) -> str:
+    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
+
+
+# アプリ終了時に呼ばれるクリーンアップ関数
+def cleanup_temp_files():
+    if os.path.exists(STATIC_BASE_PATH):
+        # フォルダの中身ごと完全に削除
+        shutil.rmtree(STATIC_BASE_PATH)
+        print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
+
+
+# ==========================================
+# 3. チャット履歴管理
+# ==========================================
+
+# Gemini API の contents 形式で保存
+# {patent_id: [{"role": "user", "parts": [{"text": "..."}]}, ...]}
+chat_sessions: Dict[str, List[Dict[str, Any]]] = {}
+
+
+def save_chat_message(patent_id: str, role: str, text: str):
+    """
+    チャット履歴に追加（Gemini contents形式）
+
+    Args:
+        patent_id: 特許ID
+        role: "user" または "model"
+        text: メッセージテキスト
+    """
+    if patent_id not in chat_sessions:
+        chat_sessions[patent_id] = []
+
+    chat_sessions[patent_id].append({"role": role, "parts": [{"text": text}]})
+
+
+def get_chat_history(patent_id: str) -> List[Dict[str, Any]]:
+    """
+    チャット履歴を取得（Gemini contents形式）
+
+    Args:
+        patent_id: 特許ID
+
+    Returns:
+        Gemini API の contents 形式のリスト
+    """
+    return chat_sessions.get(patent_id, [])
+
+
+def clear_chat_history(patent_id: str):
+    """
+    チャット履歴をクリア（将来的な機能拡張用）
+
+    Args:
+        patent_id: 特許ID
+    """
+    if patent_id in chat_sessions:
+        chat_sessions[patent_id] = []
+</file>
+
+<file path="docker-compose.yml">
+services: # 管理するコンテナのリスト
+    backend: # サービス名 `backend`
+        build: ./backend # `./backend/Dockerfile` を使ってイメージをビルド
+        ports: # ポートマッピング
+            - "8000:8000" # コンテナの8000番ポート --> `http://localhost:8000` でアクセスできる
+        volumes: # ボリュームマウント
+            - ./backend:/app # ホストの `./backend` --> コンテナの `/app` --> ホストのコードを変更すると、即座にコンテナに反映される
+        environment:
+            - ENV=development
+        command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+    frontend: # サービス名 `frontend`
+        build: ./frontend # `./frontend/Dockerfile` を使ってイメージをビルド
+        ports:
+            - "3000:3000" # コンテナの3000番ポート --> `http://localhost:3000` でアクセスできる
+        volumes:
+            - ./frontend:/app
+            - /app/node_modules # ホストのパスを指定せず、コンテナ専用のボリュームにする --> ホスト側でnpm installが必要 （Anonymous Volume 訳: 匿名ボリューム）
+        environment:
+            - NODE_ENV=development # 開発環境を明示
+            - NEXT_PUBLIC_API_URL=http://backend:8000
+            - WATCHPACK_POLLING=true # ホットリロードの安定化
+        depends_on:
+            - backend # `backend` コンテナを起動してから `frontend` を起動する
+        command: npm run dev # 実行コマンドを明示
+</file>
+
+<file path="frontend/.gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="frontend/app/globals.css">
+/* Patent_Survey_APP/frontend/app/grobals.css */
+
+@import "tailwindcss";
+
+:root {
+    --background: #ffffff;
+    --foreground: #171717;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-family: var(--font-noto-sans-jp);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0a0a0a;
+        --foreground: #ededed;
+    }
+}
+
+/* 参照 */
+.ref {
+    @apply text-slate-400 inline-flex items-center text-xs font-medium;
+}
+
+.ref-paragraph {
+    @apply hover:underline hover:text-blue-700 cursor-default;
+}
+
+.ref-meta {
+    @apply cursor-default;
+}
+
+body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
+}
+</file>
 
 <file path="frontend/app/home/idea/components/screen/GeneratingScreen.tsx">
 // Patent_Survey_APP/frontend/app/home/idea/components/screen/GeneratingScreen.tsx
@@ -1796,915 +3705,78 @@ const ReferenceText = ({ children, onClickParagraph }: ReferenceTextProps) => {
 };
 </file>
 
-<file path="frontend/Dockerfile">
-# イメージ
-FROM node:20-alpine
-
-# 作業
-WORKDIR /app
-
-# package.json と lock ファイルを先にコピー
-COPY package*.json ./
-
-# 依存関係をインストール（package-lock.jsonがあればそちらを参照）
-RUN npm install
-
-# ソースコードをコピー
-COPY . .
-
-# Next.js 開発サーバーのポート
-EXPOSE 3000
-
-# 開発モード起動
-CMD ["npm", "run", "dev"]
-</file>
-
-<file path="frontend/images/arrow_back.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
-</file>
-
-<file path="frontend/images/check_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="M378-246 154-470l43-43 181 181 384-384 43 43-427 427Z"/></svg>
-</file>
-
-<file path="frontend/images/edit_document_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z"/></svg>
-</file>
-
-<file path="frontend/images/file.svg">
-<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
-</file>
-
-<file path="frontend/images/info_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
-</file>
-
-<file path="frontend/images/logout_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></svg>
-</file>
-
-<file path="frontend/images/menu_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/></svg>
-</file>
-
-<file path="frontend/images/science.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-51 0-72.5-45.5T138-250l222-270v-240h-40q-17 0-28.5-11.5T280-800q0-17 11.5-28.5T320-840h320q17 0 28.5 11.5T680-800q0 17-11.5 28.5T640-760h-40v240l222 270q32 39 10.5 84.5T760-120H200Zm0-80h560L520-492v-268h-80v268L200-200Zm280-280Z"/></svg>
-</file>
-
-<file path="frontend/images/send_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M120-160v-640l760 320-760 320Zm80-120 474-200-474-200v140l240 60-240 60v140Zm0 0v-400 400Z"/></svg>
-</file>
-
-<file path="frontend/images/setting_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>
-</file>
-
-<file path="SETUP.md">
-# Patent Survey App 環境構築手順
-
-Hirano ブランチで開発を進めていきます。（2025/12/25 記載）
-
-Dockerを利用して環境構築が可能です。
-普段の開発ではDockerコンテナ内ではなくホスト側でコーディングしています。
-→Dockerは環境の再現のみという位置づけ
-
-## 1. 事前準備
-
-以下のツールがインストールされている必要があります。
-
--   **Git**
--   **Docker Desktop** (Mac/Windows) または **Docker Engine + Docker Compose** (Linux)
--   **Google Gemini API Key** (Google AI Studio で取得可能)
-
-## 2. リポジトリのクローン
-
-ターミナル（コマンドプロンプト/PowerShell）を開き、任意のディレクトリで以下を実行します。
-
-```bash
-git clone -b Hirano <リポジトリのURL>
-cd Patent_Survey_APP
-```
-
-## 3. 環境変数の設定
-
-バックエンド用に環境変数を設定します。
-機密情報（API キー）を含むため、このファイルは Git に含まれていません。手動で作成してください。
-
-1. `backend` ディレクトリへ移動、またはエディタで開きます。
-2. `.env.example` ファイルをコピーして、`.env` という名前に変更します。
-3. `.env` ファイルを開き、コメントアウトに沿って書き換えます。
-
-## 4. アプリケーションの起動 (Docker)
-
-プロジェクトのルートディレクトリ（`docker-compose.yml`がある場所）で、以下のコマンドを実行します。
-
-```bash
-docker compose up --build
-```
-
-## 5. ブラウザでのアクセス
-
-起動が完了したら、ブラウザで以下にアクセスしてください。
-
--   **アプリ画面:** [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
--   **API ドキュメント:** [http://localhost:8000/docs](https://www.google.com/search?q=http://localhost:8000/docs) (Backend の動作確認用)
-
-## 6. 開発を終了する場合
-
-ターミナルで `Ctrl + C` を押して停止します。
-コンテナを完全に削除し、一時ファイルをクリアしたい場合は以下を実行してください。
-
-```bash
-# -v オプションをつけることで、作成されたボリュームも削除され、クリーンな状態に戻ります
-docker compose down -v
-```
-
----
-
-### トラブルシューティング（共有用メモ）
-
-もし `Error: Cannot find module ... lightningcss ...` というエラーが出た場合：
-ホスト側の `node_modules` やキャッシュが悪さをしている可能性があります。以下の手順でリセットしてください。
-
-1. `docker compose down -v` を実行（ボリュームを完全削除）
-2. `frontend/.next` フォルダを削除
-3. 再度 `docker compose up --build` を実行
-
----
-
-## その他共有事項
-
-### レスポンス型定義ファイルの自動生成（必要に応じて）
-
-```
-# FastAPIサーバーを起動した状態で実行してください。
-npm run api:gen
-```
-
-### LLM向けコードレポート生成
-
-```
-npx repomix
-```
-
-→生成されたXMLファイルのテキスト全文をLLMのプロンプトにコピー＆ペースト
-</file>
-
-<file path=".gitignore">
-# .gitignore
-# Gitでバージョン管理の対象から除外したいファイルやディレクトリを指定するための設定ファイル。
-# リポジトリに含める必要のないものを誤ってコミットするのを防ぐ。
-
-# ==================================================
-# プロジェクト固有の指定
-# ==================================================
-
-# 特許PDFから抽出された画像
-temp_patents/
-
-# ↓GitHubのテンプレート由来↓
-# ==================================================
-# Next.js
-# ==================================================
-
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-.env
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# ==================================================
-# Python
-# ==================================================
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-#poetry.toml
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-#pdm.lock
-#pdm.toml
-.pdm-python
-.pdm-build/
-
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-#pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
-
-# Abstra
-# Abstra is an AI-powered process automation framework.
-# Ignore directories containing user credentials, local state, and settings.
-# Learn more at https://abstra.io/docs
-.abstra/
-
-# Visual Studio Code
-#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
-
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-</file>
-
-<file path="backend/.env.example">
-# 対応する環境変数を挿入し、.envと改名
-
-# GeminiのAPIキー（必須）
-GEMINI_API_KEY="ここにあなたのAPIキーを入れる"
-
-# フロントエンドのURL（CORS許可設定用）
-# Dockerで立ち上げた場合、ブラウザからは localhost:3000 としてアクセスする
-FRONTEND_URL="http://localhost:3000"
-
-# 終了時の一時ファイル削除設定
-CLEANUP_ON_EXIT="true"
-</file>
-
-<file path="backend/src/func/gemini_client.py">
-# Patent_Survey_APP/backend/src/func/gemini_client.py
-
-# Gemini-APIのクライアント認証を実行する --> clientをインポートして利用
-
-import config
-from google import genai
-
-client = genai.Client(api_key=config.GEMINI_API_KEY)
-</file>
-
-<file path="backend/src/func/patent_pdf.py">
-# Patent_Survey_APP/backend/src/func/patent_pdf.py
-
-import io
-import re
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
-
-from pypdf import PdfReader
-
-"""
-# J-PlatPat特許広報PDF テキスト整形コード
-
-目的: LLMによる分析で与える際のテキスト処理
-原則: わずかなトークンコストで得られる明確性は、常に優先すべき
-理由: 特許文書という高精度が求められるドメインであるため
-補足: 前処理…J-PlatPatからダウンロードした特許PDFについて、pypdfでテキストを抽出→そのテキストに対する処理/作成中
-"""
-
-
-# ============================================================
-# PDFファイル読み込み処理
-# ============================================================
-
-
-def read_pdf(pdf_bytes):
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    full_text = ""
-    for page_num in range(len(reader.pages)):
-        page = reader.pages[page_num]
-        full_text += page.extract_text()
-
-    return full_text
-
-
-# ============================================================
-# [1] 初期整形
-# ============================================================
-
-
-def patent_text_cleanup(text):
-    """PDFから抽出されたテキストを整形・置換するラッパー関数"""
-
-    # ------------------------------------------------------------
-    # 整形メイン関数
-    # ------------------------------------------------------------
-
-    def clean_text(text):
-        """特許テキスト整形関数"""
-
-        ## Step.1 PDF特有のレイアウトを除去 ##
-        text = re.sub(
-            r"—{10,}.*", "", text, flags=re.DOTALL
-        )  # 区切り線（—が10個以上）以降を削除（フロントページの続き...は不要）
-        text = re.sub(
-            r"^\d+\n", "", text, flags=re.MULTILINE
-        )  # 行番号除去① 例)10\n20\n30\n40\n50
-        text = re.sub(
-            r"^\d+(\(\d+\))", r"\1", text, flags=re.MULTILINE
-        )  # 行番号除去② 例:50(30)→(30)
-        text = re.sub(r"JP .*?\d{4}\.\d{1,2}\.\d{1,2}\s*\n", "", text)  # 文書情報を除去
-        text = re.sub(r"\(\d+\)", "", text)  # (50)のような表記を除去
-        text = re.sub(
-            r"[ \t]*\n[ \t]*", "", text
-        )  # 全ての改行と周辺の空白を一旦削除（PDFの幅に合わせて改行されているため）
-
-        ## Step.2 【見出し】の構造化 ##
-        # 先に見出しの前後に改行を入れておくことで、後続の正規表現（範囲指定）を安全にする
-        text = re.sub(r"【", "\n【", text)  # 【見出し】の前に改行を挿入
-        text = re.sub(r"】", "】\n", text)  # 【見出し】の後に改行を挿入
-
-        ## Step.3 【要約】に対する処理 ##
-        text = re.sub(r"【課題】", r"[課題]\n", text)
-        text = re.sub(r"【解決手段】", r"[解決手段]\n", text)
-        text = re.sub(r"【選択図】", r"[選択図]\n", text)
-
-        ## Step.4 【符号の説明】に対する処理 ##
-        text = format_symbol_section_safe(
-            text
-        )  # 当該セクション内のみに限定して置換を行う
-
-        ## Step. 5 【図面の簡単な説明】に対する処理 ##
-        text = format_draw_section(text)
-
-        ## Step.6 【段落番号】に対する処理 ##
-        text = re.sub(
-            r"【(\d{4})】", r"\n[段落: \1]\n", text
-        )  # 【数字4桁】を [段落:数字] + 改行に変換
-        text = re.sub(
-            r"(【符号の説明】)\s*\[段落: \d+\]\n", r"\1\n", text
-        )  # 【符号の説明】の段落番号は除去
-        text = re.sub(
-            r"(【図面の簡単な説明】)\s*\[段落: \d+\]\n", r"\1", text
-        )  # 【図面の簡単な説明】の段落番号は除去
-        text = re.sub(
-            r"(【特許文献】)\s*\[段落: \d+\]\n", r"\1", text
-        )  # 【特許文献】の段落番号は除去
-        text = re.sub(
-            r"【特許文献(\d)】", r"[特許文献: \1]\n", text
-        )  # 【特許文献X】を段落番号のフォーマットと合わせる
-        text = re.sub(
-            r"【請求項(\d+)】", r"[請求項: \1]\n", text
-        )  # 【請求項X】を段落番号のフォーマットと合わせる
-
-        ## Step.7 最終レイアウト調整 ##
-        text = re.sub(r"　", "", text)  # すべての全角空白を削除
-        text = re.sub(r"\n{2,}", "\n", text)  # 連続する改行を1つにまとめる
-        text = re.sub(r"。", "。\n", text)  # 「。」の後に改行を挿入して可読性を向上
-        text = re.sub(
-            r"【", "\n【", text
-        )  # 【見出し】の前に改行を挿入（段落番号の処理で行が詰まった見出しへの対応）
-        text = re.sub(r"\n\n\n", r"\n\n", text)  # 2連続の空白行を1つに
-
-        return text.strip()
-
-    def replacement_cleanup(text):
-        """特許テキスト置換関数"""
-
-        ## Step.1 置換準備 ##
-        def full_number_to_half(match):
-            """全角数字を半角数字に変換する関数"""
-            char = match.group(0)  # マッチした全角数字を1文字取得
-            return chr(
-                ord(char) - ord("０") + ord("0")
-            )  # Unicodeの差を利用して半角に変換
-
-        def full_alphabet_to_half(match):
-            """全角英字を半角に変換する関数"""
-            char = match.group(0)
-            return chr(ord(char) - ord("Ａ") + ord("A"))
-
-        # 全角記号から半角記号への置換マップ {'全角': '半角'}
-        replace_map = {
-            "（": "(",
-            "）": ")",
-            "「": '"',
-            "」": '"',
-            "『": '"',
-            "』": '"',
-            "《": '"',
-            "》": '"',
-            "〈": '"',
-            "〉": '"',
-            "〔": "[",
-            "〕": "]",
-            "［": "[",
-            "］": "]",
-            "｛": "{",
-            "｝": "}",
-            "‘": "`",
-            "’": "`",
-            "“": '"',
-            "”": '"',
-            "′": "`",
-            "．": ".",
-            "／": "/",
-            "：": ":",
-            "；": ";",
-            "＜": "<",
-            "＞": ">",
-            "％": "%",
-        }
-
-        ## Step.2 置換実行 ##
-        # 全角英数を半角に変換（全角英数 ０〜９・Ａ～Ｚ・ａ～ｚ → 半角英数 0〜9・A～Z・a～z）
-        text = re.sub(r"[０-９]", full_number_to_half, text)
-        text = re.sub(r"[Ａ-Ｚ]", full_alphabet_to_half, text)
-        text = re.sub(r"[ａ-ｚ]", full_alphabet_to_half, text)
-
-        # 全角記号や句読点をまとめて置換（replace_map参照）
-        for full, half in replace_map.items():
-            text = text.replace(full, half)
-
-        return text.strip()
-
-    # ------------------------------------------------------------
-    # 補助関数
-    # ------------------------------------------------------------
-
-    def format_draw_section(text):
-        """【図面の簡単な説明】を整形/【図面の簡単な説明】内の【図◯】とそれ以外の【図◯】を区別/clean_text()内で使用"""
-
-        def replace_figures(match):
-            header = match.group(1)  # 【図面の簡単な説明】
-            content = match.group(2)  # セクションの中身
-
-            content = re.sub(
-                r"【図(.+?)】", r"[図: \1]\n", content
-            )  # 【図X】を[図: X]に置換
-            content = re.sub(
-                r" \[図(.+?)\]", r"[図\1]", content
-            )  # [図X]前に存在する半角スペースを除去
-            return header + content
-
-        # 表記ゆれ対応
-        header_regex = r"(【(?:図面の簡単な説明|図面の説明|図面の概略説明)】)"
-        # 上記見出しから、次の「主要なセクション開始」または文末($) までを対象にする(肯定先読み)
-        pattern = header_regex + r"(.*?)(?=(?:【(?!(?:図|[0-9０-９])).+?】|$))"
-
-        # re.DOTALL: . が改行にもマッチするようにする（改行が含まれていても対応可能に）
-        return re.sub(pattern, replace_figures, text, flags=re.DOTALL)
-
-    def format_symbol_section_safe(text):
-        """【符号の説明】セクションのみを抽出して整形処理を行う"""
-
-        def process_content(match):
-            content = match.group(0)
-
-            content = re.sub(
-                r"(\d+)　", r"\1： ", content
-            )  # 全角数字+全角空白→全角数字+：に置換
-            content = re.sub(
-                r"、(\d+)", r"\n\1", content
-            )  # 「、」+全角数字→改行＋全角数字に置換（※ここでだけ実行）
-            content = re.sub(
-                r"([\dＡ-Ｚａ-ｚ]+)　", r"  \1： ", content
-            )  # 英数の場合はインデント(階層構造)を付与
-            content = re.sub(
-                r"([\dＡ-Ｚａ-ｚ]+：)", r"- \1", content
-            )  # 箇条書きリスト付与
-            return content
-
-        # 【符号の説明】の見出し後から、次の【見出し】が来るまでをターゲットにする（前処理で見出しの前後に改行(\n)を入れているため、それを区切りとして利用）
-        pattern = r"(?<=【符号の説明】\n)(.*?)(?=\n【|$)"
-
-        return re.sub(pattern, process_content, text, flags=re.DOTALL)
-
-    # ------------------------------------------------------------
-    # 実行部分
-    # ------------------------------------------------------------
-
-    cleaned_text = clean_text(text)
-    cleaned_text = replacement_cleanup(cleaned_text)
-
-    return cleaned_text
-
-
-# ============================================================
-# [2] クラスオブジェクト化
-# ============================================================
-
-# ------------------------------------------------------------
-# 1. 設定・マッピング定義（クラスより先に定義）
-# ------------------------------------------------------------
-
-
-SECTION_MAPPING = {
-    "abstract": ["要約"],
-    "claims": ["特許請求の範囲", "請求の範囲"],
-    "tech_field": ["技術分野"],
-    "background": ["背景技術", "従来の技術"],
-    "problem_to_solve": ["発明が解決しようとする課題"],
-    "means_to_solve": ["課題を解決するための手段"],
-    "effect": ["発明の効果"],
-    "drawings_desc": ["図面の簡単な説明", "図面の説明"],
-    "embodiments": [
-        "発明を実施するための形態",
-        "発明を実施するための最良の形態",
-        "実施例",
-    ],
-    "symbols_desc": ["符号の説明"],
-    "industrial_applicability": ["産業上の利用可能性"],
+<file path="frontend/app/home/idea/page.tsx">
+// Patent_Survey_APP/frontend/app/home/idea/page.tsx
+
+"use client";
+
+import { useState } from "react";
+import { GeneratingScreen } from "./components/screen/GeneratingScreen";
+import { UploadScreen } from "./components/screen/PatentUploadScreen";
+
+import type { components } from "@/types/schema"; // 自動生成型定義
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+// ============================================================
+// 特許解析～アイデア生成機能
+// ============================================================
+
+// 画面状態の型定義
+type ScreenState = "upload" | "generating";
+
+export default function IdeaPage() {
+    const [screen, setScreen] = useState<ScreenState>("upload");
+
+    // 特許PDF情報 & 解析データ
+    const [patentId, setPatentId] = useState<string>("");
+    const [fileName, setFileName] = useState<string>("");
+    const [patentData, setPatentData] = useState<PatentContent | null>(null);
+    const [patentImages, setPatentImages] = useState<PatentImage[]>([]);
+
+    return (
+        <>
+            {/* アップロード画面 */}
+            {screen === "upload" && (
+                <UploadScreen
+                    setScreen={setScreen}
+                    setPatentId={setPatentId}
+                    setFileName={setFileName}
+                    setPatentData={setPatentData}
+                    setPatentImages={setPatentImages}
+                />
+            )}
+
+            {/* 生成・解析画面 (データが存在する場合のみ表示) */}
+            {screen === "generating" && patentData && (
+                <GeneratingScreen
+                    fileName={fileName}
+                    patentId={patentId}
+                    patentData={patentData}
+                    patentImages={patentImages}
+                />
+            )}
+        </>
+    );
 }
+</file>
 
-# 完全に無視する見出し
-IGNORE_HEADERS = {"特許文献", "先行技術文献", "非特許文献"}
+<file path="frontend/app/home/layout.tsx">
+// Patent_Survey_APP/frontend/app/home/layout.tsx
 
-# パース用逆引きマップ（【見出し】 -> 属性）
-HEADER_TO_ATTR = {}
-for attr, headers in SECTION_MAPPING.items():
-    for h in headers:
-        HEADER_TO_ATTR[h] = attr
+import MainLayout from "../MainLayout";
 
-# 表示・判定用逆引きマップ（属性名 -> 【代表見出し】）
-ATTR_TO_HEADER = {attr: headers[0] for attr, headers in SECTION_MAPPING.items()}
-
-
-# ------------------------------------------------------------
-# 2. データ構造の定義
-# ------------------------------------------------------------
-
-
-@dataclass
-class PatentDocument:
-    """特許文書の構造化データクラス"""
-
-    # 主要セクション
-    abstract: str = ""  # 要約
-    claims: str = ""  # 特許請求の範囲
-    tech_field: str = ""  # 技術分野
-    background: str = ""  # 背景技術
-    problem_to_solve: str = ""  # 発明が解決しようとする課題
-    means_to_solve: str = ""  # 課題を解決するための手段
-    effect: str = ""  # 発明の効果
-    drawings_desc: str = ""  # 図面の簡単な説明
-    embodiments: str = ""  # 発明を実施するための形態
-    symbols_desc: str = ""  # 符号の説明
-    industrial_applicability: str = ""  # 産業上の利用可能性
-
-    # その他（未知のセクション）
-    others: Dict[str, str] = field(default_factory=dict)
-
-    def to_dict(self):
-        return {k: v for k, v in self.__dict__.items() if v}
-
-    def get_text(self, target_sections: Optional[List[str]] = None) -> str:
-        """
-        指定されたセクションを結合してテキストとして返します。
-
-        Args:
-            target_sections (list, optional): 取得したいセクション名のリスト。
-                Noneの場合は「中身が存在する全てのセクション」を結合します。
-                例: ['abstract', 'claims']
-                セクション一覧:
-                'claims'
-                'tech_field'
-                'background'
-                'problem_to_solve'
-                'means_to_solve'
-                'effect'
-                'drawings_desc'
-                'embodiments'
-                'symbols_desc'
-                'industrial_applicability'
-
-        Returns:
-            str: 整形済みの結合テキスト
-        """
-        parts = []
-
-        # 1. 取得対象の決定
-        if target_sections is None:
-            # 全属性を対象にする（othersは後で個別に処理）
-            targets = list(ATTR_TO_HEADER.keys())
-            include_others = True
-        else:
-            targets = target_sections
-            include_others = False  # 明示指定の場合はリストに含まれていれば処理する
-
-        # 2. 標準セクションの結合
-        for attr in targets:
-            # othersに含まれるキーが指定された場合の処理（例: '図1'など）
-            if attr in self.others:
-                header = f"【{attr}】"
-                content = self.others[attr]
-                parts.append(f"{header}\n{content}")
-                continue
-
-            # クラス属性として存在する場合
-            if hasattr(self, attr):
-                content = getattr(self, attr)
-                if content:  # 中身がある場合のみ追加
-                    # 属性名から日本語見出しに変換（見つからなければ属性名をそのまま使う）
-                    header_text = ATTR_TO_HEADER.get(attr, attr)
-                    header = f"【{header_text}】"
-                    parts.append(f"{header}\n{content}")
-            else:
-                # 属性もothersにもない場合（Typoなど）は無視またはWarn
-                pass
-
-        # 3. others（その他）の全結合（target_sectionsがNoneの場合のみ）
-        if include_others and self.others:
-            for header_key, content in self.others.items():
-                header = f"【{header_key}】"
-                parts.append(f"{header}\n{content}")
-
-        return "\n\n".join(parts)
-
-    def get_missing_sections(self) -> List[str]:
-        """
-        データクラスに定義されているが、解析結果に含まれなかった（空の）セクション名のリストを返す。
-
-        Returns:
-            List[str]: 欠損しているセクションの日本語見出しリスト
-            例: ['産業上の利用可能性', '発明の効果']
-        """
-        missing = []
-        # 自身の属性を走査
-        for attr, value in self.__dict__.items():
-            # 'others' は動的辞書なので欠損チェックの対象外
-            if attr == "others":
-                continue
-
-            # 値が空文字の場合、欠損とみなす
-            if not value:
-                # 属性名を日本語の見出しに変換してリストに追加
-                # マップにない場合（まずありえないが）は属性名をそのまま使う
-                header_name = ATTR_TO_HEADER.get(attr, attr)
-                missing.append(header_name)
-
-        return missing
-
-
-# ------------------------------------------------------------
-# 3. パース処理関数
-# ------------------------------------------------------------
-
-
-def parse_patent_text(text: str) -> PatentDocument:
-    """整形済みテキストを解析してPatentDocumentオブジェクトを返す"""
-
-    doc = PatentDocument()
-
-    # 「改行」または「文頭」の直後にある【見出し】で分割する
-    parts = re.split(r"((?:^|\n)【.*?】)", text)
-
-    # parts[0] は最初の見出しより前のテキスト（ゴミ or 書誌情報）のため無視
-    # parts[1]が見出し, parts[2]が中身... の順で処理
-    for i in range(1, len(parts), 2):
-        if i + 1 >= len(parts):
-            break
-
-        header_raw = parts[i].strip()  # 【見出し】
-        content = parts[i + 1].strip()  # 本文
-
-        # 見出しから余計な文字（【】や改行）を除去してキー化
-        header_key = re.sub(r"[【】\n]", "", header_raw)
-
-        # 中身が空の場合はスキップ（例: 【発明の詳細な説明】の直後に【技術分野】が来る場合など）
-        if not content:
-            continue
-
-        # 除外リストに含まれるかチェック（保存せずにスキップ）
-        if header_key in IGNORE_HEADERS:
-            continue
-
-        # マッピング処理
-        if header_key in HEADER_TO_ATTR:
-            attr_name = HEADER_TO_ATTR[header_key]
-            current_val = getattr(doc, attr_name)
-            # 同じセクションが分散している場合は結合
-            new_val = (
-                (current_val + "\n\n" + content).strip() if current_val else content
-            )
-            setattr(doc, attr_name, new_val)
-        else:
-            doc.others[header_key] = content
-
-    return doc
-
-
-# ============================================================
-# [3] メイン処理
-# ============================================================
-
-
-def patent_text_extraction(pdf_bytes):
-    """特許PDFのテキストを抽出・整形しPatentDocumentに変換する関数"""
-    pdf_text = read_pdf(pdf_bytes)  # PDFのテキスト抽出
-    cleaned_text = patent_text_cleanup(pdf_text)  # 抽出されたテキストの整形・置換
-    patent_doc = parse_patent_text(cleaned_text)  # PatentDocumentオブジェクトに変換
-    missing_sections = patent_doc.get_missing_sections()  # 存在しないセクションの抽出
-    if missing_sections:
-        print("以下のセクションはこの文書に含まれていませんでした:")
-        for section in missing_sections:
-            print(f"- {section}")
-    else:
-        print("定義されたすべてのセクションが存在します。")
-    return patent_doc
-
-
-# 利用例
-# patent_doc = patent_text_extraction(pdf_bytes)
-# print(patent_doc.get_text(['abstract']))
+export default function Layout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return (
+        <>
+            <MainLayout>{children}</MainLayout>
+        </>
+    );
+}
 </file>
 
 <file path="frontend/app/home/page.tsx">
@@ -2715,6 +3787,42 @@ export default function Home() {
         <>
             <div className="max-w-7xl mx-auto space-y-6">ホーム画面</div>
         </>
+    );
+}
+</file>
+
+<file path="frontend/app/layout.tsx">
+// Patent_Survey_APP/frontend/app/layout.tsx
+
+import type { Metadata } from "next";
+import { Noto_Sans_JP } from "next/font/google";
+import "./globals.css";
+
+const notoSansJP = Noto_Sans_JP({
+    variable: "--font-noto-sans-jp",
+    subsets: ["latin"],
+    weight: ["100", "300", "400", "500", "700", "900"],
+    display: "swap",
+});
+
+export const metadata: Metadata = {
+    title: "Patent Survey APP",
+    description: "フリーヒルズラボ",
+};
+
+export default function RootLayout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return (
+        <html lang="ja" suppressHydrationWarning>
+            <body
+                suppressHydrationWarning
+                className={`${notoSansJP.variable} antialiased`}>
+                {children}
+            </body>
+        </html>
     );
 }
 </file>
@@ -2918,692 +4026,153 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 }
 </file>
 
-<file path="frontend/types/schema.ts">
-/**
- * This file was auto-generated by openapi-typescript.
- * Do not make direct changes to the file.
- */
+<file path="frontend/app/page.tsx">
+// Patent_Survey_APP/frontend/app/page.tsx
 
-export interface paths {
-    "/generate/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * テキスト生成
-         * @description Gemini APIを使用してテキストをストリーミング生成
-         */
-        post: operations["generate_generate_content_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/generate/patent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate From Patent */
-        post: operations["generate_from_patent_generate_patent_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/generate/idea": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate Idea */
-        post: operations["generate_idea_generate_idea_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/generate/chat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Chat With Context
-         * @description 特許文脈を保持したマルチターンチャット
-         */
-        post: operations["chat_with_context_generate_chat_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patent/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Pdf
-         * @description アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す
-         */
-        post: operations["upload_pdf_patent_upload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read Root */
-        get: operations["read_root__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-}
-export type webhooks = Record<string, never>;
-export interface components {
-    schemas: {
-        /** Body_upload_pdf_patent_upload_post */
-        Body_upload_pdf_patent_upload_post: {
-            /**
-             * File
-             * Format: binary
-             */
-            file: string;
-        };
-        /** ChatRequest */
-        ChatRequest: {
-            /** Patent Id */
-            patent_id: string;
-            /** User Message */
-            user_message: string;
-            /**
-             * Analysis Text
-             * @default
-             */
-            analysis_text: string;
-            /**
-             * Idea Text
-             * @default
-             */
-            idea_text: string;
-        };
-        /** GenerateIdeaRequest */
-        GenerateIdeaRequest: {
-            /** Patent Id */
-            patent_id: string;
-            /** Explanation Text */
-            explanation_text: string;
-        };
-        /** GeneratePatentRequest */
-        GeneratePatentRequest: {
-            /** Patent Id */
-            patent_id: string;
-        };
-        /** GenerateRequest */
-        GenerateRequest: {
-            /** Prompt */
-            prompt: string;
-            /** Tool Mode */
-            tool_mode: string;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** PatentContent */
-        PatentContent: {
-            /**
-             * Abstract
-             * @description 要約
-             */
-            abstract: string;
-            /**
-             * Claims
-             * @description 特許請求の範囲
-             */
-            claims: string;
-            /**
-             * Tech Field
-             * @description 技術分野
-             * @default
-             */
-            tech_field: string;
-            /**
-             * Background
-             * @description 背景技術
-             * @default
-             */
-            background: string;
-            /**
-             * Problem To Solve
-             * @description 解決しようとする課題
-             * @default
-             */
-            problem_to_solve: string;
-            /**
-             * Means To Solve
-             * @description 解決手段
-             * @default
-             */
-            means_to_solve: string;
-            /**
-             * Effect
-             * @description 発明の効果
-             * @default
-             */
-            effect: string;
-            /**
-             * Drawings Desc
-             * @description 図面の簡単な説明
-             * @default
-             */
-            drawings_desc: string;
-            /**
-             * Embodiments
-             * @description 実施形態
-             * @default
-             */
-            embodiments: string;
-            /**
-             * Symbols Desc
-             * @description 符号の説明
-             * @default
-             */
-            symbols_desc: string;
-            /**
-             * Industrial Applicability
-             * @description 産業上の利用可能性
-             * @default
-             */
-            industrial_applicability: string;
-            /**
-             * Others
-             * @description その他のセクション
-             */
-            others?: {
-                [key: string]: string;
-            };
-        };
-        /** PatentImage */
-        PatentImage: {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-            /** Page */
-            page: number;
-            /** Url */
-            url: string;
-        };
-        /** PatentUploadResponse */
-        PatentUploadResponse: {
-            /** Filename */
-            filename: string;
-            /** Patent Id */
-            patent_id: string;
-            patent_data: components["schemas"]["PatentContent"];
-            /** Images */
-            images: components["schemas"]["PatentImage"][];
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
-    };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
-}
-export type $defs = Record<string, never>;
-export interface operations {
-    generate_generate_content_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_from_patent_generate_patent_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GeneratePatentRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_idea_generate_idea_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateIdeaRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    chat_with_context_generate_chat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChatRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    upload_pdf_patent_upload_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_upload_pdf_patent_upload_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatentUploadResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_root__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
+import { redirect } from "next/navigation";
+
+// リダイレクト専用ページ
+export default function Page() {
+    redirect("/home");
 }
 </file>
 
-<file path="backend/Dockerfile">
-# Patent_Survey_APP/backend/Dockerfile
+<file path="frontend/Dockerfile">
+# イメージ
+FROM node:20-alpine
 
-## ベースイメージ ##
-# Docker Hubから公式のPython 3.11イメージを取得（-slim --> 軽量版）
-FROM python:3.11-slim
-
-## 作業ディレクトリを設定 ##
-# コンテナ内の作業ディレクトリを /app に設定（以降の COPY、RUN はこのディレクトリで実行される）
+# 作業
 WORKDIR /app
 
-## requirements.txtをコピー ##
-# コンテナ内の /app/requirements.txt にコピー（. = 現在のディレクトリ（/app））
-COPY requirements.txt .
+# package.json と lock ファイルを先にコピー
+COPY package*.json ./
 
-## requirements.txtからパッケージをインストール ##
-# コンテナ内で pip install を実行（--no-cache-dir = キャッシュを残さない --> イメージサイズを小さくする）
-RUN pip install --no-cache-dir -r requirements.txt
+# 依存関係をインストール（package-lock.jsonがあればそちらを参照）
+RUN npm install
 
-## applicationコードをコピー ##
-# ホストの backend/ ディレクトリの全ファイルを、コンテナ内の /app/ にコピー（main.pyなどがコピーされる）
+# ソースコードをコピー
 COPY . .
 
-## FastAPI 開発サーバーのポート（明示的） ##
-EXPOSE 8000
+# Next.js 開発サーバーのポート
+EXPOSE 3000
 
-## コンテナ起動時に実行するコマンド ##
-# FastAPIサーバーを起動するコマンド
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# 開発モード起動
+CMD ["npm", "run", "dev"]
 </file>
 
-<file path="backend/src/func/patent_images.py">
-# Patent_Survey_APP/backend/src/func/patent_images.py
-
-import os
-from io import BytesIO
-
-from PIL import Image
-from pypdf import PdfReader
-
-
-def extract_figures_from_pdf_bytes(
-    pdf_bytes: bytes,
-    output_dir: str,
-    min_width=100,
-    min_height=100,
-):
-    os.makedirs(output_dir, exist_ok=True)
-
-    reader = PdfReader(BytesIO(pdf_bytes))
-    raw_figures = []
-
-    # ------------------------------------------------------------
-    # 画像のみ抽出（番号は後で付与※逆順に格納されるため）
-    # ------------------------------------------------------------
-
-    for page_index, page in enumerate(reader.pages):
-        if page_index == 0:  # 書誌情報ページは除外
-            continue
-
-        try:
-            images = page.images
-        except Exception:
-            continue
-
-        for img in images:
-            image_bytes = img.data
-
-            try:
-                with Image.open(BytesIO(image_bytes)) as im:
-                    width, height = im.size
-                    if width < min_width or height < min_height:
-                        continue
-
-                    raw_figures.append(
-                        {
-                            "page": page_index + 1,
-                            "image": im.copy(),  # 後で使う
-                        }
-                    )
-
-            except Exception:
-                continue
-
-    # ------------------------------------------------------------
-    # 逆順にして処理して番号を付与
-    # ------------------------------------------------------------
-
-    figures = []
-    for index, fig in enumerate(reversed(raw_figures), start=1):
-        fig_id = f"fig_{index:03d}"
-        filename = f"{fig_id}.png"
-        save_path = os.path.join(output_dir, filename)
-
-        fig["image"].save(save_path, format="PNG")
-
-        figures.append(
-            {
-                "id": fig_id,
-                "label": f"図{index}",
-                "page": fig["page"],
-                "filename": filename,
-            }
-        )
-
-    return figures
+<file path="frontend/images/arrow_back.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
 </file>
 
-<file path="backend/src/schemas/patent_schemas.py">
-# Patent_Survey_APP/backend/src/schemas/patent_schemas.py
-
-from typing import Dict
-
-from pydantic import BaseModel, Field
-
-# ============================================================
-# 特許PDF処理時に使用するスキーマ
-# ============================================================
-
-
-# 特許文書の中身そのもののスキーマ
-class PatentContent(BaseModel):
-    abstract: str = Field(..., description="要約")
-    claims: str = Field(..., description="特許請求の範囲")
-    tech_field: str = Field("", description="技術分野")
-    background: str = Field("", description="背景技術")
-    problem_to_solve: str = Field("", description="解決しようとする課題")
-    means_to_solve: str = Field("", description="解決手段")
-    effect: str = Field("", description="発明の効果")
-    drawings_desc: str = Field("", description="図面の簡単な説明")
-    embodiments: str = Field("", description="実施形態")
-    symbols_desc: str = Field("", description="符号の説明")
-    industrial_applicability: str = Field("", description="産業上の利用可能性")
-    others: Dict[str, str] = Field(
-        default_factory=dict, description="その他のセクション"
-    )
-
-
-# 特許文書から抽出した図のスキーマ
-class PatentImage(BaseModel):
-    id: str  # 参照用
-    label: str  # 図1（表示用）
-    page: int
-    url: str  # フロントエンドからアクセス(GET)するためのURL
-
-
-# APIが返す全体のレスポンススキーマ
-class PatentUploadResponse(BaseModel):
-    filename: str
-    patent_id: str
-    patent_data: PatentContent  # ここで上記のクラスをネストする
-    images: list[PatentImage]
+<file path="frontend/images/check_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="M378-246 154-470l43-43 181 181 384-384 43 43-427 427Z"/></svg>
 </file>
 
-<file path="frontend/.gitignore">
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+<file path="frontend/images/edit_document_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z"/></svg>
 </file>
 
-<file path="frontend/app/home/layout.tsx">
-// Patent_Survey_APP/frontend/app/home/layout.tsx
+<file path="frontend/images/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
 
-import MainLayout from "../MainLayout";
+<file path="frontend/images/info_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
+</file>
 
-export default function Layout({
-    children,
-}: Readonly<{
-    children: React.ReactNode;
-}>) {
-    return (
-        <>
-            <MainLayout>{children}</MainLayout>
-        </>
-    );
+<file path="frontend/images/logout_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></svg>
+</file>
+
+<file path="frontend/images/menu_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/></svg>
+</file>
+
+<file path="frontend/images/science.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-51 0-72.5-45.5T138-250l222-270v-240h-40q-17 0-28.5-11.5T280-800q0-17 11.5-28.5T320-840h320q17 0 28.5 11.5T680-800q0 17-11.5 28.5T640-760h-40v240l222 270q32 39 10.5 84.5T760-120H200Zm0-80h560L520-492v-268h-80v268L200-200Zm280-280Z"/></svg>
+</file>
+
+<file path="frontend/images/send_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M120-160v-640l760 320-760 320Zm80-120 474-200-474-200v140l240 60-240 60v140Zm0 0v-400 400Z"/></svg>
+</file>
+
+<file path="frontend/images/setting_icon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>
+</file>
+
+<file path="frontend/package.json">
+{
+    "name": "frontend",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint",
+        "api:gen": "openapi-typescript http://127.0.0.1:8000/openapi.json --output ./types/schema.ts"
+    },
+    "dependencies": {
+        "@ai-sdk/react": "^3.0.3",
+        "lucide-react": "^0.562.0",
+        "next": "16.1.1",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
+        "react-markdown": "^10.1.0",
+        "remark-gfm": "^4.0.1",
+        "zod": "^4.2.1"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "eslint": "^9",
+        "eslint-config-next": "16.1.1",
+        "openapi-typescript": "^7.10.1",
+        "tailwindcss": "^4",
+        "typescript": "^5.9.3"
+    }
 }
+</file>
+
+<file path="frontend/README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+-   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+-   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 </file>
 
 <file path="frontend/styles/chat_input_style.css">
@@ -3736,1511 +4305,6 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 </file>
 
-<file path="backend/config.py">
-# Patent_Survey_APP/backend/config.py
-
-import os
-
-from dotenv import load_dotenv
-
-# .envファイル読み込み
-load_dotenv()
-
-# Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-# フロントエンド側のURL
-FRONTEND_URL = os.getenv("FRONTEND_URL")
-
-# 終了時に一時ファイルを削除するかどうか
-CLEANUP_ON_EXIT = os.getenv("CLEANUP_ON_EXIT")
-</file>
-
-<file path="backend/src/func/generate_func.py">
-# Patent_Survey_APP/backend/src/func/generate_func.py
-
-from google.genai import types
-from google.genai.types import GenerateContentConfig
-
-# ============================================================
-# テキスト生成実行関数
-# ============================================================
-
-
-def generate_content(prompt, client, tool_mode: str, system_instruction=None):
-    """
-    tool_mode:
-        "text"       : ツールなし（純粋なテキスト生成）
-        "search"     : Google Search のみ
-        "search_url" : URL context + Google Search
-    """
-
-    tools = None
-
-    # テキスト生成のみ
-    if tool_mode == "text":
-        pass
-
-    # Google Searchのみ
-    elif tool_mode == "search":
-        grounding_tool = types.Tool(google_search=types.GoogleSearch())
-        tools = [grounding_tool]
-
-    # URL context + Google Search を両方指定
-    elif tool_mode == "search_url":
-        tools = [
-            {"url_context": {}},
-            {"google_search": {}},
-        ]
-
-    else:
-        raise ValueError(f"Unknown tool_mode: {tool_mode}")
-
-    # config生成ツールがある場合のみ生成
-    if tools is not None:
-        config = GenerateContentConfig(
-            tools=tools,
-            system_instruction=system_instruction,
-        )
-    else:
-        config = types.GenerateContentConfig(
-            system_instruction=system_instruction,
-        )
-
-    response = client.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=config,
-    )
-
-    return response
-
-
-# ============================================================
-# マルチターン対話用生成関数（NEW）
-# ============================================================
-
-
-def generate_content_multiturn(contents: list, client, system_instruction: str):
-    """
-    マルチターン対話用の生成関数
-
-    Args:
-        contents: Gemini API の contents 形式
-                [{"role": "user", "parts": [{"text": "..."}]}, ...]
-        client: Gemini client
-        system_instruction: システムプロンプト
-
-    Returns:
-        ストリーミングレスポンス
-    """
-    config = types.GenerateContentConfig(
-        system_instruction=system_instruction,
-    )
-
-    response = client.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=contents,
-        config=config,
-    )
-
-    return response
-
-
-# ============================================================
-# ストリーミング生成補助関数
-# ============================================================
-
-
-def stream(response_stream):
-    full_text = ""
-    thoughts = ""
-    answer = ""
-
-    for chunk in response_stream:
-        if (
-            not chunk.candidates
-        ):  # ツール呼び出し中などで candidates が None の場合があるので防御的に
-            continue
-
-        for part in chunk.candidates[0].content.parts:
-            if not getattr(part, "text", None):
-                continue  # 何も送らない
-
-            # 思考テキスト
-            if getattr(part, "thought", False):
-                if not thoughts:
-                    yield ""
-                thoughts += part.text
-                full_text += part.text
-                yield part.text
-
-            # 回答テキスト
-            else:
-                if not answer:
-                    yield ""
-                answer += part.text
-                full_text += part.text
-                yield part.text
-
-    return
-</file>
-
-<file path="backend/src/storage/patent_store.py">
-# backend/src/storage/patent_store.py
-
-import os
-import shutil
-from pathlib import Path
-from typing import Any, Dict, List
-from uuid import uuid4  # ID生成
-
-# ==========================================
-# 1. 特許テキストデータ（idで管理）
-# ==========================================
-
-# サーバ再起動で消える一時ストレージ（DBを使わず変数をアプリ内で共有する）
-
-patent_store: Dict[str, object] = {}
-
-
-# 保存用
-def save_patent(patent_doc) -> str:
-    patent_id = str(uuid4())
-    patent_store[patent_id] = patent_doc  # {id: 本文}
-    return patent_id
-
-
-# 取得用
-def get_patent(patent_id: str):
-    return patent_store.get(patent_id)
-
-
-# ==========================================
-# 2. 特許画像データ（一時フォルダで管理）
-# ==========================================
-
-# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
-
-
-# .parent.parent.parent で src -> storage -> backend へ遡る
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-
-# 2. プロジェクトルート直下に一時フォルダを作成
-STATIC_DIR_NAME = "temp_patents"
-STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
-
-STATIC_BASE_URL = "/static/patents"
-
-
-def get_patent_figure_dir(patent_id: str) -> str:
-    # Pathオブジェクトを使って結合し、文字列で返す
-    path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
-    return str(path)
-
-
-# アクセス用URL作成
-def build_figure_url(patent_id: str, filename: str) -> str:
-    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
-
-
-# アプリ終了時に呼ばれるクリーンアップ関数
-def cleanup_temp_files():
-    if os.path.exists(STATIC_BASE_PATH):
-        # フォルダの中身ごと完全に削除
-        shutil.rmtree(STATIC_BASE_PATH)
-        print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
-
-
-# ==========================================
-# 3. チャット履歴管理
-# ==========================================
-
-# Gemini API の contents 形式で保存
-# {patent_id: [{"role": "user", "parts": [{"text": "..."}]}, ...]}
-chat_sessions: Dict[str, List[Dict[str, Any]]] = {}
-
-
-def save_chat_message(patent_id: str, role: str, text: str):
-    """
-    チャット履歴に追加（Gemini contents形式）
-
-    Args:
-        patent_id: 特許ID
-        role: "user" または "model"
-        text: メッセージテキスト
-    """
-    if patent_id not in chat_sessions:
-        chat_sessions[patent_id] = []
-
-    chat_sessions[patent_id].append({"role": role, "parts": [{"text": text}]})
-
-
-def get_chat_history(patent_id: str) -> List[Dict[str, Any]]:
-    """
-    チャット履歴を取得（Gemini contents形式）
-
-    Args:
-        patent_id: 特許ID
-
-    Returns:
-        Gemini API の contents 形式のリスト
-    """
-    return chat_sessions.get(patent_id, [])
-
-
-def clear_chat_history(patent_id: str):
-    """
-    チャット履歴をクリア（将来的な機能拡張用）
-
-    Args:
-        patent_id: 特許ID
-    """
-    if patent_id in chat_sessions:
-        chat_sessions[patent_id] = []
-</file>
-
-<file path="frontend/eslint.config.mjs">
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-
-const eslintConfig = defineConfig([
-    ...nextVitals,
-    ...nextTs,
-    // Override default ignores of eslint-config-next.
-    globalIgnores([
-        // Default ignores of eslint-config-next:
-        ".next/**",
-        "out/**",
-        "build/**",
-        "next-env.d.ts",
-    ]),
-]);
-
-export default eslintConfig;
-</file>
-
-<file path="frontend/next.config.ts">
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-    /* config options here */
-};
-
-export default nextConfig;
-</file>
-
-<file path="frontend/postcss.config.mjs">
-const config = {
-    plugins: {
-        "@tailwindcss/postcss": {},
-    },
-};
-
-export default config;
-</file>
-
-<file path="frontend/README.md">
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-</file>
-
-<file path="frontend/tsconfig.json">
-{
-    "compilerOptions": {
-        "target": "ES2017",
-        "lib": ["dom", "dom.iterable", "esnext"],
-        "allowJs": true,
-        "skipLibCheck": true,
-        "strict": true,
-        "noEmit": true,
-        "esModuleInterop": true,
-        "module": "esnext",
-        "moduleResolution": "bundler",
-        "resolveJsonModule": true,
-        "isolatedModules": true,
-        "jsx": "react-jsx",
-        "incremental": true,
-        "plugins": [
-            {
-                "name": "next"
-            }
-        ],
-        "paths": {
-            "@/*": ["./*"]
-        }
-    },
-    "include": [
-        "next-env.d.ts",
-        "**/*.ts",
-        "**/*.tsx",
-        ".next/types/**/*.ts",
-        ".next/dev/types/**/*.ts",
-        "**/*.mts"
-    ],
-    "exclude": ["node_modules"]
-}
-</file>
-
-<file path="backend/requirements.txt">
-fastapi==0.127.1 # FastAPI
-uvicorn==0.40.0 # サーバー起動
-google-genai==1.56.0 # Gemini
-dotenv==0.9.9 # 環境変数
-pypdf==6.5.0 # PDF処理
-python-multipart==0.0.21 # pypdfの依存関係
-matplotlib==3.10.8 # PDFから画像を抽出する際に使用
-</file>
-
-<file path="backend/src/prompt/system_prompt.py">
-# Patent_Survey_APP/backend/src/prompt/system_prompt.py
-
-# ============================================================
-# 特許解析＆アイデア生成共通システムプロンプト
-# ============================================================
-
-SYSTEM_PROMPT_PATENT = """
-# システムプロンプト: 特許解析サポートAI
-
-## あなたの役割
-
-あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
-ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
-
-## 3つの核心原則
-
-### 1. 透明性
-
-- 情報源を明示する
-- 推論過程を隠さない
-- 不確実性を認める
-
-### 2. 誠実性
-
-- 事実と推測を混同しない
-- 限界を認識する
-- 知らないことを知らないと言う
-
-### 3. 検証可能性
-
-- すべての主張に根拠を示す
-- ユーザーが確認できる形式で提示する
-- 追跡可能性を常に確保する
-
----
-
-## 情報の3層構造
-
-あなたが扱う情報は、以下の3つの層に明確に分類されます：
-
-### 【第1層: 検証可能な事実】
-
-- 特許文書に明記された情報
-- 直接観測・引用できる内容
-- **必ず出典を明記**
-    - 例: [段落: xxxx]
-
-### 【第2層: 論理的推論】
-
-- 第1層の事実から導かれる推論
-- 特許文書内の複数情報の統合
-- **推論であることを明示**
-    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
-
-### 【第3層: 創造的応用】
-
-- 事実を新しい文脈に適用
-- 市場ニーズや応用可能性の想定
-- **明確に[推測]とマーク**
-    - 例: Xは、Zに応用できる可能性がある。[推測]
-
----
-
-## 出典明記の標準規則
-
-### 1. 出典の必須明記
-
-以下の情報には、**必ず出典を明記**してください：
-
-1. **特許文書からの直接引用・要約**
-2. **数値データ、定量情報**
-3. **技術的構造の詳細**
-4. **機能・動作の具体的説明**
-5. **請求項の内容**
-
-### 2. 出典の記法（標準形式）
-
-以下の統一された記法を使用してください：
-
-```
-- 段落 --> [段落: xxxx]
-- 複数段落 --> [段落: xxxx], [段落: yyyy]
-- 請求項 --> [請求項: x]
-- 図面 --> [図: x]
-(※ xは数字に置き換える)
-```
-
-**禁止例：**
-
-```
-誤: [段落: 0013, 0014]  # **入れ子にしない**
-誤: [0013]              # 何の番号か不明
-誤: (段落0013)          # 記法の不統一
-```
-
-### 3. 複数出典の扱い
-
-同じ情報が複数箇所に記載されている場合：
-
-**原則: 代表的な1-2箇所のみを記載**
-
-ただし、以下の場合は複数出典が有益：
-
-- 異なる側面を示す場合（構造と機能）
-- 異なる情報源タイプ（請求項と実施例）
-
-### 4. 出典なしで記述してよい場合
-
-以下は出典を省略可：
-
-- 明らかに文書全体の前提となる基本概念
-- 文書タイトルや技術分野
-
-""".strip()
-
-
-# ============================================================
-# 対話用システムプロンプト
-# ============================================================
-
-
-def build_chat_system_instruction(
-    patent_doc, analysis_text: str = "", idea_text: str = ""
-):
-    """
-    チャット用システムプロンプト生成
-    特許原文と生成済みテキストを文脈として含める
-
-    Args:
-        patent_doc: PatentDocumentオブジェクト
-        analysis_text: 解析結果テキスト（生成済みの場合）
-        idea_text: アイデアテキスト（生成済みの場合）
-
-    Returns:
-        システムプロンプト文字列
-    """
-
-    base_instruction = """
-# システムプロンプト: 特許技術対話サポートAI
-
-## あなたの役割
-
-特許文書の内容を理解したユーザーとの対話を通じて、技術の深い理解と応用を支援します。
-
-## 特許文書が最高権威
-
-- すべての回答は特許文書を基盤としている必要があります。
-- 特許文書に基づく「個別事実」と「一般論」は明確に区別されている必要があります。
-
----
-
-## 3つの核心原則
-
-### 1. 透明性
-
-- 情報源を明示する
-- 推論過程を隠さない
-- 不確実性を認める
-
-### 2. 誠実性
-
-- 事実と推測を混同しない
-- 限界を認識する
-- 知らないことを知らないと言う
-
-### 3. 検証可能性
-
-- すべての主張に根拠を示す
-- ユーザーが確認できる形式で提示する
-- 追跡可能性を常に確保する
-
----
-
-## 出典明記の標準規則
-
-### 1. 出典の必須明記
-
-以下の情報には、**必ず出典を明記**してください：
-
-1. **特許文書からの直接引用・要約**
-2. **数値データ、定量情報**
-3. **技術的構造の詳細**
-4. **機能・動作の具体的説明**
-5. **請求項の内容**
-
-### 2. 出典の記法（標準形式）
-
-以下の統一された記法を使用してください：
-
-```
-- 段落 --> [段落: xxxx]
-- 複数段落 --> [段落: xxxx], [段落: yyyy]
-- 請求項 --> [請求項: x]
-- 図面 --> [図: x]
-(※ xは数字に置き換える)
-```
-
-**禁止例：**
-
-```
-誤: [段落: 0013, 0014]  # **入れ子にしない**
-誤: [0013]              # 何の番号か不明
-誤: (段落0013)          # 記法の不統一
-```
-
----
-
-## 一般論の慎重な扱い
-
-一般論は、具体的な情報源を明示しなかったとしても、説得力があるため**盲信されやすい**です。
-
-そのため、特許に基づく「個別事実」とあなたの学習データに基づく「一般論」は**明確に区別**されている必要があります。
-
-### 一般論の性質
-
-- 特許文書に記載されていない内容です
-- あなたの学習データに基づく推測です
-- あくまで参考情報としての位置づけであり、絶対的な事実ではありません
-
-### 一般論の原則
-
-- 一般論は「方向性を示す」ものであり、「詳細な情報を提供する」ものではありません
-- 一般論であっても、断定的な表現は避けてください
-
-### 一般論提供時のガイドライン
-
-特許文書に明記されていない一般論を提供する際は、必ず注意喚起を実施してください。
-また、詳細情報が必要な場合は、専門文献や外部リソースへの誘導を行ってください。
-
-**提供してよい場合:**
-- ユーザーが明示的に質問している
-- 特許文書に該当記述がない
-- 物理法則や工学知見などの一般論が直接関連する
-
-**提供する際の形式:**
-```
-【特許文書の記述】
-[該当箇所の引用または「該当記述なし」]
-
-【参考: 一般的な工学知識】
-[説明]
-
-【注意】
-[注意事項に関する言及]
-```
-
-**絶対に避けること:**
-- 特許文書の記述を全面否定すること
-- 「実現不可能」という断定
-- 根拠のない数値的断定
-
-### ユーザーに提示する注意事項について
-
-注意事項が定型化してしまうと、ユーザーに対する効果が低下します。
-そのため、文脈に応じた注意喚起を実施してください。
-
-**注意事項の例:**
-```
-(...技術的課題に関する一般論の後)
-【注意】
-上記はAIの学習に基づく一般的な工学的考察であり、この特許技術の具体的な実装における課題ではありません。
-実際の設計では、専門家による詳細な検証が必要です。
-
-(...規制に関する一般論の後)
-【注意】
-上記はAIの学習に基づく一般的な規制環境の概要です。
-実際の運用では、地域・国・用途により異なる規制が適用されるため、法務専門家への相談を推奨します。
-```
-
----
-
-## 対話の指針
-
-### 質問の意図を理解する
-
-ユーザーの質問は、以下のいずれかに分類されます:
-
-1. **事実確認**: 特許に何が書いてあるか
-   → 該当箇所を引用
-
-2. **技術的詳細**: 仕組みの理解
-   → 特許の記述を基に説明
-
-3. **実現可能性**: 本当にできるのか
-   → 特許の記述 + 不明な点の指摘
-
-4. **応用可能性**: 他に使えないか
-   → 特許の原理を基に推測（`[推測]`付き）
-
-5. **一般知識**: 物理法則や工学的制約など
-   → 上記の「一般論の形式」で提供
-
-6. **その他**: いずれにも該当しない場合
-   → システムプロンプトの原則・指針に沿って誠実な対応を実施
-"""
-
-    # 文脈情報を追加
-    context_section = "\n\n---\n\n## 文脈情報\n\n"
-
-    # 特許原文
-    context_section += "### 特許原文\n\n"
-    context_section += "<document title='Patent'>\n"
-    context_section += patent_doc.get_text()
-    context_section += "\n</document>\n\n"
-
-    # 解析結果（存在する場合）
-    if analysis_text:
-        context_section += "### 特許の解析結果（LLMによる生成）\n\n"
-        context_section += "<document title='Patent-Analysis-by-LLM'>\n"
-        context_section += analysis_text
-        context_section += "\n</document>\n\n"
-
-    # アイデア結果（存在する場合）
-    if idea_text:
-        context_section += "### 応用アイデア（LLMによる生成）\n\n"
-        context_section += "<document title='Patent-Idea-by-LLM'>\n"
-        context_section += idea_text
-        context_section += "\n</document>\n\n"
-
-    context_section += "---\n\n"
-    context_section += "これらの情報を基に、ユーザーの質問に答えてください。"
-
-    # 統合
-    system_instruction = base_instruction + context_section
-
-    return system_instruction.strip()
-</file>
-
-<file path="backend/src/routers/generate_api.py">
-# Patent_Survey_APP/backend/src/routers/generate_api.py
-
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from src.func import gemini_client, generate_func
-from src.prompt import idea_prompt, system_prompt
-from src.storage.patent_store import (
-    get_chat_history,
-    get_patent,
-    save_chat_message,
-)
-
-## generate_api.py / LLM生成のAPIエンドポイント ##
-
-router = APIRouter(prefix="/generate", tags=["LLM生成"])
-client = gemini_client.client
-
-# ============================================================
-# リクエストボディのモデル定義
-# ============================================================
-
-
-# LLMテキスト生成
-class GenerateRequest(BaseModel):
-    prompt: str
-    tool_mode: str
-
-
-# 特許解析
-class GeneratePatentRequest(BaseModel):
-    patent_id: str
-
-
-# アイデア生成
-class GenerateIdeaRequest(BaseModel):
-    patent_id: str
-    explanation_text: str  # フロントエンドから受け取る解説文
-
-
-# チャットセッション
-class ChatRequest(BaseModel):
-    patent_id: str
-    user_message: str
-    analysis_text: str = ""  # 解析結果（生成済みの場合）
-    idea_text: str = ""  # アイデア結果（生成済みの場合）
-
-
-# ============================================================
-# エンドポイント
-# ============================================================
-
-
-# シンプルなテキスト生成
-@router.post("/content", summary="テキスト生成")
-async def generate(data: GenerateRequest):
-    """
-    Gemini APIを使用してテキストをストリーミング生成
-    """
-
-    # ストリーミング生成
-    def stream_output():
-        prompt = data.prompt
-        tool_mode = data.tool_mode
-        response = generate_func.generate_content(prompt, client, tool_mode)
-        for chunk in generate_func.stream(response):
-            if not chunk:
-                continue
-            yield chunk
-
-    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
-
-
-# 特許解析
-@router.post("/patent")
-async def generate_from_patent(data: GeneratePatentRequest):
-    # 1. 保存された原文を取得
-    patent_doc = get_patent(data.patent_id)
-    if not patent_doc:
-        raise HTTPException(status_code=404, detail="Patent not found")
-
-    # 2. プロンプト構築
-    prompt = idea_prompt.build_patent_prompt(patent_doc)
-
-    # 3. ストリーミング生成
-    def stream_output():
-        response = generate_func.generate_content(
-            prompt=prompt,
-            client=client,
-            tool_mode="text",
-            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
-        )
-        for chunk in generate_func.stream(response):
-            if not chunk:
-                continue
-            yield chunk
-
-    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
-
-
-# アイデア生成
-@router.post("/idea")
-async def generate_idea(data: GenerateIdeaRequest):
-    # 1. 保存された特許原文を取得
-    patent_doc = get_patent(data.patent_id)
-    if not patent_doc:
-        raise HTTPException(status_code=404, detail="Patent not found")
-
-    # 2. プロンプトを構築（解説文 + 原文）
-    prompt = idea_prompt.build_idea_prompt(patent_doc, data.explanation_text)
-
-    # 3. ストリーミング生成
-    def stream_output():
-        response = generate_func.generate_content(
-            prompt=prompt,
-            client=client,
-            tool_mode="text",
-            system_instruction=system_prompt.SYSTEM_PROMPT_PATENT,
-        )
-        for chunk in generate_func.stream(response):
-            if not chunk:
-                continue
-            yield chunk
-
-    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
-
-
-# チャットセッション
-@router.post("/chat")
-async def chat_with_context(data: ChatRequest):
-    """
-    特許文脈を保持したマルチターンチャット
-    """
-    # 1. 特許原文を取得
-    patent_doc = get_patent(data.patent_id)
-    if not patent_doc:
-        raise HTTPException(status_code=404, detail="Patent not found")
-
-    # 2. チャット履歴を取得（Gemini contents形式）
-    history = get_chat_history(data.patent_id)
-
-    # 3. 新しいユーザーメッセージを追加
-    history.append({"role": "user", "parts": [{"text": data.user_message}]})
-
-    # 4. システムプロンプトを構築（特許原文 + 生成済みテキストを含む）
-    system_instruction = system_prompt.build_chat_system_instruction(
-        patent_doc=patent_doc,
-        analysis_text=data.analysis_text,
-        idea_text=data.idea_text,
-    )
-
-    # 5. ユーザーメッセージを履歴に保存
-    save_chat_message(data.patent_id, "user", data.user_message)
-
-    # 6. マルチターン生成
-    def stream_output():
-        full_response = ""
-        try:
-            response = generate_func.generate_content_multiturn(
-                contents=history, client=client, system_instruction=system_instruction
-            )
-
-            for chunk in generate_func.stream(response):
-                if not chunk:
-                    continue
-                full_response += chunk
-                yield chunk
-
-            # 完了後、モデルの応答を履歴に保存
-            save_chat_message(data.patent_id, "model", full_response)
-
-        except Exception as e:
-            error_msg = f"生成エラー: {str(e)}"
-            print(error_msg)
-            yield error_msg
-
-    return StreamingResponse(stream_output(), media_type="text/plain; charset=utf-8")
-</file>
-
-<file path="frontend/app/globals.css">
-/* Patent_Survey_APP/frontend/app/grobals.css */
-
-@import "tailwindcss";
-
-:root {
-    --background: #ffffff;
-    --foreground: #171717;
-}
-
-@theme inline {
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --font-family: var(--font-noto-sans-jp);
-    --font-sans: var(--font-geist-sans);
-    --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0a0a0a;
-        --foreground: #ededed;
-    }
-}
-
-/* 参照 */
-.ref {
-    @apply text-slate-400 inline-flex items-center text-xs font-medium;
-}
-
-.ref-paragraph {
-    @apply hover:underline hover:text-blue-700 cursor-default;
-}
-
-.ref-meta {
-    @apply cursor-default;
-}
-
-body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-noto-sans-jp), Arial, Helvetica, sans-serif;
-}
-</file>
-
-<file path="backend/src/prompt/idea_prompt.py">
-# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
-
-# ============================================================
-# 特許解析プロンプト
-# ============================================================
-
-
-def build_patent_prompt(patent_doc):
-    prompt = f"""
-
-## 1. 基本原則
-- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
-- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
-- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
-
-## 2. 該当記述がない場合の対応
-各項目について、以下の基準で判断してください：
-
-1. **明確な記述がある** → そのまま抽出
-2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
-3. **該当する記述が見当たらない** → 「該当記述なし」と明記
-
-## 3. 出典の明記
-可能な限り、抽出した情報の出典を明示してください：
-- 段落番号、図番号、表番号などを併記
-  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
-
-## 4. 分類に関する補足
-
-### 複数項目に該当する要素の扱い
-同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
-
-例:
-- 項目2-1: 「温度センサー」（物理的構成要素として）
-- 項目3-1: 「温度センシング技術」（検出原理として）
-- 項目3-2: 「周囲温度の測定」（要素機能として）
-
-### 不明確な分類の場合
-どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
-
-## 5. 出力テンプレート
-
-抽出内容は、以下の構造で記述してください。
-
-```markdown
-# [特許の名称]
-
-## 1. 発明の技術分野
-【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
-
----
-
-## 2. 技術の物理的構成
-
-### 2-1. 構成要素（部材・部品）
-**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
-- 該当例: モーター、センサー筐体、フレーム、ギア、配線
-- 非該当例: ソフトウェア、アルゴリズム、製造方法
-
-### 2-2. 構成材料・原料
-構成要素を**作るための材料・材質**を箇条書きでリストアップ。
-- 該当例: 金属、樹脂、化学物質、合金、繊維
-- 非該当例: 完成した部品（それは2-1に記載）
-
-### 2-3. 形態・形状・構造
-技術が「どのような形・構造」をしているかを記述。
-- 全体の形状、配置関係、構造的特徴など
-
----
-
-## 3. 技術の機能的構成
-
-### 3-1. 基盤技術・要素技術
-**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
-- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
-- 非該当例: 物理的な部品（それは2-1に記載）
-
-### 3-2. 要素機能（部品レベル）
-各構成要素が果たす**個別の役割**を記述。
-
-### 3-3. システム機能（全体レベル）
-技術全体として実現される**主要な機能**を記述。
-
-### 3-4. 動作フロー（該当記述がある場合のみ）
-技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
-
----
-
-## 4. 定量データ・仕様情報
-
-以下のルールで数値データを抽出してください：
-
-**抽出原則:**
-1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
-2. **文脈を保持**: 数値が何を示すかを明記
-3. **出典を明記**: 段落番号、図番号、表番号を併記
-4. **範囲と条件**: 数値に条件がある場合、その条件も記載
-
-**抽出対象:**
-- 寸法・サイズ
-- 物理量
-- 性能指標
-- 配合・比率
-- その他の定量的記述
-```
-
-## 対象資料
-<document>
-{patent_doc.get_text()}
-</document>
-""".strip()
-    return prompt
-
-
-# ============================================================
-# アイデア生成プロンプト
-# ============================================================
-
-
-def build_idea_prompt(patent_doc, explanation_text):
-    prompt = f"""
-特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
-
-## アイデア生成の指針
-
-### 基本的な問い
-すべてのアイデアは、以下の問いに答えるものとしてください：
-
-1. **誰の課題を解決するのか？**（ターゲットの明確化）
-2. **どのように解決するのか？**（技術との接続）
-3. **なぜこの技術が適しているのか？**（技術的優位性）
-
-### アイデアの多様性
-以下のような多様性を持つアイデアを含めてください：
-
-- **近接応用**: 特許文書に記載された用途に近い応用
-- **遠隔転用**: 全く異なる分野への転用
-- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
-
-## 重要な原則
-
-### 1. 事実と推測の明確な分離
-あなたが生成するアイデアは、以下の2つの要素から構成されます：
-
-**【事実層】特許文書に基づく技術的事実**
-- フェーズ1で抽出された情報のみを使用
-- 引用または要約の形式で明示
-
-**【推測層】あなたの創造的な解釈・応用**
-- 事実層を出発点とした、論理的な推論
-- 市場ニーズや応用可能性の想定
-- **必ず[推測]とマークする**
-
-### 2. 推測の誠実な表現
-推測箇所では、以下のような表現を使用してください：
-
-- 「〜の可能性がある」
-- 「〜が期待される」
-- 「〜と想定される」
-- 「〜への応用が考えられる」
-
-**絶対に使用しないこと：**
-- 断定的な表現（「〜である」「〜できる」）
-- 根拠なき数値（「約○○%向上」）
-- 架空の事例（「A社では〜」）
-
-## 出力テンプレート
-
-各アイデアは、以下の構造で記述してください。
-
-```markdown
-# [特許の名称] アイデアリスト
-
----
-
-## アイデア1: [名称]
-
-### 技術的基盤（事実層）
-
-この特許技術は、以下の特性を持つ：
-- [特許文書からの引用または要約箇所を出典と共にリストアップ]
-
-### アイデアの概要（推測層）
-
-[上記の技術的基盤を出発点として、どのような応用が考えられるか]
-
-### 解決できる課題（推測層）
-
-[このアイデアがどのような課題を解決するか]
-
-### ターゲット像（推測層）
-
-- 企業: [想定される企業・組織]
-- 消費者: [想定される消費者層]
-
-### 提供価値（推測層）
-
-[このアイデアが提供するベネフィット]
-
-### 技術的接続点（事実層 + 推測層）
-
-特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
-根拠: （[段落: xxxx]参照）
-
-### 実装上の検討事項（推測層）
-
-- 技術的ハードル: [想定される課題]
-- 市場・規制リスク: [想定されるリスク]
-
----
-
-## アイデア2: [名称]
-...(省略)
-```
-
-## 対象技術に関する資料
-
-### 特許技術の構造化
-<document>
-{explanation_text}
-</document>
-
-### 特許原文（前提）
-<document>
-{patent_doc.get_text()}
-</document>
-
----
-
-上記の指示と資料に基づき、アイデアを生成してください。
-""".strip()
-    return prompt
-</file>
-
-<file path="backend/src/routers/patent_process_api.py">
-# Patent_Survey_APP/backend/src/routers/patent_process_api.py
-
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from src.func.patent_images import extract_figures_from_pdf_bytes
-from src.func.patent_pdf import patent_text_extraction
-from src.schemas import patent_schemas
-from src.storage.patent_store import (
-    build_figure_url,
-    get_patent_figure_dir,
-    save_patent,
-)
-
-## upload_api.py / 特許PDFを処理するエンドポイント ##
-
-router = APIRouter(prefix="/patent", tags=["PDF処理"])
-
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-
-# ============================================================
-# エンドポイント
-# ============================================================
-
-
-@router.post("/upload", response_model=patent_schemas.PatentUploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
-    """アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す"""
-    pdf_bytes = await file.read()  # PDF を bytes として取得
-
-    if len(pdf_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"ファイルサイズが上限({MAX_FILE_SIZE / 1024 / 1024}MB)を超えています",
-        )
-
-    # テキスト抽出＆整形&クラスオブジェクト化
-    patent_doc = patent_text_extraction(pdf_bytes)
-
-    # 一時的な特許ID発行&保存（別のエンドポイントとやり取りするため）
-    patent_id = save_patent(patent_doc)
-
-    # 図の抽出 & 保存
-    figure_dir = get_patent_figure_dir(patent_id)
-    figures = extract_figures_from_pdf_bytes(pdf_bytes, figure_dir)
-
-    # 図にメタデータを付与（URLなど）
-    images = [
-        {
-            "id": fig["id"],
-            "label": fig["label"],
-            "page": fig["page"],
-            "url": build_figure_url(patent_id, fig["filename"]),
-        }
-        for fig in figures
-    ]
-
-    return {
-        "filename": file.filename,
-        "patent_id": patent_id,
-        "patent_data": patent_doc.__dict__,
-        "images": images,
-    }
-</file>
-
-<file path="docker-compose.yml">
-services: # 管理するコンテナのリスト
-    backend: # サービス名 `backend`
-        build: ./backend # `./backend/Dockerfile` を使ってイメージをビルド
-        ports: # ポートマッピング
-            - "8000:8000" # コンテナの8000番ポート --> `http://localhost:8000` でアクセスできる
-        volumes: # ボリュームマウント
-            - ./backend:/app # ホストの `./backend` --> コンテナの `/app` --> ホストのコードを変更すると、即座にコンテナに反映される
-        environment:
-            - ENV=development
-        command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-    frontend: # サービス名 `frontend`
-        build: ./frontend # `./frontend/Dockerfile` を使ってイメージをビルド
-        ports:
-            - "3000:3000" # コンテナの3000番ポート --> `http://localhost:3000` でアクセスできる
-        volumes:
-            - ./frontend:/app
-            - /app/node_modules # ホストのパスを指定せず、コンテナ専用のボリュームにする --> ホスト側でnpm installが必要 （Anonymous Volume 訳: 匿名ボリューム）
-        environment:
-            - NODE_ENV=development # 開発環境を明示
-            - NEXT_PUBLIC_API_URL=http://backend:8000
-            - WATCHPACK_POLLING=true # ホットリロードの安定化
-        depends_on:
-            - backend # `backend` コンテナを起動してから `frontend` を起動する
-        command: npm run dev # 実行コマンドを明示
-</file>
-
-<file path="frontend/app/home/idea/page.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/page.tsx
-
-"use client";
-
-import { useState } from "react";
-import { GeneratingScreen } from "./components/screen/GeneratingScreen";
-import { UploadScreen } from "./components/screen/PatentUploadScreen";
-
-import type { components } from "@/types/schema"; // 自動生成型定義
-type PatentContent = components["schemas"]["PatentContent"];
-type PatentImage = components["schemas"]["PatentImage"];
-
-// ============================================================
-// 特許解析～アイデア生成機能
-// ============================================================
-
-// 画面状態の型定義
-type ScreenState = "upload" | "generating";
-
-export default function IdeaPage() {
-    const [screen, setScreen] = useState<ScreenState>("upload");
-
-    // 特許PDF情報 & 解析データ
-    const [patentId, setPatentId] = useState<string>("");
-    const [fileName, setFileName] = useState<string>("");
-    const [patentData, setPatentData] = useState<PatentContent | null>(null);
-    const [patentImages, setPatentImages] = useState<PatentImage[]>([]);
-
-    return (
-        <>
-            {/* アップロード画面 */}
-            {screen === "upload" && (
-                <UploadScreen
-                    setScreen={setScreen}
-                    setPatentId={setPatentId}
-                    setFileName={setFileName}
-                    setPatentData={setPatentData}
-                    setPatentImages={setPatentImages}
-                />
-            )}
-
-            {/* 生成・解析画面 (データが存在する場合のみ表示) */}
-            {screen === "generating" && patentData && (
-                <GeneratingScreen
-                    fileName={fileName}
-                    patentId={patentId}
-                    patentData={patentData}
-                    patentImages={patentImages}
-                />
-            )}
-        </>
-    );
-}
-</file>
-
-<file path="frontend/app/layout.tsx">
-// Patent_Survey_APP/frontend/app/layout.tsx
-
-import type { Metadata } from "next";
-import { Noto_Sans_JP } from "next/font/google";
-import "./globals.css";
-
-const notoSansJP = Noto_Sans_JP({
-    variable: "--font-noto-sans-jp",
-    subsets: ["latin"],
-    weight: ["100", "300", "400", "500", "700", "900"],
-    display: "swap",
-});
-
-export const metadata: Metadata = {
-    title: "Patent Survey APP",
-    description: "フリーヒルズラボ",
-};
-
-export default function RootLayout({
-    children,
-}: Readonly<{
-    children: React.ReactNode;
-}>) {
-    return (
-        <html lang="ja" suppressHydrationWarning>
-            <body
-                suppressHydrationWarning
-                className={`${notoSansJP.variable} antialiased`}>
-                {children}
-            </body>
-        </html>
-    );
-}
-</file>
-
-<file path="frontend/app/page.tsx">
-// Patent_Survey_APP/frontend/app/page.tsx
-
-import { redirect } from "next/navigation";
-
-// リダイレクト専用ページ
-export default function Page() {
-    redirect("/home");
-}
-</file>
-
-<file path="frontend/package.json">
-{
-    "name": "frontend",
-    "version": "0.1.0",
-    "private": true,
-    "scripts": {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start",
-        "lint": "eslint",
-        "api:gen": "openapi-typescript http://127.0.0.1:8000/openapi.json --output ./types/schema.ts"
-    },
-    "dependencies": {
-        "@ai-sdk/react": "^3.0.3",
-        "lucide-react": "^0.562.0",
-        "next": "16.1.1",
-        "react": "19.2.3",
-        "react-dom": "19.2.3",
-        "react-markdown": "^10.1.0",
-        "remark-gfm": "^4.0.1",
-        "zod": "^4.2.1"
-    },
-    "devDependencies": {
-        "@tailwindcss/postcss": "^4",
-        "@types/node": "^20",
-        "@types/react": "^19",
-        "@types/react-dom": "^19",
-        "eslint": "^9",
-        "eslint-config-next": "16.1.1",
-        "openapi-typescript": "^7.10.1",
-        "tailwindcss": "^4",
-        "typescript": "^5.9.3"
-    }
-}
-</file>
-
-<file path="backend/main.py">
-# Patent_Survey_APP/backend/main.py
-
-import os
-from contextlib import asynccontextmanager  # ライフサイクルイベント
-
-import config
-from fastapi import FastAPI  # アプリ本体
-from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
-from src.routers import generate_api, patent_process_api  # APIエンドポイント
-from src.storage.patent_store import (
-    STATIC_BASE_PATH,
-    cleanup_temp_files,
-)  # 一時ファイル処理用
-from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
-
-# ============================================================
-# ライフサイクルイベント（起動・終了時の処理）
-# ============================================================
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    アプリケーションのライフサイクル管理
-    - yield前: アプリ起動時の処理
-    - yield後: アプリ終了時の処理
-    """
-
-    # --- 起動時の処理 ---
-    print("アプリケーションを起動しています...")
-    if not os.path.exists(STATIC_BASE_PATH):
-        os.makedirs(STATIC_BASE_PATH, exist_ok=True)
-
-    yield  # ← ここでアプリケーションが実行される
-
-    # --- 終了時の処理 ---
-    print("アプリケーションを終了しています...")
-    if config.CLEANUP_ON_EXIT == "true":
-        cleanup_temp_files()  # 一時ファイル削除実行
-
-
-# ============================================================
-# アプリケーションのセットアップ
-# ============================================================
-
-app = FastAPI(
-    title="Patent Survey App",
-    description="フリーヒルズラボ",
-    version="1.0.0",
-    lifespan=lifespan,  # ← lifespanを指定
-)
-
-FRONTEND_URL = config.FRONTEND_URL or ""
-
-# 特許画像保存先
-os.makedirs(STATIC_BASE_PATH, exist_ok=True)  # マウント前に確実にディレクトリを作成
-app.mount("/static/patents", StaticFiles(directory=STATIC_BASE_PATH), name="static")
-
-# ============================================================
-# CORS設定（フロントエンドとの通信を許可）
-# ============================================================
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[FRONTEND_URL],  # フロントエンド の URL を指定
-    allow_credentials=True,
-    allow_methods=["GET", "POST"],  # 必要なメソッドのみ許可
-    allow_headers=["Content-Type", "Authorization"],  # 必要なヘッダーのみ許可
-)
-
-
-# ============================================================
-# ルーター登録
-# ============================================================
-
-app.include_router(generate_api.router)  # LLM生成API
-app.include_router(patent_process_api.router)  # 特許PDF処理API
-
-
-# ============================================================
-# エンドポイント（テスト用）
-# ===========================================================
-
-
-# 動作確認
-@app.get("/")
-def read_root():
-    return {"message": "Hello World"}
-
-
-# 実行コマンド:
-# uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-</file>
-
 <file path="README.md">
 # Patent Survey App
 
@@ -5259,6 +4323,8 @@ def read_root():
 -   **LLM による多層的な解析**:
     -   **事実の抽出**: 原文に基づく正確な情報抽出（Text/Image to Text）
     -   **アイデア生成**: 技術を応用した新規ビジネスアイデアの提案
+-   **対話機能**:
+    -   基になった特許や生成されたアイデアに対し、LLM との対話を通じてサポート
 -   **特許原文と照合できる UI（根拠確認用）**:
     -   AI の回答（例: `[段落: 0001]`）をクリックすると、原文の該当箇所へジャンプ
     -   抽出された図面の参照機能
@@ -5356,54 +4422,61 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ---
 
-## ディレクトリ構造（2025/12/31 時点）
+## ディレクトリ構造（2026/1/1 時点）
+
+
 ```
 Patent_Survey_APP
 ├─ backend
+│  ├─ .python-version
 │  ├─ config.py
 │  ├─ Dockerfile
 │  ├─ main.py
-│  ├─ requirements.txt
-│  └─ src
-│     ├─ func
-│     │  ├─ gemini_client.py
-│     │  ├─ generate_func.py
-│     │  ├─ patent_images.py
-│     │  └─ patent_pdf.py
-│     ├─ prompt
-│     │  ├─ idea_prompt.py
-│     │  └─ system_prompt.py
-│     ├─ routers
-│     │  ├─ generate_api.py
-│     │  └─ patent_process_api.py
-│     ├─ schemas
-│     │  └─ patent_schemas.py
-│     └─ storage
-│        └─ patent_store.py
+│  ├─ pyproject.toml
+│  ├─ src
+│  │  ├─ func
+│  │  │  ├─ gemini_client.py
+│  │  │  ├─ generate_func.py
+│  │  │  ├─ patent_images.py
+│  │  │  └─ patent_pdf.py
+│  │  ├─ prompt
+│  │  │  ├─ idea_prompt.py
+│  │  │  └─ system_prompt.py
+│  │  ├─ routers
+│  │  │  ├─ generate_api.py
+│  │  │  └─ patent_process_api.py
+│  │  ├─ schemas
+│  │  │  └─ patent_schemas.py
+│  │  └─ storage
+│  │     └─ patent_store.py
+│  └─ uv.lock
 ├─ docker-compose.yml
 ├─ frontend
 │  ├─ app
-│  │  ├─ chat-ui-test
-│  │  │  ├─ ChatInput.tsx
-│  │  │  ├─ MessageList.tsx
-│  │  │  └─ page.tsx
 │  │  ├─ favicon.ico
 │  │  ├─ globals.css
 │  │  ├─ home
 │  │  │  ├─ idea
 │  │  │  │  ├─ components
-│  │  │  │  │  ├─ FigureList.tsx
-│  │  │  │  │  ├─ PatentImageModal.tsx
-│  │  │  │  │  └─ SourceSidebar.tsx
-│  │  │  │  ├─ GeneratingScreen.tsx
-│  │  │  │  ├─ page.tsx
-│  │  │  │  ├─ PatentUploadUI.tsx
-│  │  │  │  └─ util
-│  │  │  │     ├─ CopyButton.tsx
-│  │  │  │     ├─ MarkdownRenderer.tsx
-│  │  │  │     ├─ parseSourceText.ts
-│  │  │  │     ├─ patentFormatter.ts
-│  │  │  │     └─ ReferenceText.tsx
+│  │  │  │  │  ├─ screen
+│  │  │  │  │  │  ├─ GeneratingScreen.tsx
+│  │  │  │  │  │  └─ PatentUploadScreen.tsx
+│  │  │  │  │  ├─ section
+│  │  │  │  │  │  ├─ AnalysisSection.tsx
+│  │  │  │  │  │  ├─ ChatSection.tsx
+│  │  │  │  │  │  ├─ HeaderSection.tsx
+│  │  │  │  │  │  ├─ IdeaSection.tsx
+│  │  │  │  │  │  └─ PreviewSection.tsx
+│  │  │  │  │  ├─ sidebar
+│  │  │  │  │  │  ├─ FigureList.tsx
+│  │  │  │  │  │  ├─ PatentImageModal.tsx
+│  │  │  │  │  │  ├─ sourcePatentTextProcess.ts
+│  │  │  │  │  │  └─ SourceSidebar.tsx
+│  │  │  │  │  └─ util
+│  │  │  │  │     ├─ ActionButton.tsx
+│  │  │  │  │     ├─ CopyButton.tsx
+│  │  │  │  │     └─ MarkdownRenderer.tsx
+│  │  │  │  └─ page.tsx
 │  │  │  ├─ layout.tsx
 │  │  │  └─ page.tsx
 │  │  ├─ layout.tsx
@@ -5433,11 +4506,104 @@ Patent_Survey_APP
 │  ├─ tsconfig.json
 │  └─ types
 │     └─ schema.ts
+├─ notebooks
 ├─ README.md
 ├─ repomix-output.xml
+├─ repomix.config.json
 └─ SETUP.md
 
 ```
+</file>
+
+<file path="SETUP.md">
+# Patent Survey App 環境構築手順
+
+Hirano ブランチで開発を進めていきます。（2025/12/25 記載）
+
+Dockerを利用して環境構築が可能です。
+普段の開発ではDockerコンテナ内ではなくホスト側でコーディングしています。
+→Dockerは環境の再現のみという位置づけ
+
+## 1. 事前準備
+
+以下のツールがインストールされている必要があります。
+
+-   **Git**
+-   **Docker Desktop** (Mac/Windows) または **Docker Engine + Docker Compose** (Linux)
+-   **Google Gemini API Key** (Google AI Studio で取得可能)
+
+## 2. リポジトリのクローン
+
+ターミナル（コマンドプロンプト/PowerShell）を開き、任意のディレクトリで以下を実行します。
+
+```bash
+git clone -b Hirano <リポジトリのURL>
+cd Patent_Survey_APP
+```
+
+## 3. 環境変数の設定
+
+バックエンド用に環境変数を設定します。
+機密情報（API キー）を含むため、このファイルは Git に含まれていません。手動で作成してください。
+
+1. `backend` ディレクトリへ移動、またはエディタで開きます。
+2. `.env.example` ファイルをコピーして、`.env` という名前に変更します。
+3. `.env` ファイルを開き、コメントアウトに沿って書き換えます。
+
+## 4. アプリケーションの起動 (Docker)
+
+プロジェクトのルートディレクトリ（`docker-compose.yml`がある場所）で、以下のコマンドを実行します。
+
+```bash
+docker compose up --build
+```
+
+## 5. ブラウザでのアクセス
+
+起動が完了したら、ブラウザで以下にアクセスしてください。
+
+-   **アプリ画面:** [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
+-   **API ドキュメント:** [http://localhost:8000/docs](https://www.google.com/search?q=http://localhost:8000/docs) (Backend の動作確認用)
+
+## 6. 開発を終了する場合
+
+ターミナルで `Ctrl + C` を押して停止します。
+コンテナを完全に削除し、一時ファイルをクリアしたい場合は以下を実行してください。
+
+```bash
+# -v オプションをつけることで、作成されたボリュームも削除され、クリーンな状態に戻ります
+docker compose down -v
+```
+
+---
+
+### トラブルシューティング（共有用メモ）
+
+もし `Error: Cannot find module ... lightningcss ...` というエラーが出た場合：
+ホスト側の `node_modules` やキャッシュが悪さをしている可能性があります。以下の手順でリセットしてください。
+
+1. `docker compose down -v` を実行（ボリュームを完全削除）
+2. `frontend/.next` フォルダを削除
+3. 再度 `docker compose up --build` を実行
+
+---
+
+## その他共有事項
+
+### レスポンス型定義ファイルの自動生成（必要に応じて）
+
+```
+# FastAPIサーバーを起動した状態で実行してください。
+npm run api:gen
+```
+
+### LLM向けコードレポート生成
+
+```
+npx repomix
+```
+
+→生成されたXMLファイルのテキスト全文をLLMのプロンプトにコピー＆ペースト
 </file>
 
 </files>

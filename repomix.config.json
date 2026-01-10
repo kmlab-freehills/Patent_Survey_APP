@@ -1,0 +1,44 @@
+{
+    "output": {
+        "filePath": "repomix-output.xml",
+        "style": "xml",
+        "parsableStyle": false,
+        "compress": false,
+        "headerText": "プロジェクトのコードベース",
+        "fileSummary": true,
+        "directoryStructure": false,
+        "files": true,
+        "removeComments": false,
+        "removeEmptyLines": false,
+        "topFilesLength": 5,
+        "showLineNumbers": false,
+        "truncateBase64": false,
+        "copyToClipboard": false,
+        "includeEmptyDirectories": false,
+        "git": {
+            "sortByChanges": false
+        }
+    },
+    "include": ["**/*"],
+    "ignore": {
+        "useGitignore": true,
+        "useDefaultPatterns": true,
+        "customPatterns": [
+            "additional-folder",
+            "**/*.log",
+            ".gitignore",
+            "frontend/eslint.config.mjs",
+            "frontend/next.config.ts",
+            "frontend/postcss.config.mjs",
+            "frontend/tsconfig.json",
+            "frontend/types/schema.ts",
+            "repomix.config.json"
+        ]
+    },
+    "security": {
+        "enableSecurityCheck": true
+    },
+    "tokenCount": {
+        "encoding": "o200k_base"
+    }
+}

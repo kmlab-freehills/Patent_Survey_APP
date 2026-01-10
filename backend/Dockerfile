@@ -2,19 +2,26 @@
 
 ## ベースイメージ ##
 # Docker Hubから公式のPython 3.11イメージを取得（-slim --> 軽量版）
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-## 作業ディレクトリを設定 ##
-# コンテナ内の作業ディレクトリを /app に設定（以降の COPY、RUN はこのディレクトリで実行される）
-WORKDIR /app
+## OpenCV/RapidOCRに必要なシステムライブラリをインストール ##
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-## requirements.txtをコピー ##
-# コンテナ内の /app/requirements.txt にコピー（. = 現在のディレクトリ（/app））
-COPY requirements.txt .
+## uvをインストール ##
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-## requirements.txtからパッケージをインストール ##
-# コンテナ内で pip install を実行（--no-cache-dir = キャッシュを残さない --> イメージサイズを小さくする）
-RUN pip install --no-cache-dir -r requirements.txt
+## uvのvenv作成場所を明示 ##
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+
+## 依存関係定義のみ先にコピー ##
+COPY pyproject.toml uv.lock ./
+
+## 依存関係のインストール ##
+# uv syncを実行（--frozen: lockファイル厳密使用, --no-dev: 本番用依存のみ）
+RUN uv sync --frozen --no-dev
 
 ## applicationコードをコピー ##
 # ホストの backend/ ディレクトリの全ファイルを、コンテナ内の /app/ にコピー（main.pyなどがコピーされる）

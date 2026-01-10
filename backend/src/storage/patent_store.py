@@ -16,9 +16,27 @@ patent_store: Dict[str, object] = {}
 
 
 # 保存用
-def save_patent(patent_doc) -> str:
+def save_patent(patent_doc, images: list = None) -> str:
+    """
+    特許文書と画像を保存
+    
+    Args:
+        patent_doc: PatentDocumentオブジェクト
+        images: PIL Imageオブジェクトのリスト (optional)
+        
+    Returns:
+        patent_id: 生成された特許ID
+    """
+    from src.func.patent_images import save_patent_images
+    
     patent_id = str(uuid4())
-    patent_store[patent_id] = patent_doc  # {id: 本文}
+    patent_store[patent_id] = patent_doc
+    
+    # 画像がある場合は保存
+    if images:
+        figure_dir = get_patent_figure_dir(patent_id)
+        save_patent_images(images, figure_dir)
+    
     return patent_id
 
 
