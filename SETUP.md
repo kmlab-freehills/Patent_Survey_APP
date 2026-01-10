@@ -6,6 +6,21 @@ Dockerを利用して環境構築が可能です。
 普段の開発ではDockerコンテナ内ではなくホスト側でコーディングしています。
 →Dockerは環境の再現のみという位置づけ
 
+## 私が別PCで実行した手順
+```
+git clone -b <ブランチ名> <URL>
+(backendの `.env` とfrontendの `.env.local` に必要な環境変数を入力しておく)
+cd frontend
+npm install
+cd ../
+docker compose down -v (明示的に)
+docker compose up --build
+```
+
+---
+
+以下詳細説明
+
 ## 1. 事前準備
 
 以下のツールがインストールされている必要があります。
