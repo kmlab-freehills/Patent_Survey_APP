@@ -134,7 +134,9 @@ Patent_Survey_APP
 │  │  └─ services
 │  │     ├─ gemini
 │  │     │  ├─ generate_api.py
-│  │     │  └─ generate_func.py
+│  │     │  ├─ generate_func.py
+│  │     │  ├─ schemas.py
+│  │     │  └─ session_store.py
 │  │     └─ patent
 │  │        ├─ functions.py
 │  │        ├─ patent_api.py
@@ -186,7 +188,8 @@ Patent_Survey_APP
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
 │  ├─ hooks
-│  │  └─ appState.tsx
+│  │  ├─ appState.tsx
+│  │  └─ useGeminiChat.ts
 │  ├─ next.config.ts
 │  ├─ package-lock.json
 │  ├─ package.json

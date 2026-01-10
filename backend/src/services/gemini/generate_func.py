@@ -1,127 +1,38 @@
-# Patent_Survey_APP/backend/src/func/generate_func.py
+# backend/src/services/gemini/generate_func.py
 
-from google.genai import types
 from google.genai.types import GenerateContentConfig
 
-# ============================================================
-# テキスト生成実行関数
-# ============================================================
+from typing import Any, Dict, Generator
 
 
-def generate_content(prompt, client, tool_mode: str, system_instruction=None):
+def generate_text_engine(
+    client, contents: list, system_instruction: str = None
+) -> Generator[Dict[str, Any], None, None]:
     """
-    tool_mode:
-        "text"       : ツールなし（純粋なテキスト生成）
-        "search"     : Google Search のみ
-        "search_url" : URL context + Google Search
+    Gemini生成エンジン（Ollama方式）
+    contentsは参照渡しで、内部で自動的に更新される
     """
+    config = GenerateContentConfig(system_instruction=system_instruction)
 
-    tools = None
+    response = client.models.generate_content_stream(model="gemini-2.5-flash", contents=contents, config=config)
 
-    # テキスト生成のみ
-    if tool_mode == "text":
-        pass
+    accumulated_text = ""
 
-    # Google Searchのみ
-    elif tool_mode == "search":
-        grounding_tool = types.Tool(google_search=types.GoogleSearch())
-        tools = [grounding_tool]
-
-    # URL context + Google Search を両方指定
-    elif tool_mode == "search_url":
-        tools = [
-            {"url_context": {}},
-            {"google_search": {}},
-        ]
-
-    else:
-        raise ValueError(f"Unknown tool_mode: {tool_mode}")
-
-    # config生成ツールがある場合のみ生成
-    if tools is not None:
-        config = GenerateContentConfig(
-            tools=tools,
-            system_instruction=system_instruction,
-        )
-    else:
-        config = types.GenerateContentConfig(
-            system_instruction=system_instruction,
-        )
-
-    response = client.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=config,
-    )
-
-    return response
-
-
-# ============================================================
-# マルチターン対話用生成関数
-# ============================================================
-
-
-def generate_content_multiturn(contents: list, client, system_instruction: str):
-    """
-    マルチターン対話用の生成関数
-
-    Args:
-        contents: Gemini API の contents 形式
-                [{"role": "user", "parts": [{"text": "..."}]}, ...]
-        client: Gemini client
-        system_instruction: システムプロンプト
-
-    Returns:
-        ストリーミングレスポンス
-    """
-    config = types.GenerateContentConfig(
-        system_instruction=system_instruction,
-    )
-
-    response = client.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=contents,
-        config=config,
-    )
-
-    return response
-
-
-# ============================================================
-# ストリーミング生成補助関数
-# ============================================================
-
-
-def stream(response_stream):
-    full_text = ""
-    thoughts = ""
-    answer = ""
-
-    for chunk in response_stream:
-        if (
-            not chunk.candidates
-        ):  # ツール呼び出し中などで candidates が None の場合があるので防御的に
+    for chunk in response:
+        if not chunk.candidates:
             continue
 
         for part in chunk.candidates[0].content.parts:
             if not getattr(part, "text", None):
-                continue  # 何も送らない
+                continue
 
-            # 思考テキスト
-            if getattr(part, "thought", False):
-                if not thoughts:
-                    yield ""
-                thoughts += part.text
-                full_text += part.text
-                yield part.text
+            text = part.text
+            accumulated_text += text
 
-            # 回答テキスト
-            else:
-                if not answer:
-                    yield ""
-                answer += part.text
-                full_text += part.text
-                yield part.text
+            # UIイベント送信
+            yield {"type": "content_delta", "data": {"chunk": text}}
 
-    return
+    # 完全な応答をcontentsに追加（参照渡しで自動更新）
+    contents.append({"role": "model", "parts": [{"text": accumulated_text}]})
+
+    yield {"type": "done", "data": {}}
