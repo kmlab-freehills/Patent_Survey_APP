@@ -230,6 +230,11 @@ torchvision = { index = "pytorch-cu124" }
 
 [tool.ruff]
 line-length = 120
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+]
 </file>
 
 <file path="backend/src/core/client.py">
@@ -2102,7 +2107,7 @@ body {
 
 import "@/styles/markdown_style.css";
 import { Bot, FileText, Lightbulb, MessageSquare } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 // 関数コンポーネント
 import { formatPatentToString, parseSourceText } from "../sidebar/sourcePatentTextProcess";
 // UIコンポーネント
@@ -2112,8 +2117,8 @@ import { HeaderInfo, StepTabs } from "../section/HeaderSection";
 import { IdeaSection } from "../section/IdeaSection";
 import { PreviewSection } from "../section/PreviewSection";
 import { SourceSidebar } from "../sidebar/SourceSidebar"; // 原文確認サイドバー
-// SourceSidebar用ステート管理
-import { useMenu } from "@/hooks/appState"; // 追加
+// グローバルステート取得
+import { useMenu } from "@/hooks/appState";
 
 // ============================================================
 // Screen 2. 生成画面
@@ -2164,11 +2169,13 @@ export const GeneratingScreen = ({
     // State定義
     // ------------------------------------------------------------
 
+    // グローバルステート取得
+    const { setRightSidebarContent, setIsRightSidebarOpen } = useMenu();
+
     // ステップ管理
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
     // 原文参照サイドバー
-    const { isRightSidebarOpen, setIsRightSidebarOpen } = useMenu(); // グローバル変数
     const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
     const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
     // 生成テキストデータ
@@ -2195,6 +2202,38 @@ export const GeneratingScreen = ({
         setActiveParagraphId(id);
         setIsRightSidebarOpen(true); // グローバルステートを変更
     };
+
+    // ------------------------------------------------------------
+    // 右サイドバーに関する処理
+    // ------------------------------------------------------------
+
+    // 右サイドバーコンテンツを動的に設定
+    useEffect(() => {
+        setRightSidebarContent(
+            <SourceSidebar
+                onClose={() => setIsRightSidebarOpen(false)}
+                fileName={fileName}
+                sourceBlocks={sourceBlocks}
+                activeParagraphId={activeParagraphId}
+                patentImages={patentImages}
+                selectedImage={selectedImage}
+                setSelectedImage={setSelectedImage}
+            />
+        );
+
+        // このページを離れる際にコンテンツをクリア
+        return () => {
+            setRightSidebarContent(null);
+        };
+    }, [
+        fileName,
+        sourceBlocks,
+        activeParagraphId,
+        patentImages,
+        selectedImage,
+        setRightSidebarContent,
+        setIsRightSidebarOpen,
+    ]);
 
     // ------------------------------------------------------------
     // API処理
@@ -2371,10 +2410,7 @@ export const GeneratingScreen = ({
         <div className="flex overflow-hidden p-8 h-screen-minus-header">
             <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
                 {/* ヘッダー情報 */}
-                <HeaderInfo
-                    fileName={fileName}
-                    setIsSourceOpen={() => setIsRightSidebarOpen} // 型が合うならそのまま、合わなければラップ関数を
-                />
+                <HeaderInfo fileName={fileName} setIsSourceOpen={setIsRightSidebarOpen} />
                 {/* タブナビゲーション */}
                 <StepTabs
                     currentStep={currentStep}
@@ -2382,44 +2418,43 @@ export const GeneratingScreen = ({
                     onTabClick={setCurrentStep}
                 />
 
-                {/* コンテンツエリア (スクロール可能領域) */}
+                {/* コンテンツエリア */}
                 <div className="flex-1 overflow-y-auto min-h-0 py-6 px-1">
                     {/* STEP 0: テキスト抽出結果 */}
                     {currentStep === 0 && (
                         <PreviewSection
                             text={fullText}
                             onStart={handleStartAnalysis}
-                            // ▼既に解析結果があるか判定
-                            hasGenerated={generatedAnalysisText.length > 0}
+                            hasGenerated={generatedAnalysisText.length > 0} // 既に解析結果があるか判定
                         />
                     )}
 
-                    {/* STEP 1: AI解析 */}
+                    {/* STEP 1: AI解析（構成要素分解） */}
                     {currentStep === 1 && (
                         <AnalysisSection
                             text={generatedAnalysisText}
                             isGenerating={isGeneratingAnalysis}
                             error={error}
                             onNext={handleStartIdea}
-                            // ▼既にアイデア結果があるか判定
-                            hasNextGenerated={generatedIdeaText.length > 0}
-                            setIsSourceOpen={() => setIsRightSidebarOpen}
-                            setActiveParagraphId={() => handleParagraphClick}
+                            hasNextGenerated={generatedIdeaText.length > 0} //既にアイデア生成結果があるか判定
+                            setIsSourceOpen={setIsRightSidebarOpen}
+                            setActiveParagraphId={handleParagraphClick}
                         />
                     )}
 
-                    {/* STEP 2: アイデア */}
+                    {/* STEP 2: アイデア生成 */}
                     {currentStep === 2 && (
                         <IdeaSection
                             text={generatedIdeaText}
                             isGenerating={isGeneratingIdea}
                             error={error}
                             onNext={handleStartChat}
-                            hasNextGenerated={maxReachedStep >= 3}
-                            setIsSourceOpen={() => setIsRightSidebarOpen}
-                            setActiveParagraphId={() => handleParagraphClick}
+                            hasNextGenerated={maxReachedStep >= 3} // チャット画面に到達しているか判定
+                            setIsSourceOpen={setIsRightSidebarOpen}
+                            setActiveParagraphId={handleParagraphClick}
                         />
                     )}
+
                     {/* STEP 3: チャット機能 */}
                     {currentStep === 3 && (
                         <ChatSection
@@ -2427,28 +2462,12 @@ export const GeneratingScreen = ({
                             isGenerating={isGeneratingChat}
                             error={error}
                             onSubmit={handleChatSubmit}
-                            setIsSourceOpen={() => setIsRightSidebarOpen}
-                            setActiveParagraphId={() => handleParagraphClick}
+                            setIsSourceOpen={setIsRightSidebarOpen}
+                            setActiveParagraphId={handleParagraphClick}
                         />
                     )}
                 </div>
             </div>
-
-            {/* 原文サイドバー 
-            isRightSidebarOpen が true の時だけレンダリングする。
-            レンダリングされると、SourceSidebar内部の Portal により右枠に表示される。
-            */}
-            {isRightSidebarOpen && (
-                <SourceSidebar
-                    onClose={() => setIsRightSidebarOpen(false)}
-                    fileName={fileName}
-                    sourceBlocks={sourceBlocks}
-                    activeParagraphId={activeParagraphId}
-                    patentImages={patentImages}
-                    selectedImage={selectedImage}
-                    setSelectedImage={setSelectedImage}
-                />
-            )}
         </div>
     );
 };
@@ -2732,7 +2751,6 @@ export const AnalysisSection = ({
 }: AnalysisSectionProps) => {
     // ボタンの表示条件
     const showActionButton = !isGenerating && text && !error;
-
     return (
         <div className="space-y-6">
             {/* ツールバー */}
@@ -2743,7 +2761,6 @@ export const AnalysisSection = ({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* コピーボタン */}
                     {!isGenerating && text && <CopyButton text={text} />}
                     {/* 上部アクションボタン */}
                     {showActionButton && (
@@ -2753,7 +2770,7 @@ export const AnalysisSection = ({
                             size="small"
                             labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
                             icon={Lightbulb}
-                            colorTheme="emerald" // 次のステップのテーマカラー
+                            colorTheme="emerald"
                         />
                     )}
                 </div>
@@ -2772,7 +2789,7 @@ export const AnalysisSection = ({
                         content={text}
                         onClickParagraph={(id) => {
                             setActiveParagraphId(id);
-                            setIsSourceOpen(true);
+                            setIsSourceOpen(true); // 🔧 直接booleanを渡す
                         }}
                     />
                     {isGenerating && (
@@ -2988,7 +3005,7 @@ export const HeaderInfo = ({ fileName, setIsSourceOpen }: HeaderInfoProps) => (
         </div>
         {/* 原文表示サイドバー開閉ボタン */}
         <button
-            onClick={() => setIsSourceOpen((prev) => !prev)}
+            onClick={() => setIsSourceOpen((prev) => !prev)} // 関数形式で呼び出し
             className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
             <PanelRight size={16} />
             <span>原文を隣に表示</span>
@@ -3439,7 +3456,6 @@ export function parseSourceText(sourceText: string): SourceBlock[] {
 import type { components } from "@/types/schema";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom"; // 追加
 import { FigureList } from "./FigureList";
 import { PatentImageModal } from "./PatentImageModal";
 import { SourceBlock } from "./sourcePatentTextProcess";
@@ -3447,8 +3463,6 @@ import { SourceBlock } from "./sourcePatentTextProcess";
 type PatentImage = components["schemas"]["PatentImage"];
 
 type SourceSidebarProps = {
-    // isOpen は親が管理しなくなり、マウントされたら表示という形になるが
-    // 閉じるボタンのために onClose は残す
     onClose: () => void;
     fileName: string;
     sourceBlocks: SourceBlock[];
@@ -3468,39 +3482,79 @@ export const SourceSidebar = ({
     setSelectedImage,
 }: SourceSidebarProps) => {
     const paragraphRefs = useRef<Record<string, HTMLDivElement | null>>({});
-    const [mounted, setMounted] = useState(false);
+    // 現在ハイライト中の段落IDを管理
+    const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
-    // マウント後にポータル先を探す
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    // タイマーIDを保持（確実なクリーンアップのため）
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // ハイライトスクロール処理
+    // 前回ハイライトした要素への参照を保持
+    const lastHighlightedElementRef = useRef<HTMLDivElement | null>(null);
+
+    // ハイライト処理 --> 状態を確実にリセットして、連打しても安定して動作するように
     useEffect(() => {
-        if (!activeParagraphId) return;
+        // 1. 前回のタイマーを確実にクリア
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+
+        // 2. 前回のハイライトを確実に削除
+        if (lastHighlightedElementRef.current) {
+            lastHighlightedElementRef.current.classList.remove("bg-yellow-100");
+            lastHighlightedElementRef.current = null;
+        }
+
+        // 3. 新しいハイライト対象がない場合は終了
+        if (!activeParagraphId) {
+            setHighlightedId(null);
+            return;
+        }
+
+        // 4. 対象要素を取得
         const element = paragraphRefs.current[activeParagraphId];
-        if (!element) return;
+        if (!element) {
+            console.warn(`段落 ${activeParagraphId} が見つかりません`);
+            return;
+        }
 
+        // 5. スクロール処理（ハイライト前に実行）
         element.scrollIntoView({
             behavior: "smooth",
             block: "center",
         });
 
-        element.classList.add("bg-yellow-100");
-        const timer = setTimeout(() => {
-            element.classList.remove("bg-yellow-100");
-        }, 2500);
+        // 6. 新しいハイライトを適用
+        // スクロールの完了を待ってからハイライト（視覚的な安定性向上）
+        requestAnimationFrame(() => {
+            element.classList.add("bg-yellow-100");
+            lastHighlightedElementRef.current = element;
+            setHighlightedId(activeParagraphId);
 
-        return () => clearTimeout(timer);
+            // 7. 2秒後にハイライトを解除
+            timerRef.current = setTimeout(() => {
+                element.classList.remove("bg-yellow-100");
+                setHighlightedId(null);
+                lastHighlightedElementRef.current = null;
+                timerRef.current = null;
+            }, 2000);
+        });
+
+        // 8. クリーンアップ関数
+        return () => {
+            // コンポーネントのアンマウントやactiveParagraphIdの変更時に確実にクリア
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
+            }
+            if (lastHighlightedElementRef.current) {
+                lastHighlightedElementRef.current.classList.remove("bg-yellow-100");
+                lastHighlightedElementRef.current = null;
+            }
+        };
     }, [activeParagraphId]);
 
-    // ポータル先要素
-    const portalRoot = mounted ? document.getElementById("right-sidebar-portal-root") : null;
-
-    if (!mounted || !portalRoot) return null;
-
-    // Portalを使ってレイアウト側の枠内に描画
-    return createPortal(
+    return (
         <div className="h-full flex flex-col bg-white">
             {/* サイドバーヘッダー */}
             <header className="flex justify-between items-center gap-2 py-3 px-4 border-b border-gray-200 bg-gray-50/50 shrink-0">
@@ -3522,6 +3576,9 @@ export const SourceSidebar = ({
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {sourceBlocks.map((block, index) => {
                     if (block.type === "paragraph") {
+                        // 現在ハイライト中かどうかを判定
+                        const isHighlighted = highlightedId === block.id;
+
                         return (
                             <div
                                 key={index}
@@ -3529,7 +3586,9 @@ export const SourceSidebar = ({
                                     paragraphRefs.current[block.id] = element;
                                 }}
                                 data-paragraph-id={block.id}
-                                className="rounded px-2 py-1 transition-colors hover:bg-gray-50">
+                                className={`rounded px-2 py-1 transition-colors duration-300 hover:bg-gray-50 ${
+                                    isHighlighted ? "bg-yellow-100" : ""
+                                }`}>
                                 <div className="text-xs text-blue-500/70 font-mono mb-1 select-none">
                                     [{block.id}]
                                 </div>
@@ -3554,10 +3613,9 @@ export const SourceSidebar = ({
                 <FigureList images={patentImages} onSelect={setSelectedImage} />
             </div>
 
-            {/* モーダル (Portalの外、つまりbody直下にさらにPortalしてもよいが、ここではそのまま) */}
+            {/* モーダル */}
             <PatentImageModal image={selectedImage} onClose={() => setSelectedImage(null)} />
-        </div>,
-        portalRoot
+        </div>
     );
 };
 </file>
@@ -4104,17 +4162,13 @@ export default function LeftSidebar() {
     const pathname = usePathname();
 
     // サイドバーのスタイル定義
-    // ヘッダーの下に配置されるため、h-full で親要素(flex-1)の高さを埋めます
+    // ヘッダーの下に配置されるため、h-full で親要素(flex-1)の高さを埋める
     const sidebarClasses = `
     z-30 h-full
     bg-slate-900 text-slate-300 shadow-xl
     flex flex-col transition-all duration-300 ease-in-out
     shrink-0
-    ${isLeftSidebarOpen ? "w-64" : "w-20"}
-    ${
-        /* モバイル対応: 画面が小さい時は絶対配置にするなどの調整が必要ですが、今回はデスクトップレイアウト優先で記述 */ ""
-    }
-  `;
+    ${isLeftSidebarOpen ? "w-64" : "w-20"}`;
 
     return (
         <>
@@ -4136,11 +4190,11 @@ export default function LeftSidebar() {
                                 key={item.id}
                                 href={item.href}
                                 className={`w-full flex items-center gap-3 px-4 py-3 transition-colors duration-200 group
-                  ${
-                      isActive
-                          ? "bg-blue-600 text-white border-r-4 border-blue-300"
-                          : "hover:bg-slate-800 hover:text-white"
-                  }
+                    ${
+                        isActive
+                            ? "bg-blue-600 text-white border-r-4 border-blue-300"
+                            : "hover:bg-slate-800 hover:text-white"
+                    }
                   ${!isLeftSidebarOpen && "justify-center"}`} // 閉じたときは中央揃え
                                 title={!isLeftSidebarOpen ? item.name : undefined}>
                                 <div
@@ -4181,40 +4235,109 @@ export default function LeftSidebar() {
 </file>
 
 <file path="frontend/components/layout/RightSidebar.tsx">
+// Patent_Survey_APP/frontend/components/layout/RightSidebar.tsx
+
 "use client";
 
 import { useMenu } from "@/hooks/appState";
-import { useCallback, useEffect, useState } from "react";
+import { PanelRight } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, memo } from "react";
 
+// ============================================================
+// コンテンツラッパー（メモ化による再レンダリング防止）
+// ============================================================
+const SidebarContent = memo(({ content }: { content: React.ReactNode }) => {
+    return <>{content}</>;
+}, (prevProps, nextProps) => {
+    // contentが変わらない限り再レンダリングしない
+    return prevProps.content === nextProps.content;
+});
+
+SidebarContent.displayName = "SidebarContent";
+
+// ============================================================
+// 空コンテンツのプレースホルダー（メモ化）
+// ============================================================
+const EmptyPlaceholder = memo(() => (
+    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+        <div className="w-16 h-16 mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+            <PanelRight size={32} className="text-slate-400" />
+        </div>
+        <h3 className="text-sm font-medium text-slate-700 mb-2">詳細パネル</h3>
+        <p className="text-xs text-slate-400 max-w-xs">
+            特定のページでは、ここに関連情報が表示されます
+        </p>
+    </div>
+));
+
+EmptyPlaceholder.displayName = "EmptyPlaceholder";
+
+// ============================================================
+// メインコンポーネント
+// ============================================================
 export const RightSidebar = () => {
-    const { isRightSidebarOpen, rightSidebarWidth, setRightSidebarWidth } = useMenu();
+    const {
+        isRightSidebarOpen,
+        rightSidebarWidth,
+        setRightSidebarWidth,
+        rightSidebarContent,
+    } = useMenu();
+
     const [isResizing, setIsResizing] = useState(false);
+    
+    // 🆕 リサイズ中は幅の更新を間引くためのバッファ
+    const resizeBufferRef = useRef<number>(rightSidebarWidth);
+    
+    // 🆕 throttle用のタイマー
+    const throttleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // リサイズ開始
     const startResizing = useCallback(() => {
         setIsResizing(true);
-    }, []);
+        resizeBufferRef.current = rightSidebarWidth;
+    }, [rightSidebarWidth]);
 
     // リサイズ終了
     const stopResizing = useCallback(() => {
         setIsResizing(false);
-    }, []);
+        
+        // リサイズ終了時に最終的な幅を確定
+        if (throttleTimerRef.current) {
+            clearTimeout(throttleTimerRef.current);
+            throttleTimerRef.current = null;
+        }
+        
+        // バッファに溜まった最新の幅を反映
+        if (resizeBufferRef.current !== rightSidebarWidth) {
+            setRightSidebarWidth(resizeBufferRef.current);
+        }
+    }, [rightSidebarWidth, setRightSidebarWidth]);
 
-    // リサイズ処理
+    // 🆕 リサイズ処理（throttle版）
     const resize = useCallback(
         (mouseMoveEvent: MouseEvent) => {
-            if (isResizing) {
-                // 画面右端からの距離を計算
-                const newWidth = window.innerWidth - mouseMoveEvent.clientX;
-                // 最小幅300px, 最大幅 画面の50%程度
-                if (newWidth > 300 && newWidth < window.innerWidth * 0.6) {
-                    setRightSidebarWidth(newWidth);
-                }
+            if (!isResizing) return;
+            // 画面右端からの距離を計算
+            const newWidth = window.innerWidth - mouseMoveEvent.clientX;
+            
+            // 最小幅:300px, 最大幅: 画面の50%程度
+            if (newWidth < 300 || newWidth > window.innerWidth * 0.6) return;
+
+            // バッファに幅を保存（即座には反映しない）
+            resizeBufferRef.current = newWidth;
+
+            // 🔧 16ms（約60fps）ごとに幅を更新（throttle）
+            if (!throttleTimerRef.current) {
+                throttleTimerRef.current = setTimeout(() => {
+                    setRightSidebarWidth(resizeBufferRef.current);
+                    throttleTimerRef.current = null;
+                }, 16);
             }
         },
         [isResizing, setRightSidebarWidth]
     );
 
+    // 操作中の処理
     useEffect(() => {
         if (isResizing) {
             window.addEventListener("mousemove", resize);
@@ -4226,6 +4349,15 @@ export const RightSidebar = () => {
         };
     }, [isResizing, resize, stopResizing]);
 
+    // クリーンアップ
+    useEffect(() => {
+        return () => {
+            if (throttleTimerRef.current) {
+                clearTimeout(throttleTimerRef.current);
+            }
+        };
+    }, []);
+
     return (
         <aside
             className={`bg-white border-l border-gray-200 relative flex flex-col shrink-0 ${
@@ -4233,10 +4365,13 @@ export const RightSidebar = () => {
             }`}
             style={{
                 width: isRightSidebarOpen ? `${rightSidebarWidth}px` : "0px",
-                height: "100%", // 親要素(flex-1エリア)の高さいっぱいに広がるように
-                overflow: "hidden", // 閉じているときは中身を見せない
-                visibility: isRightSidebarOpen ? "visible" : "hidden", // 幅0のときに中身が描画されないように
+                height: "100%",
+                overflow: "hidden",
+                visibility: isRightSidebarOpen ? "visible" : "hidden",
+                // リサイズ中はGPU加速を有効化（スムーズなアニメーション）
+                willChange: isResizing ? "width" : "auto",
             }}>
+            
             {/* リサイズハンドル */}
             <div
                 className="absolute top-0 bottom-0 left-0 w-1 cursor-col-resize hover:bg-blue-400/50 transition-colors z-50 flex items-center justify-center group"
@@ -4244,11 +4379,18 @@ export const RightSidebar = () => {
                 <div className="h-8 w-1 bg-gray-300 rounded hidden md:block group-hover:bg-blue-400" />
             </div>
 
-            {/* ポータルルート: ここにSourceSidebarの中身が注入される */}
-            <div
-                id="right-sidebar-portal-root"
-                className="w-full h-full overflow-hidden relative"
-            />
+            {/* コンテンツ表示領域 - グローバルステートから注入される - メモ化により再レンダリングを最小化 */}
+            <div 
+                className="w-full h-full overflow-hidden relative flex flex-col"
+                // リサイズ中はポインターイベントを無効化（パフォーマンス向上）
+                style={{ pointerEvents: isResizing ? "none" : "auto" }}
+            >
+                {rightSidebarContent ? (
+                    <SidebarContent content={rightSidebarContent} />
+                ) : (
+                    <EmptyPlaceholder />
+                )}
+            </div>
         </aside>
     );
 };
@@ -4278,41 +4420,50 @@ CMD ["npm", "run", "dev"]
 </file>
 
 <file path="frontend/hooks/appState.tsx">
+// Patent_Survey_APP/frontend/hooks/appState.tsx
+
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, Dispatch, SetStateAction } from "react";
 
+// 型定義
 type MenuContextType = {
-    // 左サイドバー (既存機能との互換性)
+    // 左サイドバー
     isLeftSidebarOpen: boolean;
-    setIsLeftSidebarOpen: (open: boolean) => void;
+    setIsLeftSidebarOpen: Dispatch<SetStateAction<boolean>>;
 
-    // 右サイドバー (新規)
+    // 右サイドバー
     isRightSidebarOpen: boolean;
-    setIsRightSidebarOpen: (open: boolean) => void;
+    setIsRightSidebarOpen: Dispatch<SetStateAction<boolean>>;
     rightSidebarWidth: number;
     setRightSidebarWidth: (width: number) => void;
+    
+    // 右サイドバーコンテンツ管理
+    rightSidebarContent: ReactNode | null;
+    setRightSidebarContent: Dispatch<SetStateAction<ReactNode | null>>;
 };
 
 const MenuContext = createContext<MenuContextType | undefined>(undefined);
 
 export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
-    // 左サイドバー (デフォルト閉じる)
-    const [isLeftSidebarOpen, setIsLeftSidebarOpenState] = useState(false);
-
-    // 右サイドバー (デフォルト閉じる、初期幅400px)
-    const [isRightSidebarOpen, setIsRightSidebarOpenState] = useState(false);
-    const [rightSidebarWidth, setRightSidebarWidthState] = useState(400);
-
+    // 左サイドバー
+    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+    // 右サイドバー
+    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+    const [rightSidebarWidth, setRightSidebarWidthState] = useState(300);
+    
+    // 右サイドバーに表示するコンテンツを管理
+    const [rightSidebarContent, setRightSidebarContent] = useState<ReactNode | null>(null);
+    
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         // ローカルストレージから復元
         const savedLeft = localStorage.getItem("left-sidebar-open");
-        if (savedLeft !== null) setIsLeftSidebarOpenState(savedLeft === "true");
+        if (savedLeft !== null) setIsLeftSidebarOpen(savedLeft === "true");
 
         const savedRight = localStorage.getItem("right-sidebar-open");
-        if (savedRight !== null) setIsRightSidebarOpenState(savedRight === "true");
+        if (savedRight !== null) setIsRightSidebarOpen(savedRight === "true");
 
         const savedWidth = localStorage.getItem("right-sidebar-width");
         if (savedWidth) setRightSidebarWidthState(parseInt(savedWidth, 10));
@@ -4320,20 +4471,24 @@ export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
         setMounted(true);
     }, []);
 
-    const setIsLeftSidebarOpen = (open: boolean) => {
-        setIsLeftSidebarOpenState(open);
-        localStorage.setItem("left-sidebar-open", String(open));
-    };
-
-    const setIsRightSidebarOpen = (open: boolean) => {
-        setIsRightSidebarOpenState(open);
-        localStorage.setItem("right-sidebar-open", String(open));
-    };
-
+    // ローカルストレージ保存をラップ関数として定義
     const setRightSidebarWidth = (width: number) => {
         setRightSidebarWidthState(width);
         localStorage.setItem("right-sidebar-width", String(width));
     };
+
+    // ローカルストレージ保存処理をuseEffectで管理
+    useEffect(() => {
+        if (mounted) {
+            localStorage.setItem("left-sidebar-open", String(isLeftSidebarOpen));
+        }
+    }, [isLeftSidebarOpen, mounted]);
+
+    useEffect(() => {
+        if (mounted) {
+            localStorage.setItem("right-sidebar-open", String(isRightSidebarOpen));
+        }
+    }, [isRightSidebarOpen, mounted]);
 
     // Hydration mismatch回避
     if (!mounted) return null;
@@ -4342,11 +4497,13 @@ export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
         <MenuContext.Provider
             value={{
                 isLeftSidebarOpen,
-                setIsLeftSidebarOpen,
+                setIsLeftSidebarOpen, // useState由来のsetStateをそのまま渡す
                 isRightSidebarOpen,
                 setIsRightSidebarOpen,
                 rightSidebarWidth,
                 setRightSidebarWidth,
+                rightSidebarContent,
+                setRightSidebarContent,
             }}>
             {children}
         </MenuContext.Provider>
@@ -4646,7 +4803,6 @@ AI の回答の根拠となる原文箇所をハイライト表示
 ## ディレクトリ構造
 
 
-
 ```
 Patent_Survey_APP
 ├─ backend
@@ -4727,7 +4883,6 @@ Patent_Survey_APP
 │  ├─ tsconfig.json
 │  └─ types
 │     └─ schema.ts
-├─ notebooks
 ├─ README.md
 ├─ repomix-output.xml
 ├─ repomix.config.json

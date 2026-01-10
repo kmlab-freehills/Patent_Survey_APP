@@ -35,17 +35,13 @@ export default function LeftSidebar() {
     const pathname = usePathname();
 
     // サイドバーのスタイル定義
-    // ヘッダーの下に配置されるため、h-full で親要素(flex-1)の高さを埋めます
+    // ヘッダーの下に配置されるため、h-full で親要素(flex-1)の高さを埋める
     const sidebarClasses = `
     z-30 h-full
     bg-slate-900 text-slate-300 shadow-xl
     flex flex-col transition-all duration-300 ease-in-out
     shrink-0
-    ${isLeftSidebarOpen ? "w-64" : "w-20"}
-    ${
-        /* モバイル対応: 画面が小さい時は絶対配置にするなどの調整が必要ですが、今回はデスクトップレイアウト優先で記述 */ ""
-    }
-  `;
+    ${isLeftSidebarOpen ? "w-64" : "w-20"}`;
 
     return (
         <>
@@ -67,11 +63,11 @@ export default function LeftSidebar() {
                                 key={item.id}
                                 href={item.href}
                                 className={`w-full flex items-center gap-3 px-4 py-3 transition-colors duration-200 group
-                  ${
-                      isActive
-                          ? "bg-blue-600 text-white border-r-4 border-blue-300"
-                          : "hover:bg-slate-800 hover:text-white"
-                  }
+                    ${
+                        isActive
+                            ? "bg-blue-600 text-white border-r-4 border-blue-300"
+                            : "hover:bg-slate-800 hover:text-white"
+                    }
                   ${!isLeftSidebarOpen && "justify-center"}`} // 閉じたときは中央揃え
                                 title={!isLeftSidebarOpen ? item.name : undefined}>
                                 <div

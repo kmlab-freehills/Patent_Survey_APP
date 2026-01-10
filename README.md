@@ -117,7 +117,6 @@ AI の回答の根拠となる原文箇所をハイライト表示
 ## ディレクトリ構造
 
 
-
 ```
 Patent_Survey_APP
 ├─ backend
@@ -198,7 +197,6 @@ Patent_Survey_APP
 │  ├─ tsconfig.json
 │  └─ types
 │     └─ schema.ts
-├─ notebooks
 ├─ README.md
 ├─ repomix-output.xml
 ├─ repomix.config.json

@@ -27,3 +27,8 @@ torchvision = { index = "pytorch-cu124" }
 
 [tool.ruff]
 line-length = 120
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+]
