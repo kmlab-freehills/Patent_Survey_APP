@@ -110,14 +110,14 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 import os
 from contextlib import asynccontextmanager  # ライフサイクルイベント
 
-from src.core import config
 from fastapi import FastAPI  # アプリ本体
 from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
+from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
+
+from src.core.config import STATIC_BASE_PATH, CLEANUP_ON_EXIT, FRONTEND_URL
 from src.services.gemini import generate_api
 from src.services.patent import patent_api
-from src.core.config import STATIC_BASE_PATH
 from src.services.patent.patent_store import cleanup_temp_files  # 一時ファイル処理用
-from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -141,7 +141,7 @@ async def lifespan(app: FastAPI):
 
     # --- 終了時の処理 ---
     print("アプリケーションを終了しています...")
-    if config.CLEANUP_ON_EXIT == "true":
+    if CLEANUP_ON_EXIT == "true":
         cleanup_temp_files()  # 一時ファイル削除実行
 
 
@@ -156,11 +156,14 @@ app = FastAPI(
     lifespan=lifespan,  # ← lifespanを指定
 )
 
-FRONTEND_URL = config.FRONTEND_URL or ""
+# ============================================================
+# マウント処理
+# ============================================================
 
-# 特許画像保存先
-os.makedirs(STATIC_BASE_PATH, exist_ok=True)  # マウント前に確実にディレクトリを作成
-app.mount("/static/patents", StaticFiles(directory=STATIC_BASE_PATH), name="static")
+# ストレージのルートディレクトリを作成
+os.makedirs(STATIC_BASE_PATH, exist_ok=True)
+# マウント
+app.mount("/static", StaticFiles(directory=STATIC_BASE_PATH), name="static")
 
 # ============================================================
 # CORS設定（フロントエンドとの通信を許可）
@@ -234,10 +237,10 @@ line-length = 120
 
 # Gemini-APIのクライアント認証を実行する --> clientをインポートして利用
 
-import config
+from src.core.config import GEMINI_API_KEY
 from google import genai
 
-gemini_client = genai.Client(api_key=config.GEMINI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 </file>
 
 <file path="backend/src/core/config.py">
@@ -840,7 +843,7 @@ from pydantic import BaseModel
 from src.core.client import gemini_client
 from src.services.gemini import generate_func
 from src.prompt import idea_prompt, system_prompt
-from src.storage.patent_store import (
+from src.services.patent.patent_store import (
     get_chat_history,
     get_patent,
     save_chat_message,
@@ -849,7 +852,7 @@ from src.storage.patent_store import (
 ## generate_api.py / LLM生成のAPIエンドポイント ##
 
 router = APIRouter(prefix="/generate", tags=["LLM生成"])
-client = gemini_client.client
+client = gemini_client
 
 # ============================================================
 # リクエストボディのモデル定義
@@ -1176,9 +1179,9 @@ def patent_text_extraction(pdf_bytes):
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from src.func.patent_pdf import patent_text_extraction
-from src.schemas import patent_schemas
-from src.storage.patent_store import (
+from src.services.patent.functions import patent_text_extraction
+from src.services.patent import patent_schemas
+from src.services.patent.patent_store import (
     build_figure_url,
     get_patent_figure_dir,
     save_patent,
@@ -1285,10 +1288,13 @@ class PatentUploadResponse(BaseModel):
 
 import os
 import shutil
+import json  # JSON保存用に追加
 from typing import Any, Dict, List
-from uuid import uuid4  # ID生成
+from uuid import uuid4
+from pathlib import Path  # Path操作用に追加
+
 from src.services.patent.supports.patent_images import save_patent_images
-from src.core.config import STATIC_BASE_PATH, PROJECT_ROOT, STATIC_BASE_URL
+from src.core.config import STATIC_BASE_PATH, STATIC_BASE_URL
 
 # ==========================================
 # 1. 特許テキストデータ（idで管理）
@@ -1299,57 +1305,76 @@ from src.core.config import STATIC_BASE_PATH, PROJECT_ROOT, STATIC_BASE_URL
 patent_store: Dict[str, object] = {}
 
 
-# 保存用
+# ==========================================
+# 1. 特許テキストデータ & JSON保存
+# ==========================================
+
+
 def save_patent(patent_doc, images: list = None) -> str:
     """
     特許文書と画像を保存
-
-    Args:
-        patent_doc: PatentDocumentオブジェクト
-        images: PIL Imageオブジェクトのリスト (optional)
-
-    Returns:
-        patent_id: 生成された特許ID
+    構造: storage/patents/{patent_id}/
+            ├── data.json      (解析結果)
+            └── figures/       (画像フォルダ)
+                ├── fig_001.png
+                └── ...
     """
-
     patent_id = str(uuid4())
+
+    # 1. オンメモリに保存（高速アクセス用）
     patent_store[patent_id] = patent_doc
 
-    # 画像がある場合は保存
+    # 2. 保存先ディレクトリの構築: backend/storage/patents/{patent_id}
+    patent_dir = STATIC_BASE_PATH / "patents" / patent_id
+    os.makedirs(patent_dir, exist_ok=True)
+
+    # 3. JSONデータの保存（要望対応）
+    json_path = patent_dir / "data.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        # patent_doc.to_dict() をダンプ
+        json.dump(patent_doc.to_dict(), f, ensure_ascii=False, indent=2)
+
+    # 4. 画像がある場合は保存
     if images:
+        # storage/patents/{patent_id}/figures
         figure_dir = get_patent_figure_dir(patent_id)
         save_patent_images(images, figure_dir)
 
+    # idを返す
     return patent_id
 
 
-# 取得用
 def get_patent(patent_id: str):
+    # 基本はオンメモリから返す（将来的にJSONから読み込むロジックを追加）
     return patent_store.get(patent_id)
 
 
 # ==========================================
-# 2. 特許画像データ（一時フォルダで管理）
+# 2. 特許画像データ（ディレクトリで管理）
 # ==========================================
-
-# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
 
 
 def get_patent_figure_dir(patent_id: str) -> str:
-    # Pathオブジェクトを使って結合し、文字列で返す
-    path = PROJECT_ROOT / "patents" / patent_id / "figures"
+    """
+    画像の保存先ディレクトリパスを返す
+    パス: backend/storage/patents/{patent_id}/figures
+    """
+    path = STATIC_BASE_PATH / "patents" / patent_id / "figures"
     return str(path)
 
 
-# アクセス用URL作成
 def build_figure_url(patent_id: str, filename: str) -> str:
-    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
+    """
+    アクセス用URL作成
+    URL: /static/patents/{patent_id}/figures/{filename}
+    """
+    return f"{STATIC_BASE_URL}/patents/{patent_id}/figures/{filename}"
 
 
 # アプリ終了時に呼ばれるクリーンアップ関数
 def cleanup_temp_files():
     if os.path.exists(STATIC_BASE_PATH):
-        # フォルダの中身ごと完全に削除
+        # storageフォルダの中身ごと削除（patentsディレクトリも含まれるため一括削除される）
         shutil.rmtree(STATIC_BASE_PATH)
         print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
 
@@ -2083,10 +2108,12 @@ import { formatPatentToString, parseSourceText } from "../sidebar/sourcePatentTe
 // UIコンポーネント
 import { AnalysisSection } from "../section/AnalysisSection";
 import { ChatSection } from "../section/ChatSection";
+import { HeaderInfo, StepTabs } from "../section/HeaderSection";
 import { IdeaSection } from "../section/IdeaSection";
 import { PreviewSection } from "../section/PreviewSection";
 import { SourceSidebar } from "../sidebar/SourceSidebar"; // 原文確認サイドバー
-import { HeaderInfo, StepTabs } from "../section/HeaderSection";
+// SourceSidebar用ステート管理
+import { useMenu } from "@/hooks/appState"; // 追加
 
 // ============================================================
 // Screen 2. 生成画面
@@ -2141,7 +2168,7 @@ export const GeneratingScreen = ({
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
     // 原文参照サイドバー
-    const [isSourceOpen, setIsSourceOpen] = useState(false);
+    const { isRightSidebarOpen, setIsRightSidebarOpen } = useMenu(); // グローバル変数
     const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
     const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
     // 生成テキストデータ
@@ -2162,6 +2189,12 @@ export const GeneratingScreen = ({
     // 全文取得（一度だけ実行）
     const fullText = useMemo(() => formatPatentToString(patentData), [patentData]);
     const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
+
+    // activeParagraphId がセットされたら自動でサイドバーを開く
+    const handleParagraphClick = (id: string) => {
+        setActiveParagraphId(id);
+        setIsRightSidebarOpen(true); // グローバルステートを変更
+    };
 
     // ------------------------------------------------------------
     // API処理
@@ -2338,8 +2371,10 @@ export const GeneratingScreen = ({
         <div className="flex overflow-hidden p-8 h-screen-minus-header">
             <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
                 {/* ヘッダー情報 */}
-                <HeaderInfo fileName={fileName} setIsSourceOpen={setIsSourceOpen} />
-
+                <HeaderInfo
+                    fileName={fileName}
+                    setIsSourceOpen={() => setIsRightSidebarOpen} // 型が合うならそのまま、合わなければラップ関数を
+                />
                 {/* タブナビゲーション */}
                 <StepTabs
                     currentStep={currentStep}
@@ -2368,8 +2403,8 @@ export const GeneratingScreen = ({
                             onNext={handleStartIdea}
                             // ▼既にアイデア結果があるか判定
                             hasNextGenerated={generatedIdeaText.length > 0}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
+                            setIsSourceOpen={() => setIsRightSidebarOpen}
+                            setActiveParagraphId={() => handleParagraphClick}
                         />
                     )}
 
@@ -2381,8 +2416,8 @@ export const GeneratingScreen = ({
                             error={error}
                             onNext={handleStartChat}
                             hasNextGenerated={maxReachedStep >= 3}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
+                            setIsSourceOpen={() => setIsRightSidebarOpen}
+                            setActiveParagraphId={() => handleParagraphClick}
                         />
                     )}
                     {/* STEP 3: チャット機能 */}
@@ -2392,18 +2427,20 @@ export const GeneratingScreen = ({
                             isGenerating={isGeneratingChat}
                             error={error}
                             onSubmit={handleChatSubmit}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
+                            setIsSourceOpen={() => setIsRightSidebarOpen}
+                            setActiveParagraphId={() => handleParagraphClick}
                         />
                     )}
                 </div>
             </div>
 
-            {/* 原文サイドバー (常にレンダリングしておき、表示状態を制御) */}
-            {isSourceOpen && (
+            {/* 原文サイドバー 
+            isRightSidebarOpen が true の時だけレンダリングする。
+            レンダリングされると、SourceSidebar内部の Portal により右枠に表示される。
+            */}
+            {isRightSidebarOpen && (
                 <SourceSidebar
-                    isOpen={isSourceOpen}
-                    onClose={() => setIsSourceOpen(false)}
+                    onClose={() => setIsRightSidebarOpen(false)}
                     fileName={fileName}
                     sourceBlocks={sourceBlocks}
                     activeParagraphId={activeParagraphId}
@@ -3397,24 +3434,21 @@ export function parseSourceText(sourceText: string): SourceBlock[] {
 </file>
 
 <file path="frontend/app/home/idea/components/sidebar/SourceSidebar.tsx">
-// Patent_Survey_APP/frontend/app/home/idea/components/sidebar/SourceSidebar.tsx
+"use client";
 
-import { useEffect, useRef } from "react";
-import { SourceBlock } from "./sourcePatentTextProcess";
-// 画像周り
+import type { components } from "@/types/schema";
+import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom"; // 追加
 import { FigureList } from "./FigureList";
 import { PatentImageModal } from "./PatentImageModal";
+import { SourceBlock } from "./sourcePatentTextProcess";
 
-// 自動生成型
-import type { components } from "@/types/schema";
 type PatentImage = components["schemas"]["PatentImage"];
 
-// ============================================================
-// 特許原文参照サイドバー（右側）
-// ============================================================
-
 type SourceSidebarProps = {
-    isOpen: boolean;
+    // isOpen は親が管理しなくなり、マウントされたら表示という形になるが
+    // 閉じるボタンのために onClose は残す
     onClose: () => void;
     fileName: string;
     sourceBlocks: SourceBlock[];
@@ -3425,7 +3459,6 @@ type SourceSidebarProps = {
 };
 
 export const SourceSidebar = ({
-    isOpen,
     onClose,
     fileName,
     sourceBlocks,
@@ -3435,10 +3468,16 @@ export const SourceSidebar = ({
     setSelectedImage,
 }: SourceSidebarProps) => {
     const paragraphRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const [mounted, setMounted] = useState(false);
 
+    // マウント後にポータル先を探す
     useEffect(() => {
-        if (!isOpen || !activeParagraphId) return;
+        setMounted(true);
+    }, []);
 
+    // ハイライトスクロール処理
+    useEffect(() => {
+        if (!activeParagraphId) return;
         const element = paragraphRefs.current[activeParagraphId];
         if (!element) return;
 
@@ -3453,33 +3492,34 @@ export const SourceSidebar = ({
         }, 2500);
 
         return () => clearTimeout(timer);
-    }, [isOpen, activeParagraphId]);
+    }, [activeParagraphId]);
 
-    return (
-        <aside
-            className={`
-        fixed top-16 right-0 bottom-0 z-40
-        h-[calc(100vh-4rem)] shadow-2xl
-        w-105 max-w-[40vw] bg-white border-l border-gray-200
-        transform transition-transform duration-250 ease-out
-        flex flex-col
-        ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
+    // ポータル先要素
+    const portalRoot = mounted ? document.getElementById("right-sidebar-portal-root") : null;
+
+    if (!mounted || !portalRoot) return null;
+
+    // Portalを使ってレイアウト側の枠内に描画
+    return createPortal(
+        <div className="h-full flex flex-col bg-white">
             {/* サイドバーヘッダー */}
-            <header className="flex justify-between items-center gap-4 py-3 px-4 border-b border-gray-200">
-                <div className="w-80 flex items-center gap-3">
-                    <h2 className="text-lg font-bold whitespace-nowrap">原文</h2>
-                    <span className="text-sm pt-1 truncate">{fileName}</span>
+            <header className="flex justify-between items-center gap-2 py-3 px-4 border-b border-gray-200 bg-gray-50/50 shrink-0">
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-sm font-bold text-gray-700">原文参照</h2>
+                    <p className="text-xs text-gray-500 truncate" title={fileName}>
+                        {fileName}
+                    </p>
                 </div>
                 <button
                     onClick={onClose}
-                    className="ml-auto text-xl cursor-pointer text-gray-500 hover:text-gray-700 rounded hover:bg-gray-100 transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                     aria-label="閉じる">
-                    ✕
+                    <X size={18} />
                 </button>
             </header>
 
             {/* 本文エリア */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {sourceBlocks.map((block, index) => {
                     if (block.type === "paragraph") {
                         return (
@@ -3489,27 +3529,35 @@ export const SourceSidebar = ({
                                     paragraphRefs.current[block.id] = element;
                                 }}
                                 data-paragraph-id={block.id}
-                                className="rounded px-2 py-1 transition-colors">
-                                <div className="text-xs text-slate-400 mb-1">
-                                    [段落: {block.id}]
+                                className="rounded px-2 py-1 transition-colors hover:bg-gray-50">
+                                <div className="text-xs text-blue-500/70 font-mono mb-1 select-none">
+                                    [{block.id}]
                                 </div>
-                                <div className="whitespace-pre-wrap text-sm">{block.text}</div>
+                                <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
+                                    {block.text}
+                                </div>
                             </div>
                         );
                     }
-
                     return (
-                        <div key={index} className="whitespace-pre-wrap text-sm">
+                        <div
+                            key={index}
+                            className="whitespace-pre-wrap text-sm font-bold text-gray-700 mt-6 mb-2 px-2">
                             {block.text}
                         </div>
                     );
                 })}
             </div>
 
-            <FigureList images={patentImages} onSelect={setSelectedImage} />
+            {/* 図面リスト */}
+            <div className="shrink-0 bg-gray-50">
+                <FigureList images={patentImages} onSelect={setSelectedImage} />
+            </div>
 
+            {/* モーダル (Portalの外、つまりbody直下にさらにPortalしてもよいが、ここではそのまま) */}
             <PatentImageModal image={selectedImage} onClose={() => setSelectedImage(null)} />
-        </aside>
+        </div>,
+        portalRoot
     );
 };
 </file>
@@ -3886,28 +3934,150 @@ export default function RootLayout({
 
 "use client";
 
-import {
-    Building2,
-    ChevronRight,
-    House,
-    Lightbulb,
-    Menu,
-    Search,
-    Settings,
-    Shield,
-    User,
-    X,
-} from "lucide-react";
+import Header from "@/components/layout/Header";
+import LeftSidebar, { navigation } from "@/components/layout/LeftSidebar";
+import { RightSidebar } from "@/components/layout/RightSidebar";
+import { MenuProvider } from "@/hooks/appState";
+import { usePathname } from "next/navigation";
+import React from "react";
+
+// Contextを利用するための内部コンポーネント
+const LayoutContent = ({ children }: { children: React.ReactNode }) => {
+    const pathname = usePathname();
+    const currentPageName = navigation.find((n) => n.href === pathname)?.name || "Home";
+
+    return (
+        // 画面全体: 縦方向のFlex
+        <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
+            {/* 1行目: ヘッダー (全幅) */}
+            <Header currentPageName={currentPageName} />
+
+            {/* 2行目: ボディエリア (左サイドバー + コンテンツ + 右サイドバー) */}
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* 左サイドバー */}
+                <LeftSidebar />
+
+                {/* メインコンテンツ (スクロールエリア) */}
+                <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 min-w-0 bg-slate-50 relative">
+                    {children}
+                </main>
+
+                {/* 右サイドバー (リサイズ可能・Portalの受け皿) */}
+                <RightSidebar />
+            </div>
+        </div>
+    );
+};
+
+export default function MainLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <MenuProvider>
+            <LayoutContent>{children}</LayoutContent>
+        </MenuProvider>
+    );
+}
+</file>
+
+<file path="frontend/app/page.tsx">
+// Patent_Survey_APP/frontend/app/page.tsx
+
+import { redirect } from "next/navigation";
+
+// リダイレクト専用ページ
+export default function Page() {
+    redirect("/home");
+}
+</file>
+
+<file path="frontend/components/layout/Header.tsx">
+// Patent_Survey_APP/frontend/components/layout/Header.tsx
+
+"use client";
+
+import { useMenu } from "@/hooks/appState";
+import { ChevronRight, Menu, PanelLeft, PanelRight, Shield, User } from "lucide-react";
+import Link from "next/link";
+
+type HeaderProps = {
+    currentPageName: string;
+};
+
+export default function Header({ currentPageName }: HeaderProps) {
+    // グローバルステート取得
+    const { isLeftSidebarOpen, setIsLeftSidebarOpen, isRightSidebarOpen, setIsRightSidebarOpen } =
+        useMenu();
+
+    return (
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 shadow-sm z-40 shrink-0">
+            {/* 左側エリア：ロゴ + 左サイドバー開閉 + ページ名 */}
+            <div className="flex items-center gap-4">
+                {/* ロゴ (白背景用に色を調整) */}
+                <Link href="/home" className="flex items-center gap-2 mr-4">
+                    <Shield className="text-blue-600 shrink-0" size={28} />
+                    <span className="font-bold text-slate-800 text-xl tracking-wide hidden sm:block">
+                        Patent Survey App
+                    </span>
+                </Link>
+
+                <div className="h-6 w-px bg-slate-300 mx-2 hidden md:block" />
+
+                {/* 左サイドバー開閉ボタン */}
+                <button
+                    onClick={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+                    className="p-2 rounded-md text-slate-500 hover:bg-slate-100 transition-colors focus:outline-none"
+                    title={isLeftSidebarOpen ? "サイドバーを閉じる" : "サイドバーを開く"}>
+                    {/* Menuアイコン または PanelLeftアイコン お好みで */}
+                    {isLeftSidebarOpen ? <PanelLeft size={20} /> : <Menu size={20} />}
+                </button>
+
+                {/* ページタイトル (パンくず風) */}
+                <div className="hidden md:flex items-center text-sm text-slate-500 ml-2">
+                    <ChevronRight size={14} className="mr-2" />
+                    <span className="font-semibold text-slate-700">{currentPageName}</span>
+                </div>
+            </div>
+
+            {/* 右側エリア：ユーザー情報 + 右サイドバー開閉 */}
+            <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block mr-2">
+                    <div className="text-sm font-medium text-slate-700">特許 太郎</div>
+                    <div className="text-xs text-slate-500">知財部 マネージャー</div>
+                </div>
+                <button className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200 mr-2">
+                    <User size={18} />
+                </button>
+
+                <div className="h-6 w-px bg-slate-300 mx-1 hidden md:block" />
+
+                {/* 右サイドバー開閉ボタン */}
+                <button
+                    onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+                    className={`p-2 rounded-md transition-colors ${
+                        isRightSidebarOpen
+                            ? "bg-blue-50 text-blue-600"
+                            : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                    title="詳細パネルを表示">
+                    <PanelRight size={20} />
+                </button>
+            </div>
+        </header>
+    );
+}
+</file>
+
+<file path="frontend/components/layout/LeftSidebar.tsx">
+// Patent_Survey_APP/frontend/components/layout/LeftSidebar.tsx
+
+"use client";
+
+import { useMenu } from "@/hooks/appState";
+import { Building2, House, Lightbulb, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useState } from "react";
-
-// ============================================================
-// アプリ全体に適用するレイアウト（ヘッダー・ナビゲーションサイドバー等）
-// ============================================================
 
 // ナビゲーション定義
-const navigation = [
+export const navigation = [
     { id: "home", name: "ホーム", icon: <House size={20} />, href: "/home" },
     {
         id: "search",
@@ -3929,66 +4099,34 @@ const navigation = [
     },
 ];
 
-export default function MainLayout({ children }: { children: React.ReactNode }) {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+export default function LeftSidebar() {
+    const { isLeftSidebarOpen, setIsLeftSidebarOpen } = useMenu();
     const pathname = usePathname();
-    // サイドバー開閉
-    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-    // 現在のページ名を取得
-    const currentPageName = navigation.find((n) => n.href === pathname)?.name || "Home";
 
     // サイドバーのスタイル定義
+    // ヘッダーの下に配置されるため、h-full で親要素(flex-1)の高さを埋めます
     const sidebarClasses = `
-    fixed inset-y-0 left-0 z-30 h-full
+    z-30 h-full
     bg-slate-900 text-slate-300 shadow-xl
     flex flex-col transition-all duration-300 ease-in-out
-    md:relative
-    ${isSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 md:w-20"}`;
+    shrink-0
+    ${isLeftSidebarOpen ? "w-64" : "w-20"}
+    ${
+        /* モバイル対応: 画面が小さい時は絶対配置にするなどの調整が必要ですが、今回はデスクトップレイアウト優先で記述 */ ""
+    }
+  `;
 
     return (
-        <div
-            className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden"
-            // ▼子要素にサイドバーの幅を伝える
-            style={{ "--sidebar-width": isSidebarOpen ? "16rem" : "5rem" } as React.CSSProperties}>
-            {/* モバイル端末時のサイドバーオーバーレイ */}
-            {isSidebarOpen && (
+        <>
+            {/* モバイル端末時のサイドバーオーバーレイ (必要に応じて有効化) */}
+            {isLeftSidebarOpen && (
                 <div
                     className="fixed inset-0 bg-slate-400/50 z-20 md:hidden backdrop-blur-sm transition-opacity"
-                    onClick={() => setIsSidebarOpen(false)}
+                    onClick={() => setIsLeftSidebarOpen(false)}
                 />
             )}
 
-            {/* サイドバー */}
             <aside className={sidebarClasses}>
-                {/* ロゴエリア */}
-                <div
-                    onClick={toggleSidebar}
-                    className="h-16 flex items-center justify-between px-4 border-b border-slate-800 cursor-pointer md:cursor-default">
-                    <div
-                        className={`flex items-center gap-1 font-bold text-white text-xl ${
-                            !isSidebarOpen && "md:justify-center md:w-full"
-                        }`}>
-                        <Shield className="text-blue-400 shrink-0" size={24} />
-                        {/* サイドバー展開時またはモバイル表示時にテキストを表示 */}
-                        <span
-                            className={`tracking-wide whitespace-nowrap ${
-                                !isSidebarOpen && "md:hidden"
-                            }`}>
-                            Patent Survey App
-                        </span>
-                    </div>
-                    {/* モバイル用閉じるボタン */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation(); // 親のdivクリックイベントへの伝播を防ぐ
-                            setIsSidebarOpen(false);
-                        }}
-                        className="text-slate-400 hover:text-white md:hidden">
-                        <X size={24} />
-                    </button>
-                </div>
-
                 {/* ナビゲーションリスト */}
                 <nav className="flex-1 py-6 space-y-2 overflow-y-auto">
                     {navigation.map((item) => {
@@ -3997,17 +4135,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                             <Link
                                 key={item.id}
                                 href={item.href}
-                                onClick={() => {
-                                    if (window.innerWidth < 768) setIsSidebarOpen(false);
-                                }}
                                 className={`w-full flex items-center gap-3 px-4 py-3 transition-colors duration-200 group
-                                    ${
-                                        isActive
-                                            ? "bg-blue-600 text-white border-r-4 border-blue-300"
-                                            : "hover:bg-slate-800 hover:text-white"
-                                    }${!isSidebarOpen && "md:justifFy-center"}`}
-                                title={!isSidebarOpen ? item.name : undefined} // 縮小時にツールチップ的に名前を表示
-                            >
+                  ${
+                      isActive
+                          ? "bg-blue-600 text-white border-r-4 border-blue-300"
+                          : "hover:bg-slate-800 hover:text-white"
+                  }
+                  ${!isLeftSidebarOpen && "justify-center"}`} // 閉じたときは中央揃え
+                                title={!isLeftSidebarOpen ? item.name : undefined}>
                                 <div
                                     className={`${
                                         isActive
@@ -4016,12 +4151,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                                     } shrink-0`}>
                                     {item.icon}
                                 </div>
-                                <span
-                                    className={`font-medium text-sm whitespace-nowrap ${
-                                        !isSidebarOpen && "md:hidden"
-                                    }`}>
-                                    {item.name}
-                                </span>
+                                {/* 開いている時だけテキスト表示 */}
+                                {isLeftSidebarOpen && (
+                                    <span className="font-medium text-sm whitespace-nowrap">
+                                        {item.name}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}
@@ -4031,64 +4166,92 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <div className="p-4 border-t border-slate-800">
                     <button
                         className={`flex items-center gap-3 w-full px-2 py-2 text-slate-400 hover:text-white transition-colors ${
-                            !isSidebarOpen && "md:justify-center"
+                            !isLeftSidebarOpen && "justify-center"
                         }`}>
                         <Settings size={20} className="shrink-0" />
-                        <span
-                            className={`text-sm whitespace-nowrap ${
-                                !isSidebarOpen && "md:hidden"
-                            }`}>
-                            設定
-                        </span>
+                        {isLeftSidebarOpen && (
+                            <span className="text-sm whitespace-nowrap">設定</span>
+                        )}
                     </button>
                 </div>
             </aside>
-
-            {/* コンテンツエリア */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
-                {/* ヘッダー */}
-                <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm z-10 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={toggleSidebar}
-                            className="p-2 rounded-md text-slate-500 hover:bg-slate-100 focus:outline-none">
-                            <Menu size={20} />
-                        </button>
-
-                        <div className="hidden md:flex items-center text-sm text-slate-500">
-                            <ChevronRight size={14} className="mr-2" />
-                            <span className="font-semibold text-slate-700">{currentPageName}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 pl-1">
-                        <div className="text-right hidden sm:block">
-                            <div className="text-sm font-medium text-slate-700">特許 太郎</div>
-                            <div className="text-xs text-slate-500">知財部 マネージャー</div>
-                        </div>
-                        <button className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200">
-                            <User size={18} />
-                        </button>
-                    </div>
-                </header>
-
-                {/* メインコンテンツ */}
-                <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">{children}</div>
-            </div>
-        </div>
+        </>
     );
 }
 </file>
 
-<file path="frontend/app/page.tsx">
-// Patent_Survey_APP/frontend/app/page.tsx
+<file path="frontend/components/layout/RightSidebar.tsx">
+"use client";
 
-import { redirect } from "next/navigation";
+import { useMenu } from "@/hooks/appState";
+import { useCallback, useEffect, useState } from "react";
 
-// リダイレクト専用ページ
-export default function Page() {
-    redirect("/home");
-}
+export const RightSidebar = () => {
+    const { isRightSidebarOpen, rightSidebarWidth, setRightSidebarWidth } = useMenu();
+    const [isResizing, setIsResizing] = useState(false);
+
+    // リサイズ開始
+    const startResizing = useCallback(() => {
+        setIsResizing(true);
+    }, []);
+
+    // リサイズ終了
+    const stopResizing = useCallback(() => {
+        setIsResizing(false);
+    }, []);
+
+    // リサイズ処理
+    const resize = useCallback(
+        (mouseMoveEvent: MouseEvent) => {
+            if (isResizing) {
+                // 画面右端からの距離を計算
+                const newWidth = window.innerWidth - mouseMoveEvent.clientX;
+                // 最小幅300px, 最大幅 画面の50%程度
+                if (newWidth > 300 && newWidth < window.innerWidth * 0.6) {
+                    setRightSidebarWidth(newWidth);
+                }
+            }
+        },
+        [isResizing, setRightSidebarWidth]
+    );
+
+    useEffect(() => {
+        if (isResizing) {
+            window.addEventListener("mousemove", resize);
+            window.addEventListener("mouseup", stopResizing);
+        }
+        return () => {
+            window.removeEventListener("mousemove", resize);
+            window.removeEventListener("mouseup", stopResizing);
+        };
+    }, [isResizing, resize, stopResizing]);
+
+    return (
+        <aside
+            className={`bg-white border-l border-gray-200 relative flex flex-col shrink-0 ${
+                isResizing ? "select-none" : "transition-[width] duration-300 ease-in-out"
+            }`}
+            style={{
+                width: isRightSidebarOpen ? `${rightSidebarWidth}px` : "0px",
+                height: "100%", // 親要素(flex-1エリア)の高さいっぱいに広がるように
+                overflow: "hidden", // 閉じているときは中身を見せない
+                visibility: isRightSidebarOpen ? "visible" : "hidden", // 幅0のときに中身が描画されないように
+            }}>
+            {/* リサイズハンドル */}
+            <div
+                className="absolute top-0 bottom-0 left-0 w-1 cursor-col-resize hover:bg-blue-400/50 transition-colors z-50 flex items-center justify-center group"
+                onMouseDown={startResizing}>
+                <div className="h-8 w-1 bg-gray-300 rounded hidden md:block group-hover:bg-blue-400" />
+            </div>
+
+            {/* ポータルルート: ここにSourceSidebarの中身が注入される */}
+            <div
+                id="right-sidebar-portal-root"
+                className="w-full h-full overflow-hidden relative"
+            />
+        </aside>
+    );
+};
 </file>
 
 <file path="frontend/Dockerfile">
@@ -4114,44 +4277,87 @@ EXPOSE 3000
 CMD ["npm", "run", "dev"]
 </file>
 
-<file path="frontend/images/arrow_back.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
-</file>
+<file path="frontend/hooks/appState.tsx">
+"use client";
 
-<file path="frontend/images/check_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="M378-246 154-470l43-43 181 181 384-384 43 43-427 427Z"/></svg>
-</file>
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-<file path="frontend/images/edit_document_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z"/></svg>
-</file>
+type MenuContextType = {
+    // 左サイドバー (既存機能との互換性)
+    isLeftSidebarOpen: boolean;
+    setIsLeftSidebarOpen: (open: boolean) => void;
 
-<file path="frontend/images/file.svg">
-<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
-</file>
+    // 右サイドバー (新規)
+    isRightSidebarOpen: boolean;
+    setIsRightSidebarOpen: (open: boolean) => void;
+    rightSidebarWidth: number;
+    setRightSidebarWidth: (width: number) => void;
+};
 
-<file path="frontend/images/info_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
-</file>
+const MenuContext = createContext<MenuContextType | undefined>(undefined);
 
-<file path="frontend/images/logout_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></svg>
-</file>
+export const MenuProvider = ({ children }: { children: React.ReactNode }) => {
+    // 左サイドバー (デフォルト閉じる)
+    const [isLeftSidebarOpen, setIsLeftSidebarOpenState] = useState(false);
 
-<file path="frontend/images/menu_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/></svg>
-</file>
+    // 右サイドバー (デフォルト閉じる、初期幅400px)
+    const [isRightSidebarOpen, setIsRightSidebarOpenState] = useState(false);
+    const [rightSidebarWidth, setRightSidebarWidthState] = useState(400);
 
-<file path="frontend/images/science.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-51 0-72.5-45.5T138-250l222-270v-240h-40q-17 0-28.5-11.5T280-800q0-17 11.5-28.5T320-840h320q17 0 28.5 11.5T680-800q0 17-11.5 28.5T640-760h-40v240l222 270q32 39 10.5 84.5T760-120H200Zm0-80h560L520-492v-268h-80v268L200-200Zm280-280Z"/></svg>
-</file>
+    const [mounted, setMounted] = useState(false);
 
-<file path="frontend/images/send_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M120-160v-640l760 320-760 320Zm80-120 474-200-474-200v140l240 60-240 60v140Zm0 0v-400 400Z"/></svg>
-</file>
+    useEffect(() => {
+        // ローカルストレージから復元
+        const savedLeft = localStorage.getItem("left-sidebar-open");
+        if (savedLeft !== null) setIsLeftSidebarOpenState(savedLeft === "true");
 
-<file path="frontend/images/setting_icon.svg">
-<svg xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 -960 960 960" width="48px" fill="undefined"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>
+        const savedRight = localStorage.getItem("right-sidebar-open");
+        if (savedRight !== null) setIsRightSidebarOpenState(savedRight === "true");
+
+        const savedWidth = localStorage.getItem("right-sidebar-width");
+        if (savedWidth) setRightSidebarWidthState(parseInt(savedWidth, 10));
+
+        setMounted(true);
+    }, []);
+
+    const setIsLeftSidebarOpen = (open: boolean) => {
+        setIsLeftSidebarOpenState(open);
+        localStorage.setItem("left-sidebar-open", String(open));
+    };
+
+    const setIsRightSidebarOpen = (open: boolean) => {
+        setIsRightSidebarOpenState(open);
+        localStorage.setItem("right-sidebar-open", String(open));
+    };
+
+    const setRightSidebarWidth = (width: number) => {
+        setRightSidebarWidthState(width);
+        localStorage.setItem("right-sidebar-width", String(width));
+    };
+
+    // Hydration mismatch回避
+    if (!mounted) return null;
+
+    return (
+        <MenuContext.Provider
+            value={{
+                isLeftSidebarOpen,
+                setIsLeftSidebarOpen,
+                isRightSidebarOpen,
+                setIsRightSidebarOpen,
+                rightSidebarWidth,
+                setRightSidebarWidth,
+            }}>
+            {children}
+        </MenuContext.Provider>
+    );
+};
+
+export const useMenu = () => {
+    const ctx = useContext(MenuContext);
+    if (!ctx) throw new Error("useMenu must be used within MenuProvider");
+    return ctx;
+};
 </file>
 
 <file path="frontend/package.json">
@@ -4188,45 +4394,6 @@ CMD ["npm", "run", "dev"]
         "typescript": "^5.9.3"
     }
 }
-</file>
-
-<file path="frontend/README.md">
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 </file>
 
 <file path="frontend/styles/chat_input_style.css">
@@ -4476,7 +4643,8 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ---
 
-## ディレクトリ構造（2026/1/1 時点）
+## ディレクトリ構造
+
 
 
 ```
@@ -4539,24 +4707,20 @@ Patent_Survey_APP
 │  │  ├─ layout.tsx
 │  │  ├─ MainLayout.tsx
 │  │  └─ page.tsx
+│  ├─ components
+│  │  ├─ layout
+│  │  │  ├─ Header.tsx
+│  │  │  ├─ LeftSidebar.tsx
+│  │  │  └─ RightSidebar.tsx
+│  │  └─ ui
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
-│  ├─ images
-│  │  ├─ arrow_back.svg
-│  │  ├─ check_icon.svg
-│  │  ├─ edit_document_icon.svg
-│  │  ├─ file.svg
-│  │  ├─ info_icon.svg
-│  │  ├─ logout_icon.svg
-│  │  ├─ menu_icon.svg
-│  │  ├─ science.svg
-│  │  ├─ send_icon.svg
-│  │  └─ setting_icon.svg
+│  ├─ hooks
+│  │  └─ appState.tsx
 │  ├─ next.config.ts
 │  ├─ package-lock.json
 │  ├─ package.json
 │  ├─ postcss.config.mjs
-│  ├─ README.md
 │  ├─ styles
 │  │  ├─ chat_input_style.css
 │  │  └─ markdown_style.css

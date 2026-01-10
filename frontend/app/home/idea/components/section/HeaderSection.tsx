@@ -33,7 +33,7 @@ export const HeaderInfo = ({ fileName, setIsSourceOpen }: HeaderInfoProps) => (
         </div>
         {/* 原文表示サイドバー開閉ボタン */}
         <button
-            onClick={() => setIsSourceOpen((prev) => !prev)}
+            onClick={() => setIsSourceOpen((prev) => !prev)} // 関数形式で呼び出し
             className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-all">
             <PanelRight size={16} />
             <span>原文を隣に表示</span>

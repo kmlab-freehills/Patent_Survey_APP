@@ -4,16 +4,18 @@
 
 import "@/styles/markdown_style.css";
 import { Bot, FileText, Lightbulb, MessageSquare } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 // 関数コンポーネント
 import { formatPatentToString, parseSourceText } from "../sidebar/sourcePatentTextProcess";
 // UIコンポーネント
 import { AnalysisSection } from "../section/AnalysisSection";
 import { ChatSection } from "../section/ChatSection";
+import { HeaderInfo, StepTabs } from "../section/HeaderSection";
 import { IdeaSection } from "../section/IdeaSection";
 import { PreviewSection } from "../section/PreviewSection";
 import { SourceSidebar } from "../sidebar/SourceSidebar"; // 原文確認サイドバー
-import { HeaderInfo, StepTabs } from "../section/HeaderSection";
+// グローバルステート取得
+import { useMenu } from "@/hooks/appState";
 
 // ============================================================
 // Screen 2. 生成画面
@@ -64,11 +66,13 @@ export const GeneratingScreen = ({
     // State定義
     // ------------------------------------------------------------
 
+    // グローバルステート取得
+    const { setRightSidebarContent, setIsRightSidebarOpen } = useMenu();
+
     // ステップ管理
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
     // 原文参照サイドバー
-    const [isSourceOpen, setIsSourceOpen] = useState(false);
     const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
     const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
     // 生成テキストデータ
@@ -89,6 +93,44 @@ export const GeneratingScreen = ({
     // 全文取得（一度だけ実行）
     const fullText = useMemo(() => formatPatentToString(patentData), [patentData]);
     const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
+
+    // activeParagraphId がセットされたら自動でサイドバーを開く
+    const handleParagraphClick = (id: string) => {
+        setActiveParagraphId(id);
+        setIsRightSidebarOpen(true); // グローバルステートを変更
+    };
+
+    // ------------------------------------------------------------
+    // 右サイドバーに関する処理
+    // ------------------------------------------------------------
+
+    // 右サイドバーコンテンツを動的に設定
+    useEffect(() => {
+        setRightSidebarContent(
+            <SourceSidebar
+                onClose={() => setIsRightSidebarOpen(false)}
+                fileName={fileName}
+                sourceBlocks={sourceBlocks}
+                activeParagraphId={activeParagraphId}
+                patentImages={patentImages}
+                selectedImage={selectedImage}
+                setSelectedImage={setSelectedImage}
+            />
+        );
+
+        // このページを離れる際にコンテンツをクリア
+        return () => {
+            setRightSidebarContent(null);
+        };
+    }, [
+        fileName,
+        sourceBlocks,
+        activeParagraphId,
+        patentImages,
+        selectedImage,
+        setRightSidebarContent,
+        setIsRightSidebarOpen,
+    ]);
 
     // ------------------------------------------------------------
     // API処理
@@ -265,8 +307,7 @@ export const GeneratingScreen = ({
         <div className="flex overflow-hidden p-8 h-screen-minus-header">
             <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
                 {/* ヘッダー情報 */}
-                <HeaderInfo fileName={fileName} setIsSourceOpen={setIsSourceOpen} />
-
+                <HeaderInfo fileName={fileName} setIsSourceOpen={setIsRightSidebarOpen} />
                 {/* タブナビゲーション */}
                 <StepTabs
                     currentStep={currentStep}
@@ -274,44 +315,43 @@ export const GeneratingScreen = ({
                     onTabClick={setCurrentStep}
                 />
 
-                {/* コンテンツエリア (スクロール可能領域) */}
+                {/* コンテンツエリア */}
                 <div className="flex-1 overflow-y-auto min-h-0 py-6 px-1">
                     {/* STEP 0: テキスト抽出結果 */}
                     {currentStep === 0 && (
                         <PreviewSection
                             text={fullText}
                             onStart={handleStartAnalysis}
-                            // ▼既に解析結果があるか判定
-                            hasGenerated={generatedAnalysisText.length > 0}
+                            hasGenerated={generatedAnalysisText.length > 0} // 既に解析結果があるか判定
                         />
                     )}
 
-                    {/* STEP 1: AI解析 */}
+                    {/* STEP 1: AI解析（構成要素分解） */}
                     {currentStep === 1 && (
                         <AnalysisSection
                             text={generatedAnalysisText}
                             isGenerating={isGeneratingAnalysis}
                             error={error}
                             onNext={handleStartIdea}
-                            // ▼既にアイデア結果があるか判定
-                            hasNextGenerated={generatedIdeaText.length > 0}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
+                            hasNextGenerated={generatedIdeaText.length > 0} //既にアイデア生成結果があるか判定
+                            setIsSourceOpen={setIsRightSidebarOpen}
+                            setActiveParagraphId={handleParagraphClick}
                         />
                     )}
 
-                    {/* STEP 2: アイデア */}
+                    {/* STEP 2: アイデア生成 */}
                     {currentStep === 2 && (
                         <IdeaSection
                             text={generatedIdeaText}
                             isGenerating={isGeneratingIdea}
                             error={error}
                             onNext={handleStartChat}
-                            hasNextGenerated={maxReachedStep >= 3}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
+                            hasNextGenerated={maxReachedStep >= 3} // チャット画面に到達しているか判定
+                            setIsSourceOpen={setIsRightSidebarOpen}
+                            setActiveParagraphId={handleParagraphClick}
                         />
                     )}
+
                     {/* STEP 3: チャット機能 */}
                     {currentStep === 3 && (
                         <ChatSection
@@ -319,26 +359,12 @@ export const GeneratingScreen = ({
                             isGenerating={isGeneratingChat}
                             error={error}
                             onSubmit={handleChatSubmit}
-                            setActiveParagraphId={setActiveParagraphId}
-                            setIsSourceOpen={setIsSourceOpen}
+                            setIsSourceOpen={setIsRightSidebarOpen}
+                            setActiveParagraphId={handleParagraphClick}
                         />
                     )}
                 </div>
             </div>
-
-            {/* 原文サイドバー (常にレンダリングしておき、表示状態を制御) */}
-            {isSourceOpen && (
-                <SourceSidebar
-                    isOpen={isSourceOpen}
-                    onClose={() => setIsSourceOpen(false)}
-                    fileName={fileName}
-                    sourceBlocks={sourceBlocks}
-                    activeParagraphId={activeParagraphId}
-                    patentImages={patentImages}
-                    selectedImage={selectedImage}
-                    setSelectedImage={setSelectedImage}
-                />
-            )}
         </div>
     );
 };

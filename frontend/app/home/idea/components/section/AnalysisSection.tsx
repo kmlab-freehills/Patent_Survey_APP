@@ -33,7 +33,6 @@ export const AnalysisSection = ({
 }: AnalysisSectionProps) => {
     // ボタンの表示条件
     const showActionButton = !isGenerating && text && !error;
-
     return (
         <div className="space-y-6">
             {/* ツールバー */}
@@ -44,7 +43,6 @@ export const AnalysisSection = ({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* コピーボタン */}
                     {!isGenerating && text && <CopyButton text={text} />}
                     {/* 上部アクションボタン */}
                     {showActionButton && (
@@ -54,7 +52,7 @@ export const AnalysisSection = ({
                             size="small"
                             labelText={hasNextGenerated ? "アイデアを再生成" : "アイデアを生成"}
                             icon={Lightbulb}
-                            colorTheme="emerald" // 次のステップのテーマカラー
+                            colorTheme="emerald"
                         />
                     )}
                 </div>
@@ -73,7 +71,7 @@ export const AnalysisSection = ({
                         content={text}
                         onClickParagraph={(id) => {
                             setActiveParagraphId(id);
-                            setIsSourceOpen(true);
+                            setIsSourceOpen(true); // 🔧 直接booleanを渡す
                         }}
                     />
                     {isGenerating && (

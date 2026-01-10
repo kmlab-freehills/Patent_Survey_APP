@@ -114,7 +114,8 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ---
 
-## ディレクトリ構造（2026/1/1 時点）
+## ディレクトリ構造
+
 
 
 ```
@@ -177,24 +178,20 @@ Patent_Survey_APP
 │  │  ├─ layout.tsx
 │  │  ├─ MainLayout.tsx
 │  │  └─ page.tsx
+│  ├─ components
+│  │  ├─ layout
+│  │  │  ├─ Header.tsx
+│  │  │  ├─ LeftSidebar.tsx
+│  │  │  └─ RightSidebar.tsx
+│  │  └─ ui
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
-│  ├─ images
-│  │  ├─ arrow_back.svg
-│  │  ├─ check_icon.svg
-│  │  ├─ edit_document_icon.svg
-│  │  ├─ file.svg
-│  │  ├─ info_icon.svg
-│  │  ├─ logout_icon.svg
-│  │  ├─ menu_icon.svg
-│  │  ├─ science.svg
-│  │  ├─ send_icon.svg
-│  │  └─ setting_icon.svg
+│  ├─ hooks
+│  │  └─ appState.tsx
 │  ├─ next.config.ts
 │  ├─ package-lock.json
 │  ├─ package.json
 │  ├─ postcss.config.mjs
-│  ├─ README.md
 │  ├─ styles
 │  │  ├─ chat_input_style.css
 │  │  └─ markdown_style.css
