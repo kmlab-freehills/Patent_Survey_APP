@@ -433,36 +433,3 @@ def parse_patent_text(text: str) -> PatentDocument:
     return doc
 
 
-# ============================================================
-# [3] メイン処理
-# ============================================================
-
-
-# 変更点: read_pdf() を削除し、patent_text_extraction() を修正
-
-
-def patent_text_extraction(pdf_bytes):
-    """
-    特許PDFのテキストを抽出・整形しPatentDocumentに変換
-
-    Note: Docling統合版
-        - テキスト抽出は patent_parser.py に委譲
-        - この関数は正規表現処理とPatentDocument変換のみ担当
-    """
-    from src.func.patent_parser import extract_plaintext_and_images
-
-    # Doclingで抽出
-    plaintext, images = extract_plaintext_and_images(pdf_bytes)
-
-    # 既存の正規表現処理を適用
-    cleaned_text = patent_text_cleanup(plaintext)
-    patent_doc = parse_patent_text(cleaned_text)
-
-    # 欠損セクション確認
-    missing_sections = patent_doc.get_missing_sections()
-    if missing_sections:
-        print("以下のセクションはこの文書に含まれていませんでした:")
-        for section in missing_sections:
-            print(f"- {section}")
-
-    return patent_doc, images  # 画像も返すように変更

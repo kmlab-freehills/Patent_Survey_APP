@@ -121,26 +121,29 @@ AI の回答の根拠となる原文箇所をハイライト表示
 Patent_Survey_APP
 ├─ backend
 │  ├─ .python-version
-│  ├─ config.py
 │  ├─ Dockerfile
 │  ├─ main.py
 │  ├─ pyproject.toml
 │  ├─ src
-│  │  ├─ func
-│  │  │  ├─ gemini_client.py
-│  │  │  ├─ generate_func.py
-│  │  │  ├─ patent_images.py
-│  │  │  └─ patent_pdf.py
+│  │  ├─ core
+│  │  │  ├─ client.py
+│  │  │  └─ config.py
 │  │  ├─ prompt
 │  │  │  ├─ idea_prompt.py
 │  │  │  └─ system_prompt.py
-│  │  ├─ routers
-│  │  │  ├─ generate_api.py
-│  │  │  └─ patent_process_api.py
-│  │  ├─ schemas
-│  │  │  └─ patent_schemas.py
-│  │  └─ storage
-│  │     └─ patent_store.py
+│  │  └─ services
+│  │     ├─ gemini
+│  │     │  ├─ generate_api.py
+│  │     │  └─ generate_func.py
+│  │     └─ patent
+│  │        ├─ functions.py
+│  │        ├─ patent_api.py
+│  │        ├─ patent_schemas.py
+│  │        ├─ patent_store.py
+│  │        └─ supports
+│  │           ├─ patent_images.py
+│  │           ├─ patent_parser.py
+│  │           └─ patent_text.py
 │  └─ uv.lock
 ├─ docker-compose.yml
 ├─ frontend

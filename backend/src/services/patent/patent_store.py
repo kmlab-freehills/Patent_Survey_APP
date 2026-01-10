@@ -2,9 +2,13 @@
 
 import os
 import shutil
-from pathlib import Path
+import json  # JSON保存用に追加
 from typing import Any, Dict, List
-from uuid import uuid4  # ID生成
+from uuid import uuid4
+from pathlib import Path  # Path操作用に追加
+
+from src.services.patent.supports.patent_images import save_patent_images
+from src.core.config import STATIC_BASE_PATH, STATIC_BASE_URL
 
 # ==========================================
 # 1. 特許テキストデータ（idで管理）
@@ -15,68 +19,76 @@ from uuid import uuid4  # ID生成
 patent_store: Dict[str, object] = {}
 
 
-# 保存用
+# ==========================================
+# 1. 特許テキストデータ & JSON保存
+# ==========================================
+
+
 def save_patent(patent_doc, images: list = None) -> str:
     """
     特許文書と画像を保存
-    
-    Args:
-        patent_doc: PatentDocumentオブジェクト
-        images: PIL Imageオブジェクトのリスト (optional)
-        
-    Returns:
-        patent_id: 生成された特許ID
+    構造: storage/patents/{patent_id}/
+            ├── data.json      (解析結果)
+            └── figures/       (画像フォルダ)
+                ├── fig_001.png
+                └── ...
     """
-    from src.func.patent_images import save_patent_images
-    
     patent_id = str(uuid4())
+
+    # 1. オンメモリに保存（高速アクセス用）
     patent_store[patent_id] = patent_doc
-    
-    # 画像がある場合は保存
+
+    # 2. 保存先ディレクトリの構築: backend/storage/patents/{patent_id}
+    patent_dir = STATIC_BASE_PATH / "patents" / patent_id
+    os.makedirs(patent_dir, exist_ok=True)
+
+    # 3. JSONデータの保存（要望対応）
+    json_path = patent_dir / "data.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        # patent_doc.to_dict() をダンプ
+        json.dump(patent_doc.to_dict(), f, ensure_ascii=False, indent=2)
+
+    # 4. 画像がある場合は保存
     if images:
+        # storage/patents/{patent_id}/figures
         figure_dir = get_patent_figure_dir(patent_id)
         save_patent_images(images, figure_dir)
-    
+
+    # idを返す
     return patent_id
 
 
-# 取得用
 def get_patent(patent_id: str):
+    # 基本はオンメモリから返す（将来的にJSONから読み込むロジックを追加）
     return patent_store.get(patent_id)
 
 
 # ==========================================
-# 2. 特許画像データ（一時フォルダで管理）
+# 2. 特許画像データ（ディレクトリで管理）
 # ==========================================
-
-# サーバー起動でディレクトリ作成&終了時にディレクトリ削除（※リロード時にも削除処理が走る）
-
-
-# .parent.parent.parent で src -> storage -> backend へ遡る
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-
-# 2. プロジェクトルート直下に一時フォルダを作成
-STATIC_DIR_NAME = "temp_patents"
-STATIC_BASE_PATH = str(PROJECT_ROOT / STATIC_DIR_NAME)
-
-STATIC_BASE_URL = "/static/patents"
 
 
 def get_patent_figure_dir(patent_id: str) -> str:
-    # Pathオブジェクトを使って結合し、文字列で返す
-    path = PROJECT_ROOT / STATIC_DIR_NAME / patent_id / "figures"
+    """
+    画像の保存先ディレクトリパスを返す
+    パス: backend/storage/patents/{patent_id}/figures
+    """
+    path = STATIC_BASE_PATH / "patents" / patent_id / "figures"
     return str(path)
 
 
-# アクセス用URL作成
 def build_figure_url(patent_id: str, filename: str) -> str:
-    return f"{STATIC_BASE_URL}/{patent_id}/figures/{filename}"
+    """
+    アクセス用URL作成
+    URL: /static/patents/{patent_id}/figures/{filename}
+    """
+    return f"{STATIC_BASE_URL}/patents/{patent_id}/figures/{filename}"
 
 
 # アプリ終了時に呼ばれるクリーンアップ関数
 def cleanup_temp_files():
     if os.path.exists(STATIC_BASE_PATH):
-        # フォルダの中身ごと完全に削除
+        # storageフォルダの中身ごと削除（patentsディレクトリも含まれるため一括削除される）
         shutil.rmtree(STATIC_BASE_PATH)
         print(f"Cleanup: Deleted {STATIC_BASE_PATH}")
 

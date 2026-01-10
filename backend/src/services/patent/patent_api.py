@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from src.func.patent_pdf import patent_text_extraction
-from src.schemas import patent_schemas
-from src.storage.patent_store import (
+from src.services.patent.functions import patent_text_extraction
+from src.services.patent import patent_schemas
+from src.services.patent.patent_store import (
     build_figure_url,
     get_patent_figure_dir,
     save_patent,

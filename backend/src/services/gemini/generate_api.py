@@ -3,9 +3,10 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from src.func import gemini_client, generate_func
+from src.core.client import gemini_client
+from src.services.gemini import generate_func
 from src.prompt import idea_prompt, system_prompt
-from src.storage.patent_store import (
+from src.services.patent.patent_store import (
     get_chat_history,
     get_patent,
     save_chat_message,
@@ -14,7 +15,7 @@ from src.storage.patent_store import (
 ## generate_api.py / LLM生成のAPIエンドポイント ##
 
 router = APIRouter(prefix="/generate", tags=["LLM生成"])
-client = gemini_client.client
+client = gemini_client
 
 # ============================================================
 # リクエストボディのモデル定義

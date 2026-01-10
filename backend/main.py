@@ -3,15 +3,14 @@
 import os
 from contextlib import asynccontextmanager  # ライフサイクルイベント
 
-import config
 from fastapi import FastAPI  # アプリ本体
 from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
-from src.routers import generate_api, patent_process_api  # APIエンドポイント
-from src.storage.patent_store import (
-    STATIC_BASE_PATH,
-    cleanup_temp_files,
-)  # 一時ファイル処理用
 from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
+
+from src.core.config import STATIC_BASE_PATH, CLEANUP_ON_EXIT, FRONTEND_URL
+from src.services.gemini import generate_api
+from src.services.patent import patent_api
+from src.services.patent.patent_store import cleanup_temp_files  # 一時ファイル処理用
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -35,7 +34,7 @@ async def lifespan(app: FastAPI):
 
     # --- 終了時の処理 ---
     print("アプリケーションを終了しています...")
-    if config.CLEANUP_ON_EXIT == "true":
+    if CLEANUP_ON_EXIT == "true":
         cleanup_temp_files()  # 一時ファイル削除実行
 
 
@@ -50,11 +49,14 @@ app = FastAPI(
     lifespan=lifespan,  # ← lifespanを指定
 )
 
-FRONTEND_URL = config.FRONTEND_URL or ""
+# ============================================================
+# マウント処理
+# ============================================================
 
-# 特許画像保存先
-os.makedirs(STATIC_BASE_PATH, exist_ok=True)  # マウント前に確実にディレクトリを作成
-app.mount("/static/patents", StaticFiles(directory=STATIC_BASE_PATH), name="static")
+# ストレージのルートディレクトリを作成
+os.makedirs(STATIC_BASE_PATH, exist_ok=True)
+# マウント
+app.mount("/static", StaticFiles(directory=STATIC_BASE_PATH), name="static")
 
 # ============================================================
 # CORS設定（フロントエンドとの通信を許可）
@@ -73,7 +75,7 @@ app.add_middleware(
 # ============================================================
 
 app.include_router(generate_api.router)  # LLM生成API
-app.include_router(patent_process_api.router)  # 特許PDF処理API
+app.include_router(patent_api.router)  # 特許PDF処理API
 
 
 # ============================================================
