@@ -1,38 +1,32 @@
 # backend/src/services/gemini/schemas.py
 
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Dict, Optional, Literal
 
 class GenerateRequest(BaseModel):
     """統一リクエスト"""
-    
-    # コア
-    prompt: str = Field(..., description="ユーザー入力")
+    # プロンプトの種類 (例: "analysis", "idea", "chat_system")
+    prompt_type: str = Field(..., description="使用するプロンプトテンプレートのID")
+
+    # 柔軟なコンテキスト辞書
+    # キー: "patent_text", "analysis_result", "idea_list" など
+    context: Dict[str, str] = Field(default_factory=dict, description="プロンプトに埋め込むためのコンテキスト情報")
+
+    # チャットの場合のユーザー入力（解析などの場合は空でも可）
+    user_message: Optional[str] = Field(..., description="ユーザー入力")
+
+    # セッション管理用
     session_id: Optional[str] = Field(None, description="既存セッションID")
-    
-    # 動作モード
-    save_context: bool = Field(
-        default=True, 
-        description="履歴保存モード（False=シングルショット）"
-    )
-    
-    # オプション
-    system_instruction: Optional[str] = Field(
-        None, 
-        description="システムプロンプト"
-    )
-    patent_id: Optional[str] = Field(
-        None, 
-        description="特許IDを指定すると自動でプロンプト構築"
-    )
+    save_context: bool = Field(default=True, description="履歴保存モード（False=シングルショット）")
 
 
 class StreamEvent(BaseModel):
     """UIイベント"""
+
     type: Literal[
-        "session_init",    # セッションID通知
-        "content_delta",   # テキスト追記
-        "done",            # 完了
-        "error"            # エラー
+        "session_init",  # セッションID通知
+        "content_delta",  # テキスト追記
+        "done",  # 完了
+        "error",  # エラー
     ]
     data: dict

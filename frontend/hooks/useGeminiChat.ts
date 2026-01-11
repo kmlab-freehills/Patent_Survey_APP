@@ -2,18 +2,20 @@
 
 import { useCallback, useRef, useState } from "react";
 
-// 型定義を追加
+// 表示する型定義
 export interface UIMessage {
     id: string;
     role: "user" | "assistant";
     content: string;
 }
 
+// パラメーターの型定義
 interface GenerateParams {
-    prompt: string;
-    systemInstruction?: string;
-    saveContext?: boolean;
-    patentId?: string;
+    promptType: string; // "analysis" | "idea" | "chat"
+    context: Record<string, string>; // 辞書型コンテキスト
+    userMessage?: string; // チャット時のユーザー入力（解析時は空でも可）
+    saveContext?: boolean; // 履歴を保存するか
+    sessionId?: string; // 明示的に指定する場合
 }
 
 export const useGeminiChat = () => {
@@ -30,29 +32,37 @@ export const useGeminiChat = () => {
         setIsGenerating(true);
         setError(null);
 
-        // ユーザーメッセージと空のアシスタントメッセージを追加
-        const userMsg: UIMessage = {
-            id: crypto.randomUUID(),
-            role: "user",
-            content: params.prompt,
-        };
+        // UI表示用のメッセージ処理
+        // 解析・アイデア生成モードの場合は、システム的なメッセージは表示しない、
+        // またはユーザー入力がある場合（チャット）のみ表示する等の制御が必要
+        if (params.userMessage) {
+            const userMsg: UIMessage = {
+                id: crypto.randomUUID(),
+                role: "user",
+                content: params.userMessage,
+            };
+            setMessages((prev) => [...prev, userMsg]);
+        }
+
+        // アシスタントの空メッセージ枠を追加（ストリーミング用）
         const assistantMsg: UIMessage = {
             id: crypto.randomUUID(),
             role: "assistant",
             content: "",
         };
-        setMessages((prev) => [...prev, userMsg, assistantMsg]);
+        setMessages((prev) => [...prev, assistantMsg]);
 
         try {
             const response = await fetch("http://localhost:8000/generate/content", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    prompt: params.prompt,
-                    session_id: sessionIdRef.current,
+                    // バックエンドの GenerateRequest スキーマに合わせる
+                    prompt_type: params.promptType,
+                    context: params.context,
+                    user_message: params.userMessage || null,
+                    session_id: params.sessionId || sessionIdRef.current,
                     save_context: params.saveContext ?? true,
-                    system_instruction: params.systemInstruction,
-                    patent_id: params.patentId,
                 }),
             });
 
@@ -87,13 +97,22 @@ export const useGeminiChat = () => {
                                 setSessionId(event.data.session_id);
                                 sessionIdRef.current = event.data.session_id;
                                 break;
-
                             case "content_delta":
                                 setMessages((prev) => {
+                                    // 配列の浅いコピーを作成
                                     const updated = [...prev];
-                                    const lastMsg = updated[updated.length - 1];
+
+                                    // 最後のメッセージのインデックスを取得
+                                    const lastIndex = updated.length - 1;
+
+                                    // オブジェクト自体もコピーして新しい参照を作る
+                                    const lastMsg = { ...updated[lastIndex] };
+
                                     if (lastMsg.role === "assistant") {
+                                        // コピーしたオブジェクトに対して追記
                                         lastMsg.content += event.data.chunk;
+                                        // 配列の該当箇所を新しいオブジェクトで置き換え
+                                        updated[lastIndex] = lastMsg;
                                     }
                                     return updated;
                                 });

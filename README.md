@@ -129,8 +129,14 @@ Patent_Survey_APP
 │  │  │  ├─ client.py
 │  │  │  └─ config.py
 │  │  ├─ prompt
-│  │  │  ├─ idea_prompt.py
-│  │  │  └─ system_prompt.py
+│  │  │  ├─ manager.py
+│  │  │  └─ templates
+│  │  │     ├─ system
+│  │  │     │  └─ patent_system_prompt.py
+│  │  │     ├─ task
+│  │  │     │  ├─ analysis_prompt.py
+│  │  │     │  └─ idea_prompt.py
+│  │  │     └─ template_memo.py
 │  │  └─ services
 │  │     ├─ gemini
 │  │     │  ├─ generate_api.py
@@ -185,6 +191,8 @@ Patent_Survey_APP
 │  │  │  ├─ LeftSidebar.tsx
 │  │  │  └─ RightSidebar.tsx
 │  │  └─ ui
+│  ├─ constants
+│  │  └─ prompts.ts
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
 │  ├─ hooks

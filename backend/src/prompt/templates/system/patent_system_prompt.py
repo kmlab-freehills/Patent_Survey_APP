@@ -114,28 +114,16 @@ SYSTEM_PROMPT_PATENT = """
 """.strip()
 
 
-# ============================================================
-# 対話用システムプロンプト
-# ============================================================
+def build_patent_chat_system_prompt(patent_text: str, analysis_text: str, idea_text: str) -> str:
+    # 資料がない場合のフォールバック（仮）
+    if not patent_text:
+        pass
+    if not analysis_text:
+        pass
+    if not idea_text:
+        pass
 
-
-def build_chat_system_instruction(
-    patent_doc, analysis_text: str = "", idea_text: str = ""
-):
-    """
-    チャット用システムプロンプト生成
-    特許原文と生成済みテキストを文脈として含める
-
-    Args:
-        patent_doc: PatentDocumentオブジェクト
-        analysis_text: 解析結果テキスト（生成済みの場合）
-        idea_text: アイデアテキスト（生成済みの場合）
-
-    Returns:
-        システムプロンプト文字列
-    """
-
-    base_instruction = """
+    system_prompt = f"""
 # システムプロンプト: 特許技術対話サポートAI
 
 ## あなたの役割
@@ -292,35 +280,27 @@ def build_chat_system_instruction(
 
 6. **その他**: いずれにも該当しない場合
    → システムプロンプトの原則・指針に沿って誠実な対応を実施
-"""
 
-    # 文脈情報を追加
-    context_section = "\n\n---\n\n## 文脈情報\n\n"
+## 文脈情報
 
-    # 特許原文
-    context_section += "### 特許原文\n\n"
-    context_section += "<document title='Patent'>\n"
-    context_section += patent_doc.get_text()
-    context_section += "\n</document>\n\n"
+### 特許原文
 
-    # 解析結果（存在する場合）
-    if analysis_text:
-        context_section += "### 特許の解析結果（LLMによる生成）\n\n"
-        context_section += "<document title='Patent-Analysis-by-LLM'>\n"
-        context_section += analysis_text
-        context_section += "\n</document>\n\n"
+<document title='Patent'>
+{patent_text.strip()}
+</document>
 
-    # アイデア結果（存在する場合）
-    if idea_text:
-        context_section += "### 応用アイデア（LLMによる生成）\n\n"
-        context_section += "<document title='Patent-Idea-by-LLM'>\n"
-        context_section += idea_text
-        context_section += "\n</document>\n\n"
 
-    context_section += "---\n\n"
-    context_section += "これらの情報を基に、ユーザーの質問に答えてください。"
+### 特許の解析結果（LLMによる生成）
+<document title='Patent-Analysis-by-LLM'>
+{analysis_text.strip()}
+</document>
 
-    # 統合
-    system_instruction = base_instruction + context_section
+### 応用アイデア（LLMによる生成）
+<document title='Patent-Idea-by-LLM'>
+{idea_text.strip()}
+</document>
 
-    return system_instruction.strip()
+これらの情報を基に、ユーザーの質問に答えてください。
+""".strip()
+
+    return system_prompt

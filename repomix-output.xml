@@ -275,242 +275,72 @@ STATIC_BASE_PATH = PROJECT_ROOT / "storage"
 STATIC_BASE_URL = "/static"
 </file>
 
-<file path="backend/src/prompt/idea_prompt.py">
-# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
-
-# ============================================================
-# 特許解析プロンプト
-# ============================================================
-
-
-def build_patent_prompt(patent_doc):
-    prompt = f"""
-
-## 1. 基本原則
-- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
-- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
-- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
-
-## 2. 該当記述がない場合の対応
-各項目について、以下の基準で判断してください：
-
-1. **明確な記述がある** → そのまま抽出
-2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
-3. **該当する記述が見当たらない** → 「該当記述なし」と明記
-
-## 3. 出典の明記
-可能な限り、抽出した情報の出典を明示してください：
-- 段落番号、図番号、表番号などを併記
-  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
-
-## 4. 分類に関する補足
-
-### 複数項目に該当する要素の扱い
-同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
-
-例:
-- 項目2-1: 「温度センサー」（物理的構成要素として）
-- 項目3-1: 「温度センシング技術」（検出原理として）
-- 項目3-2: 「周囲温度の測定」（要素機能として）
-
-### 不明確な分類の場合
-どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
-
-## 5. 出力テンプレート
-
-抽出内容は、以下の構造で記述してください。
-
-```markdown
-# [特許の名称]
-
-## 1. 発明の技術分野
-【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
-
----
-
-## 2. 技術の物理的構成
-
-### 2-1. 構成要素（部材・部品）
-**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
-- 該当例: モーター、センサー筐体、フレーム、ギア、配線
-- 非該当例: ソフトウェア、アルゴリズム、製造方法
-
-### 2-2. 構成材料・原料
-構成要素を**作るための材料・材質**を箇条書きでリストアップ。
-- 該当例: 金属、樹脂、化学物質、合金、繊維
-- 非該当例: 完成した部品（それは2-1に記載）
-
-### 2-3. 形態・形状・構造
-技術が「どのような形・構造」をしているかを記述。
-- 全体の形状、配置関係、構造的特徴など
-
----
-
-## 3. 技術の機能的構成
-
-### 3-1. 基盤技術・要素技術
-**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
-- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
-- 非該当例: 物理的な部品（それは2-1に記載）
-
-### 3-2. 要素機能（部品レベル）
-各構成要素が果たす**個別の役割**を記述。
-
-### 3-3. システム機能（全体レベル）
-技術全体として実現される**主要な機能**を記述。
-
-### 3-4. 動作フロー（該当記述がある場合のみ）
-技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
-
----
-
-## 4. 定量データ・仕様情報
-
-以下のルールで数値データを抽出してください：
-
-**抽出原則:**
-1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
-2. **文脈を保持**: 数値が何を示すかを明記
-3. **出典を明記**: 段落番号、図番号、表番号を併記
-4. **範囲と条件**: 数値に条件がある場合、その条件も記載
-
-**抽出対象:**
-- 寸法・サイズ
-- 物理量
-- 性能指標
-- 配合・比率
-- その他の定量的記述
-```
-
-## 対象資料
-<document>
-{patent_doc.get_text()}
-</document>
-""".strip()
-    return prompt
-
-
-# ============================================================
-# アイデア生成プロンプト
-# ============================================================
-
-
-def build_idea_prompt(patent_doc, explanation_text):
-    prompt = f"""
-特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
-
-## アイデア生成の指針
-
-### 基本的な問い
-すべてのアイデアは、以下の問いに答えるものとしてください：
-
-1. **誰の課題を解決するのか？**（ターゲットの明確化）
-2. **どのように解決するのか？**（技術との接続）
-3. **なぜこの技術が適しているのか？**（技術的優位性）
-
-### アイデアの多様性
-以下のような多様性を持つアイデアを含めてください：
-
-- **近接応用**: 特許文書に記載された用途に近い応用
-- **遠隔転用**: 全く異なる分野への転用
-- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
-
-## 重要な原則
-
-### 1. 事実と推測の明確な分離
-あなたが生成するアイデアは、以下の2つの要素から構成されます：
-
-**【事実層】特許文書に基づく技術的事実**
-- フェーズ1で抽出された情報のみを使用
-- 引用または要約の形式で明示
-
-**【推測層】あなたの創造的な解釈・応用**
-- 事実層を出発点とした、論理的な推論
-- 市場ニーズや応用可能性の想定
-- **必ず[推測]とマークする**
-
-### 2. 推測の誠実な表現
-推測箇所では、以下のような表現を使用してください：
-
-- 「〜の可能性がある」
-- 「〜が期待される」
-- 「〜と想定される」
-- 「〜への応用が考えられる」
-
-**絶対に使用しないこと：**
-- 断定的な表現（「〜である」「〜できる」）
-- 根拠なき数値（「約○○%向上」）
-- 架空の事例（「A社では〜」）
-
-## 出力テンプレート
-
-各アイデアは、以下の構造で記述してください。
-
-```markdown
-# [特許の名称] アイデアリスト
-
----
-
-## アイデア1: [名称]
-
-### 技術的基盤（事実層）
-
-この特許技術は、以下の特性を持つ：
-- [特許文書からの引用または要約箇所を出典と共にリストアップ]
-
-### アイデアの概要（推測層）
-
-[上記の技術的基盤を出発点として、どのような応用が考えられるか]
-
-### 解決できる課題（推測層）
-
-[このアイデアがどのような課題を解決するか]
-
-### ターゲット像（推測層）
-
-- 企業: [想定される企業・組織]
-- 消費者: [想定される消費者層]
-
-### 提供価値（推測層）
-
-[このアイデアが提供するベネフィット]
-
-### 技術的接続点（事実層 + 推測層）
-
-特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
-根拠: （[段落: xxxx]参照）
-
-### 実装上の検討事項（推測層）
-
-- 技術的ハードル: [想定される課題]
-- 市場・規制リスク: [想定されるリスク]
-
----
-
-## アイデア2: [名称]
-...(省略)
-```
-
-## 対象技術に関する資料
-
-### 特許技術の構造化
-<document>
-{explanation_text}
-</document>
-
-### 特許原文（前提）
-<document>
-{patent_doc.get_text()}
-</document>
-
----
-
-上記の指示と資料に基づき、アイデアを生成してください。
-""".strip()
-    return prompt
+<file path="backend/src/prompt/manager.py">
+from typing import Dict, Tuple, Optional
+from src.prompt.templates.task.analysis_prompt import build_analysis_prompt
+from src.prompt.templates.task.idea_prompt import build_idea_prompt
+from src.prompt.templates.system.patent_system_prompt import SYSTEM_PROMPT_PATENT, build_patent_chat_system_prompt
+
+class PromptManager:
+    @staticmethod
+    def build(prompt_type: str, context: Dict[str, str], user_input: str = "") -> Tuple[str, Optional[str]]:
+        """
+        戻り値: (user_prompt, system_instruction)
+        """
+        
+        # ============================================================
+        # 特許解析～アイデア生成～チャット
+        # ============================================================
+        
+        # 1. 特許解析用
+        if prompt_type == "analysis":
+            # 辞書から取得
+            patent_text = context.get("patent_text", "")
+            # 必須チェック
+            if not patent_text:
+                raise ValueError("特許解析には 'patent_text' が必要です")
+            # プロンプト構築
+            system_prompt = SYSTEM_PROMPT_PATENT
+            prompt = build_analysis_prompt(patent_text)
+            return prompt, system_prompt
+
+        # 2. アイデア生成用
+        elif prompt_type == "idea":
+            # 辞書から取得
+            patent_text = context.get("patent_text", "")
+            analysis_text = context.get("analysis_text", "")
+            # 必須チェック
+            if not patent_text:
+                raise ValueError("アイデア生成には 'patent_text' が必要です")
+            if not analysis_text:
+                raise ValueError("アイデア生成には 'analysis_text' が必要です")
+            # プロンプト構築
+            system_prompt = SYSTEM_PROMPT_PATENT
+            prompt = build_idea_prompt(patent_text, analysis_text)
+            return prompt, None
+
+        # 3. チャット用（システムプロンプト構築）
+        elif prompt_type == "chat":
+            # 辞書から取得
+            patent_text = context.get("patent_text", "")
+            analysis_text = context.get("analysis_text", "")
+            idea_text = context.get("idea_text")
+            if not patent_text:
+                raise ValueError("チャットには 'patent_text' が必要です")
+            if not analysis_text:
+                raise ValueError("チャットには 'analysis_text' が必要です")
+            if not idea_text:
+                raise ValueError("チャットには 'idea_text' が必要です")
+            # プロンプト構築
+            system_prompt = build_patent_chat_system_prompt(patent_text, analysis_text, idea_text)
+            # ユーザーメッセージはそのまま返す
+            return user_input, prompt
+
+        else:
+            raise ValueError(f"未定義のプロンプトタイプ: {prompt_type}")
 </file>
 
-<file path="backend/src/prompt/system_prompt.py">
+<file path="backend/src/prompt/templates/system/patent_system_prompt.py">
 # Patent_Survey_APP/backend/src/prompt/system_prompt.py
 
 # ============================================================
@@ -627,28 +457,16 @@ SYSTEM_PROMPT_PATENT = """
 """.strip()
 
 
-# ============================================================
-# 対話用システムプロンプト
-# ============================================================
+def build_patent_chat_system_prompt(patent_text: str, analysis_text: str, idea_text: str) -> str:
+    # 資料がない場合のフォールバック（仮）
+    if not patent_text:
+        pass
+    if not analysis_text:
+        pass
+    if not idea_text:
+        pass
 
-
-def build_chat_system_instruction(
-    patent_doc, analysis_text: str = "", idea_text: str = ""
-):
-    """
-    チャット用システムプロンプト生成
-    特許原文と生成済みテキストを文脈として含める
-
-    Args:
-        patent_doc: PatentDocumentオブジェクト
-        analysis_text: 解析結果テキスト（生成済みの場合）
-        idea_text: アイデアテキスト（生成済みの場合）
-
-    Returns:
-        システムプロンプト文字列
-    """
-
-    base_instruction = """
+    system_prompt = f"""
 # システムプロンプト: 特許技術対話サポートAI
 
 ## あなたの役割
@@ -805,148 +623,394 @@ def build_chat_system_instruction(
 
 6. **その他**: いずれにも該当しない場合
    → システムプロンプトの原則・指針に沿って誠実な対応を実施
-"""
 
-    # 文脈情報を追加
-    context_section = "\n\n---\n\n## 文脈情報\n\n"
+## 文脈情報
 
-    # 特許原文
-    context_section += "### 特許原文\n\n"
-    context_section += "<document title='Patent'>\n"
-    context_section += patent_doc.get_text()
-    context_section += "\n</document>\n\n"
+### 特許原文
 
-    # 解析結果（存在する場合）
-    if analysis_text:
-        context_section += "### 特許の解析結果（LLMによる生成）\n\n"
-        context_section += "<document title='Patent-Analysis-by-LLM'>\n"
-        context_section += analysis_text
-        context_section += "\n</document>\n\n"
+<document title='Patent'>
+{patent_text.strip()}
+</document>
 
-    # アイデア結果（存在する場合）
-    if idea_text:
-        context_section += "### 応用アイデア（LLMによる生成）\n\n"
-        context_section += "<document title='Patent-Idea-by-LLM'>\n"
-        context_section += idea_text
-        context_section += "\n</document>\n\n"
 
-    context_section += "---\n\n"
-    context_section += "これらの情報を基に、ユーザーの質問に答えてください。"
+### 特許の解析結果（LLMによる生成）
+<document title='Patent-Analysis-by-LLM'>
+{analysis_text.strip()}
+</document>
 
-    # 統合
-    system_instruction = base_instruction + context_section
+### 応用アイデア（LLMによる生成）
+<document title='Patent-Idea-by-LLM'>
+{idea_text.strip()}
+</document>
 
-    return system_instruction.strip()
+これらの情報を基に、ユーザーの質問に答えてください。
+""".strip()
+
+    return system_prompt
+</file>
+
+<file path="backend/src/prompt/templates/task/analysis_prompt.py">
+def build_analysis_prompt(patent_text: str) -> str:
+    # 資料がない場合のフォールバック（仮）
+    if not patent_text:
+        pass
+    
+    prompt = f"""
+## 1. 基本原則
+- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
+- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
+- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
+
+## 2. 該当記述がない場合の対応
+各項目について、以下の基準で判断してください：
+
+1. **明確な記述がある** → そのまま抽出
+2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
+3. **該当する記述が見当たらない** → 「該当記述なし」と明記
+
+## 3. 出典の明記
+可能な限り、抽出した情報の出典を明示してください：
+- 段落番号、図番号、表番号などを併記
+  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
+
+## 4. 分類に関する補足
+
+### 複数項目に該当する要素の扱い
+同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
+
+例:
+- 項目2-1: 「温度センサー」（物理的構成要素として）
+- 項目3-1: 「温度センシング技術」（検出原理として）
+- 項目3-2: 「周囲温度の測定」（要素機能として）
+
+### 不明確な分類の場合
+どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
+
+## 5. 出力テンプレート
+
+抽出内容は、以下の構造で記述してください。
+
+```markdown
+# [特許の名称]
+
+## 1. 発明の技術分野
+【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
+
+---
+
+## 2. 技術の物理的構成
+
+### 2-1. 構成要素（部材・部品）
+**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
+- 該当例: モーター、センサー筐体、フレーム、ギア、配線
+- 非該当例: ソフトウェア、アルゴリズム、製造方法
+
+### 2-2. 構成材料・原料
+構成要素を**作るための材料・材質**を箇条書きでリストアップ。
+- 該当例: 金属、樹脂、化学物質、合金、繊維
+- 非該当例: 完成した部品（それは2-1に記載）
+
+### 2-3. 形態・形状・構造
+技術が「どのような形・構造」をしているかを記述。
+- 全体の形状、配置関係、構造的特徴など
+
+---
+
+## 3. 技術の機能的構成
+
+### 3-1. 基盤技術・要素技術
+**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
+- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
+- 非該当例: 物理的な部品（それは2-1に記載）
+
+### 3-2. 要素機能（部品レベル）
+各構成要素が果たす**個別の役割**を記述。
+
+### 3-3. システム機能（全体レベル）
+技術全体として実現される**主要な機能**を記述。
+
+### 3-4. 動作フロー（該当記述がある場合のみ）
+技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
+
+---
+
+## 4. 定量データ・仕様情報
+
+以下のルールで数値データを抽出してください：
+
+**抽出原則:**
+1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
+2. **文脈を保持**: 数値が何を示すかを明記
+3. **出典を明記**: 段落番号、図番号、表番号を併記
+4. **範囲と条件**: 数値に条件がある場合、その条件も記載
+
+**抽出対象:**
+- 寸法・サイズ
+- 物理量
+- 性能指標
+- 配合・比率
+- その他の定量的記述
+```
+
+## 対象資料
+<document>
+{patent_text.strip()}
+</document>
+""".strip()
+
+    return prompt
+</file>
+
+<file path="backend/src/prompt/templates/task/idea_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
+
+# ============================================================
+# 特許解析プロンプト
+# ============================================================
+def build_idea_prompt(patent_text: str, analysis_text) -> str:
+    # 資料がない場合のフォールバック（仮）
+    if not patent_text:
+        pass
+    if not analysis_text:
+        pass
+
+    prompt = f"""
+特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
+
+## アイデア生成の指針
+
+### 基本的な問い
+すべてのアイデアは、以下の問いに答えるものとしてください：
+
+1. **誰の課題を解決するのか？**（ターゲットの明確化）
+2. **どのように解決するのか？**（技術との接続）
+3. **なぜこの技術が適しているのか？**（技術的優位性）
+
+### アイデアの多様性
+以下のような多様性を持つアイデアを含めてください：
+
+- **近接応用**: 特許文書に記載された用途に近い応用
+- **遠隔転用**: 全く異なる分野への転用
+- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
+
+## 重要な原則
+
+### 1. 事実と推測の明確な分離
+あなたが生成するアイデアは、以下の2つの要素から構成されます：
+
+**【事実層】特許文書に基づく技術的事実**
+- フェーズ1で抽出された情報のみを使用
+- 引用または要約の形式で明示
+
+**【推測層】あなたの創造的な解釈・応用**
+- 事実層を出発点とした、論理的な推論
+- 市場ニーズや応用可能性の想定
+- **必ず[推測]とマークする**
+
+### 2. 推測の誠実な表現
+推測箇所では、以下のような表現を使用してください：
+
+- 「〜の可能性がある」
+- 「〜が期待される」
+- 「〜と想定される」
+- 「〜への応用が考えられる」
+
+**絶対に使用しないこと：**
+- 断定的な表現（「〜である」「〜できる」）
+- 根拠なき数値（「約○○%向上」）
+- 架空の事例（「A社では〜」）
+
+## 出力テンプレート
+
+各アイデアは、以下の構造で記述してください。
+
+```markdown
+# [特許の名称] アイデアリスト
+
+---
+
+## アイデア1: [名称]
+
+### 技術的基盤（事実層）
+
+この特許技術は、以下の特性を持つ：
+- [特許文書からの引用または要約箇所を出典と共にリストアップ]
+
+### アイデアの概要（推測層）
+
+[上記の技術的基盤を出発点として、どのような応用が考えられるか]
+
+### 解決できる課題（推測層）
+
+[このアイデアがどのような課題を解決するか]
+
+### ターゲット像（推測層）
+
+- 企業: [想定される企業・組織]
+- 消費者: [想定される消費者層]
+
+### 提供価値（推測層）
+
+[このアイデアが提供するベネフィット]
+
+### 技術的接続点（事実層 + 推測層）
+
+特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
+根拠: （[段落: xxxx]参照）
+
+### 実装上の検討事項（推測層）
+
+- 技術的ハードル: [想定される課題]
+- 市場・規制リスク: [想定されるリスク]
+
+---
+
+## アイデア2: [名称]
+...(省略)
+```
+
+## 対象技術に関する資料
+
+### 特許技術の構造化
+<document>
+{analysis_text.strip()}
+</document>
+
+### 特許原文（前提）
+<document>
+{patent_text.strip()}
+</document>
+
+---
+
+上記の指示と資料に基づき、アイデアを生成してください。
+""".strip()
+
+    return prompt
+</file>
+
+<file path="backend/src/prompt/templates/template_memo.py">
+# プロンプト構築関数のひな型
+
+def build_prompt(document: str) -> str:
+    # 資料がない場合のフォールバック
+    if not document:
+        pass
+
+    prompt = f"""
+{document}
+""".strip()
+
+    return prompt
 </file>
 
 <file path="backend/src/services/gemini/generate_api.py">
-# Patent_Survey_APP/backend/src/services/gemini/generate_api.py
-
 import json
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from src.core.client import gemini_client
-from src.services.gemini import session_store
 from src.services.gemini.generate_func import generate_text_engine
 from src.services.gemini.schemas import GenerateRequest
-
-## generate_api.py / LLM生成のAPIエンドポイント ##
+from src.services.gemini.session_store import session_store
 
 router = APIRouter(prefix="/generate", tags=["LLM生成"])
 client = gemini_client
 
 
-# ============================================================
-# エンドポイント
-# ============================================================
-
-
 @router.post("/content")
 async def generate_chat(request: GenerateRequest):
-    """統一エンドポイント"""
+    """
+    統一エンドポイント
+    - save_context=False (解析・アイデア生成): 履歴を使わず、単発のリクエストとして処理
+    - save_context=True  (チャット): セッション履歴を読み書きして処理
+    """
 
     async def event_stream():
         try:
-            # 1. セッション管理
-            session_id = request.session_id
-            history = []
+            # ====================================================
+            # モードA: チャットモード (履歴を保持・更新する)
+            # ====================================================
+            if request.save_context:
+                session_id = request.session_id
 
-            if not session_id and request.save_context:
-                session_id = session_store.create_session()
-                yield _format_event("session_init", {"session_id": session_id})
+                # 新規セッションなら作成
+                if not session_id:
+                    session_id = session_store.create_session()
+                    yield _format_event("session_init", {"session_id": session_id})
 
-            # 2. 履歴ロード
-            if session_id and request.save_context:
+                # 履歴のロード
                 history = session_store.load(session_id)
 
-            # 3. システムプロンプト挿入（履歴が空の場合のみ）
-            if not history and request.system_instruction:
-                history.append({"role": "user", "parts": [{"text": f"[System]\n{request.system_instruction}"}]})
+                # 今回のユーザー入力を追加
+                new_message = {"role": "user", "parts": [{"text": request.prompt}]}
+                history.append(new_message)
 
-            # 4. ユーザーメッセージ追加
-            history.append({"role": "user", "parts": [{"text": request.prompt}]})
+                # 生成エンジン実行
+                full_response_text = ""
+                for event in generate_text_engine(
+                    client=gemini_client, contents=history, system_instruction=request.system_instruction
+                ):
+                    if event["type"] == "content_delta":
+                        full_response_text += event["data"]["chunk"]
+                    yield _format_event(event["type"], event["data"])
 
-            # 5. 生成エンジン実行
-            for event in generate_text_engine(
-                client=gemini_client, contents=history, system_instruction=request.system_instruction
-            ):
-                yield _format_event(event["type"], event["data"])
-
-            # 6. 履歴保存（save_contextがtrueの場合のみ）
-            if session_id and request.save_context:
+                # 完了後、AIの応答も含めて履歴保存
+                history.append({"role": "model", "parts": [{"text": full_response_text}]})
                 session_store.save(session_id, history)
 
+            # ====================================================
+            # モードB: 単発生成モード (解析・アイデア生成)
+            # ====================================================
+            else:
+                # 履歴はロードせず、今回のプロンプトだけで構成する
+                contents = [{"role": "user", "parts": [{"text": request.prompt}]}]
+
+                for event in generate_text_engine(
+                    client=gemini_client, contents=contents, system_instruction=request.system_instruction
+                ):
+                    if "chunk" in event["data"]:
+                        print(event["data"]["chunk"], end="")
+                    yield _format_event(event["type"], event["data"])
+
         except Exception as e:
+            print(f"Generate Error: {e}")
             yield _format_event("error", {"message": str(e)})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 def _format_event(event_type: str, data: dict) -> str:
-    """SSE形式にフォーマット"""
     chunk = {"type": event_type, "data": data}
     return f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
 </file>
 
 <file path="backend/src/services/gemini/generate_func.py">
-# backend/src/services/gemini/generate_func.py
-
 from google.genai.types import GenerateContentConfig
-
 from typing import Any, Dict, Generator
-
 
 def generate_text_engine(
     client, contents: list, system_instruction: str = None
 ) -> Generator[Dict[str, Any], None, None]:
-    """
-    Gemini生成エンジン（Ollama方式）
-    contentsは参照渡しで、内部で自動的に更新される
-    """
+    
     config = GenerateContentConfig(system_instruction=system_instruction)
 
-    response = client.models.generate_content_stream(model="gemini-2.5-flash", contents=contents, config=config)
-
-    accumulated_text = ""
+    # ストリーム生成
+    response = client.models.generate_content_stream(
+        model="gemini-2.5-flash", 
+        contents=contents, 
+        config=config
+    )
 
     for chunk in response:
         if not chunk.candidates:
             continue
-
+        
         for part in chunk.candidates[0].content.parts:
-            if not getattr(part, "text", None):
-                continue
-
-            text = part.text
-            accumulated_text += text
-
-            # UIイベント送信
-            yield {"type": "content_delta", "data": {"chunk": text}}
-
-    # 完全な応答をcontentsに追加（参照渡しで自動更新）
-    contents.append({"role": "model", "parts": [{"text": accumulated_text}]})
+            text = part.text or ""
+            if text:
+                yield {"type": "content_delta", "data": {"chunk": text}}
 
     yield {"type": "done", "data": {}}
 </file>
@@ -955,39 +1019,33 @@ def generate_text_engine(
 # backend/src/services/gemini/schemas.py
 
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Dict, Optional, Literal
 
 class GenerateRequest(BaseModel):
     """統一リクエスト"""
-    
-    # コア
-    prompt: str = Field(..., description="ユーザー入力")
+    # プロンプトの種類 (例: "analysis", "idea", "chat_system")
+    prompt_type: str = Field(..., description="使用するプロンプトテンプレートのID")
+
+    # 柔軟なコンテキスト辞書
+    # キー: "patent_text", "analysis_result", "idea_list" など
+    context: Dict[str, str] = Field(default_factory=dict, description="プロンプトに埋め込むためのコンテキスト情報")
+
+    # チャットの場合のユーザー入力（解析などの場合は空でも可）
+    user_message: Optional[str] = Field(..., description="ユーザー入力")
+
+    # セッション管理用
     session_id: Optional[str] = Field(None, description="既存セッションID")
-    
-    # 動作モード
-    save_context: bool = Field(
-        default=True, 
-        description="履歴保存モード（False=シングルショット）"
-    )
-    
-    # オプション
-    system_instruction: Optional[str] = Field(
-        None, 
-        description="システムプロンプト"
-    )
-    patent_id: Optional[str] = Field(
-        None, 
-        description="特許IDを指定すると自動でプロンプト構築"
-    )
+    save_context: bool = Field(default=True, description="履歴保存モード（False=シングルショット）")
 
 
 class StreamEvent(BaseModel):
     """UIイベント"""
+
     type: Literal[
-        "session_init",    # セッションID通知
-        "content_delta",   # テキスト追記
-        "done",            # 完了
-        "error"            # エラー
+        "session_init",  # セッションID通知
+        "content_delta",  # テキスト追記
+        "done",  # 完了
+        "error",  # エラー
     ]
     data: dict
 </file>
@@ -2002,6 +2060,9 @@ import { SourceSidebar } from "../sidebar/SourceSidebar"; // 原文確認サイ�
 // グローバルステート取得
 import { useMenu } from "@/hooks/appState";
 
+import { useGeminiChat } from "@/hooks/useGeminiChat"; // 🆕 追加
+import { SYSTEM_PROMPT_PATENT } from "@/constants/prompts"; // 🆕 追加（後で作成）
+
 // ============================================================
 // Screen 2. 生成画面
 // ============================================================
@@ -2054,22 +2115,49 @@ export const GeneratingScreen = ({
     // グローバルステート取得
     const { setRightSidebarContent, setIsRightSidebarOpen } = useMenu();
 
-    // ステップ管理
+    // 解析用フック
+    const {
+        messages: analysisMessages,
+        isGenerating: isGeneratingAnalysis,
+        error: analysisError,
+        sendMessage: sendAnalysisMessage,
+        clearSession: clearAnalysisSession,
+    } = useGeminiChat();
+
+    // アイデア生成用フック
+    const {
+        messages: ideaMessages,
+        isGenerating: isGeneratingIdea,
+        error: ideaError,
+        sendMessage: sendIdeaMessage,
+        clearSession: clearIdeaSession,
+    } = useGeminiChat();
+
+    // 🆕 チャット用フック（マルチターン）
+    const {
+        messages: chatMessages,
+        isGenerating: isGeneratingChat,
+        error: chatError,
+        sendMessage: sendChatMessage,
+        clearSession: clearChatSession,
+    } = useGeminiChat();
+
+    // 既存のState
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
-    // 原文参照サイドバー
-    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
-    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
-    // 生成テキストデータ
+    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null);
+    
+    // 🔧 解析結果の管理方法を変更
     const [generatedAnalysisText, setGeneratedAnalysisText] = useState("");
     const [generatedIdeaText, setGeneratedIdeaText] = useState("");
-    // 生成ステータス管理
     const [error, setError] = useState<string | null>(null);
-    const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
-    const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
-    // チャット機能
+
+
+    // 🔧 チャット履歴の管理方法を変更（UIMessage型に変換）
     const [chatHistory, setChatHistory] = useState<ChatMessageType[]>([]);
-    const [isGeneratingChat, setIsGeneratingChat] = useState(false);
+
+
 
     // ------------------------------------------------------------
     // データ処理
@@ -2116,6 +2204,105 @@ export const GeneratingScreen = ({
         setRightSidebarContent,
         setIsRightSidebarOpen,
     ]);
+
+    // ------------------------------------------------------------
+    // 🆕 解析結果の自動反映（analysisMessagesの最後のメッセージを監視）
+    // ------------------------------------------------------------
+    useEffect(() => {
+        const lastMessage = analysisMessages[analysisMessages.length - 1];
+        if (lastMessage?.role === "assistant") {
+            setGeneratedAnalysisText(lastMessage.content);
+        }
+    }, [analysisMessages]);
+
+    // ------------------------------------------------------------
+    // 🆕 アイデア生成結果の自動反映
+    // ------------------------------------------------------------
+    useEffect(() => {
+        const lastMessage = ideaMessages[ideaMessages.length - 1];
+        if (lastMessage?.role === "assistant") {
+            setGeneratedIdeaText(lastMessage.content);
+        }
+    }, [ideaMessages]);
+
+    // ------------------------------------------------------------
+    // チャットメッセージの自動反映
+    // ------------------------------------------------------------
+    
+    useEffect(() => {
+        setChatHistory(
+            chatMessages.map((msg) => ({
+                role: msg.role === "user" ? "user" : "assistant",
+                content: msg.content,
+            }))
+        );
+    }, [chatMessages]);
+
+    // ------------------------------------------------------------
+    // 🆕 エラーハンドリング（統合）
+    // ------------------------------------------------------------
+    useEffect(() => {
+        if (analysisError || ideaError || chatError) {
+            setError(analysisError || ideaError || chatError);
+        }
+    }, [analysisError, ideaError, chatError]);
+
+
+
+    // ------------------------------------------------------------
+    // 🆕 特許解析ハンドラー（新方式）
+    // ------------------------------------------------------------
+    const handleStartAnalysis = async () => {
+        // ステップ移動
+        setCurrentStep(1);
+        setMaxReachedStep((prev) => Math.max(prev, 1));
+        
+        // 前回のセッションをクリア
+        clearAnalysisSession();
+        setGeneratedAnalysisText("");
+        setError(null);
+
+        const patentPrompt = buildPatentPromptClient(fullText);
+
+        // 🆕 useGeminiChatを使用した生成
+        await sendAnalysisMessage({
+            prompt: patentPrompt,
+            patentId: patentId,
+            saveContext: false, // シングルショット
+            systemInstruction: SYSTEM_PROMPT_PATENT,
+        });
+    };
+
+    // ------------------------------------------------------------
+    // 🆕 アイデア生成ハンドラー（新方式）
+    // ------------------------------------------------------------
+    const handleStartIdea = async () => {
+        setCurrentStep(2);
+        setMaxReachedStep((prev) => Math.max(prev, 2));
+        
+        clearIdeaSession();
+        setGeneratedIdeaText("");
+        setError(null);
+
+        // 🔧 プロンプトを手動構築（一時的な対応）
+        // Phase 2でバックエンドに移動予定
+        const ideaPrompt = buildIdeaPromptClient(generatedAnalysisText, fullText);
+
+        await sendIdeaMessage({
+            prompt: ideaPrompt,
+            patentId: patentId,
+            saveContext: false,
+            systemInstruction: SYSTEM_PROMPT_PATENT,
+        });
+    };
+
+    // 🆕 チャット開始ハンドラー（セッションクリア）
+    const handleStartChat = () => {
+        setCurrentStep(3);
+        setMaxReachedStep((prev) => Math.max(prev, 3));
+        
+        setError(null);
+    };
 
     // ------------------------------------------------------------
     // API処理
@@ -2176,116 +2363,26 @@ export const GeneratingScreen = ({
     };
 
     // ------------------------------------------------------------
-    // API呼び出しハンドラー（特許解析＆アイデア生成）
-    // ------------------------------------------------------------
-
-    // 特許解析ハンドラー
-    // 1. 解析開始
-    const handleStartAnalysis = () => {
-        // ステップを移動
-        setCurrentStep(1);
-        setMaxReachedStep((prev) => Math.max(prev, 1));
-        setGeneratedAnalysisText("");
-
-        streamResponse(
-            "http://localhost:8000/generate/patent",
-            { patent_id: patentId },
-            (chunk) => setGeneratedAnalysisText((prev) => prev + chunk),
-            () => setIsGeneratingAnalysis(true),
-            () => setIsGeneratingAnalysis(false)
-        );
-    };
-
-    // 2. アイデア生成開始
-    const handleStartIdea = () => {
-        // ステップを移動
-        setCurrentStep(2);
-        setMaxReachedStep((prev) => Math.max(prev, 2));
-        setGeneratedIdeaText("");
-
-        streamResponse(
-            "http://localhost:8000/generate/idea",
-            { patent_id: patentId, explanation_text: generatedAnalysisText },
-            (chunk) => setGeneratedIdeaText((prev) => prev + chunk),
-            () => setIsGeneratingIdea(true),
-            () => setIsGeneratingIdea(false)
-        );
-    };
-
-    const handleStartChat = () => {
-        // ステップを移動
-        setCurrentStep(3);
-        setMaxReachedStep((prev) => Math.max(prev, 3));
-    };
-
-    // ------------------------------------------------------------
     // API呼び出しハンドラー（チャット機能）
     // ------------------------------------------------------------
 
-    // 3. チャット送信
+    // 🆕 チャット送信ハンドラー（新方式）
     const handleChatSubmit = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
-        // ユーザーメッセージを即座に表示
-        setChatHistory((prev) => [...prev, { role: "user", content: userMessage }]);
+        // 🔧 システムプロンプトを構築（特許原文 + 解析結果 + アイデアを含む）
+        const chatSystemPrompt = buildChatSystemPromptClient(
+            fullText,
+            generatedAnalysisText,
+            generatedIdeaText
+        );
 
-        // アシスタント応答の初期化
-        setChatHistory((prev) => [...prev, { role: "assistant", content: "" }]);
-
-        setIsGeneratingChat(true);
-        setError(null);
-
-        try {
-            const response = await fetch("http://localhost:8000/generate/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    patent_id: patentId,
-                    user_message: userMessage,
-                    analysis_text: generatedAnalysisText,
-                    idea_text: generatedIdeaText,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`エラーが発生しました (${response.status})`);
-            }
-
-            if (!response.body) {
-                throw new Error("レスポンスが空です");
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            let assistantText = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                assistantText += chunk;
-
-                // 最後のアシスタントメッセージを更新
-                setChatHistory((prev) => {
-                    const updated = [...prev];
-                    const lastIdx = updated.length - 1;
-                    if (updated[lastIdx]?.role === "assistant") {
-                        updated[lastIdx] = {
-                            ...updated[lastIdx],
-                            content: assistantText,
-                        };
-                    }
-                    return updated;
-                });
-            }
-        } catch (err) {
-            console.error(err);
-            setError(err instanceof Error ? err.message : "不明なエラー");
-        } finally {
-            setIsGeneratingChat(false);
-        }
+        await sendChatMessage({
+            prompt: userMessage,
+            patentId: patentId,
+            saveContext: true, // 🔑 マルチターン（履歴保持）
+            systemInstruction: chatSystemPrompt,
+        });
     };
 
     return (
@@ -2353,6 +2450,341 @@ export const GeneratingScreen = ({
         </div>
     );
 };
+
+// ------------------------------------------------------------
+// 🆕 一時的なクライアント側プロンプト構築関数
+// Phase 2でバックエンドに移動予定
+// ------------------------------------------------------------
+function buildPatentPromptClient(fullText:string): string {
+    return `
+## 1. 基本原則
+- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
+- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
+- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
+
+## 2. 該当記述がない場合の対応
+各項目について、以下の基準で判断してください：
+
+1. **明確な記述がある** → そのまま抽出
+2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
+3. **該当する記述が見当たらない** → 「該当記述なし」と明記
+
+## 3. 出典の明記
+可能な限り、抽出した情報の出典を明示してください：
+- 段落番号、図番号、表番号などを併記
+  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
+
+## 4. 分類に関する補足
+
+### 複数項目に該当する要素の扱い
+同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
+
+例:
+- 項目2-1: 「温度センサー」（物理的構成要素として）
+- 項目3-1: 「温度センシング技術」（検出原理として）
+- 項目3-2: 「周囲温度の測定」（要素機能として）
+
+### 不明確な分類の場合
+どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
+
+## 5. 出力テンプレート
+
+抽出内容は、以下の構造で記述してください。
+
+\`\`\`markdown
+# [特許の名称]
+
+## 1. 発明の技術分野
+【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
+
+---
+
+## 2. 技術の物理的構成
+
+### 2-1. 構成要素（部材・部品）
+**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
+- 該当例: モーター、センサー筐体、フレーム、ギア、配線
+- 非該当例: ソフトウェア、アルゴリズム、製造方法
+
+### 2-2. 構成材料・原料
+構成要素を**作るための材料・材質**を箇条書きでリストアップ。
+- 該当例: 金属、樹脂、化学物質、合金、繊維
+- 非該当例: 完成した部品（それは2-1に記載）
+
+### 2-3. 形態・形状・構造
+技術が「どのような形・構造」をしているかを記述。
+- 全体の形状、配置関係、構造的特徴など
+
+---
+
+## 3. 技術の機能的構成
+
+### 3-1. 基盤技術・要素技術
+**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
+- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
+- 非該当例: 物理的な部品（それは2-1に記載）
+
+### 3-2. 要素機能（部品レベル）
+各構成要素が果たす**個別の役割**を記述。
+
+### 3-3. システム機能（全体レベル）
+技術全体として実現される**主要な機能**を記述。
+
+### 3-4. 動作フロー（該当記述がある場合のみ）
+技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
+
+---
+
+## 4. 定量データ・仕様情報
+
+以下のルールで数値データを抽出してください：
+
+**抽出原則:**
+1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
+2. **文脈を保持**: 数値が何を示すかを明記
+3. **出典を明記**: 段落番号、図番号、表番号を併記
+4. **範囲と条件**: 数値に条件がある場合、その条件も記載
+
+**抽出対象:**
+- 寸法・サイズ
+- 物理量
+- 性能指標
+- 配合・比率
+- その他の定量的記述
+\`\`\`
+## 対象資料
+
+<document>
+${fullText}
+</document>
+
+`.trim();
+}
+
+// ------------------------------------------------------------
+// 🆕 一時的なクライアント側プロンプト構築関数
+// Phase 2でバックエンドに移動予定
+// ------------------------------------------------------------
+function buildIdeaPromptClient(analysisText: string, fullText:string): string {
+    return `
+特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
+
+## アイデア生成の指針
+
+### 基本的な問い
+すべてのアイデアは、以下の問いに答えるものとしてください：
+
+1. **誰の課題を解決するのか？**（ターゲットの明確化）
+2. **どのように解決するのか？**（技術との接続）
+3. **なぜこの技術が適しているのか？**（技術的優位性）
+
+### アイデアの多様性
+以下のような多様性を持つアイデアを含めてください：
+
+- **近接応用**: 特許文書に記載された用途に近い応用
+- **遠隔転用**: 全く異なる分野への転用
+- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
+
+## 重要な原則
+
+### 1. 事実と推測の明確な分離
+あなたが生成するアイデアは、以下の2つの要素から構成されます：
+
+**【事実層】特許文書に基づく技術的事実**
+- 解析結果で抽出された情報のみを使用
+- 引用または要約の形式で明示
+
+**【推測層】あなたの創造的な解釈・応用**
+- 事実層を出発点とした、論理的な推論
+- 市場ニーズや応用可能性の想定
+- **必ず[推測]とマークする**
+
+### 2. 推測の誠実な表現
+推測箇所では、以下のような表現を使用してください：
+
+- 「〜の可能性がある」
+- 「〜が期待される」
+- 「〜と想定される」
+- 「〜への応用が考えられる」
+
+**絶対に使用しないこと：**
+- 断定的な表現（「〜である」「〜できる」）
+- 根拠なき数値（「約○○%向上」）
+- 架空の事例（「A社では〜」）
+
+## 出力テンプレート
+
+各アイデアは、以下の構造で記述してください。
+
+\`\`\`markdown
+# アイデアリスト
+
+---
+
+## アイデア1: [名称]
+
+### 技術的基盤（事実層）
+
+この特許技術は、以下の特性を持つ：
+- [解析結果からの引用または要約箇所を出典と共にリストアップ]
+
+### アイデアの概要（推測層）
+
+[上記の技術的基盤を出発点として、どのような応用が考えられるか]
+
+### 解決できる課題（推測層）
+
+[このアイデアがどのような課題を解決するか]
+
+### ターゲット像（推測層）
+
+- 企業: [想定される企業・組織]
+- 消費者: [想定される消費者層]
+
+### 提供価値（推測層）
+
+[このアイデアが提供するベネフィット]
+
+### 技術的接続点（事実層 + 推測層）
+
+特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
+根拠: （解析結果参照）
+
+### 実装上の検討事項（推測層）
+
+- 技術的ハードル: [想定される課題]
+- 市場・規制リスク: [想定されるリスク]
+
+---
+
+## アイデア2: [名称]
+...(省略)
+\`\`\`
+
+## 対象技術に関する資料
+
+
+### 特許技術の構造化
+<document>
+${analysisText}
+</document>
+
+### 特許原文（前提）
+<document>
+${fullText}
+</document>
+
+---
+
+上記の指示と資料に基づき、アイデアを生成してください。
+`.trim();
+}
+
+// ------------------------------------------------------------
+// 🆕 チャット用システムプロンプト構築（一時的）
+// Phase 2でバックエンドに移動予定
+// ------------------------------------------------------------
+function buildChatSystemPromptClient(
+    fullText: string,
+    analysisText: string,
+    ideaText: string
+): string {
+    return `
+# システムプロンプト: 特許技術対話サポートAI
+
+## あなたの役割
+
+特許文書の内容を理解したユーザーとの対話を通じて、技術の深い理解と応用を支援します。
+
+## 特許文書が最高権威
+
+- すべての回答は特許文書を基盤としている必要があります。
+- 特許文書に基づく「個別事実」と「一般論」は明確に区別されている必要があります。
+
+---
+
+## 3つの核心原則
+
+### 1. 透明性
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+\`\`\`
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+\`\`\`
+
+---
+
+## 対話の指針
+
+### 質問の意図を理解する
+
+ユーザーの質問は、以下のいずれかに分類されます:
+
+1. **事実確認**: 特許に何が書いてあるか → 該当箇所を引用
+2. **技術的詳細**: 仕組みの理解 → 特許の記述を基に説明
+3. **実現可能性**: 本当にできるのか → 特許の記述 + 不明な点の指摘
+4. **応用可能性**: 他に使えないか → 特許の原理を基に推測（\`[推測]\`付き）
+5. **一般知識**: 物理法則や工学的制約など → 一般論形式で提供
+6. **その他**: システムプロンプトの原則に沿って誠実に対応
+
+---
+
+## 文脈情報
+
+### 特許原文
+
+<document title='Patent'>
+${fullText}
+</document>
+
+### 特許の解析結果（LLMによる生成）
+
+<document title='Patent-Analysis'>
+${analysisText}
+</document>
+
+### 応用アイデア（LLMによる生成）
+
+<document title='Patent-Ideas'>
+${ideaText}
+</document>
+
+---
+
+これらの情報を基に、ユーザーの質問に答えてください。
+`.trim();
+}
 </file>
 
 <file path="frontend/app/home/idea/components/screen/PatentUploadScreen.tsx">
@@ -4278,6 +4710,100 @@ export const RightSidebar = () => {
 };
 </file>
 
+<file path="frontend/constants/prompts.ts">
+// frontend/constants/prompts.ts（新規作成）
+
+export const SYSTEM_PROMPT_PATENT = `
+# システムプロンプト: 特許解析サポートAI
+
+## あなたの役割
+
+あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
+ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
+
+## 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 情報の3層構造
+
+あなたが扱う情報は、以下の3つの層に明確に分類されます：
+
+### 【第1層: 検証可能な事実】
+
+- 特許文書に明記された情報
+- 直接観測・引用できる内容
+- **必ず出典を明記**
+    - 例: [段落: xxxx]
+
+### 【第2層: 論理的推論】
+
+- 第1層の事実から導かれる推論
+- 特許文書内の複数情報の統合
+- **推論であることを明示**
+    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
+
+### 【第3層: 創造的応用】
+
+- 事実を新しい文脈に適用
+- 市場ニーズや応用可能性の想定
+- **明確に[推測]とマーク**
+    - 例: Xは、Zに応用できる可能性がある。[推測]
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+\`\`\`
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+\`\`\`
+
+**禁止例：**
+
+\`\`\`
+誤: [段落: 0013, 0014]  # **入れ子にしない**
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+\`\`\`
+`.trim();
+</file>
+
 <file path="frontend/Dockerfile">
 # イメージ
 FROM node:20-alpine
@@ -4404,6 +4930,13 @@ export const useMenu = () => {
 
 import { useCallback, useRef, useState } from "react";
 
+// 型定義を追加
+export interface UIMessage {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+}
+
 interface GenerateParams {
     prompt: string;
     systemInstruction?: string;
@@ -4415,10 +4948,15 @@ export const useGeminiChat = () => {
     const [messages, setMessages] = useState<UIMessage[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [sessionId, setSessionId] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const sessionIdRef = useRef<string | null>(null);
 
+    // ==========================================
+    // 送信処理
+    // ==========================================
     const sendMessage = useCallback(async (params: GenerateParams) => {
         setIsGenerating(true);
+        setError(null);
 
         // ユーザーメッセージと空のアシスタントメッセージを追加
         const userMsg: UIMessage = {
@@ -4434,7 +4972,7 @@ export const useGeminiChat = () => {
         setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
         try {
-            const response = await fetch("http://localhost:8000/api/generate/content", {
+            const response = await fetch("http://localhost:8000/generate/content", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -4446,7 +4984,14 @@ export const useGeminiChat = () => {
                 }),
             });
 
-            const reader = response.body.getReader();
+            if (!response.ok) {
+                throw new Error(`HTTP Error: ${response.status}`);
+            }
+
+            // ストリーミング受信ループ
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error("Response body is empty");
+
             const decoder = new TextDecoder();
             let buffer = "";
 
@@ -4456,35 +5001,73 @@ export const useGeminiChat = () => {
 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
+                buffer = lines.pop() || ""; // 不完全な行は持ち越し
 
                 for (const line of lines) {
                     if (!line.startsWith("data: ")) continue;
-                    const event = JSON.parse(line.slice(6));
 
-                    switch (event.type) {
-                        case "session_init":
-                            setSessionId(event.data.session_id);
-                            sessionIdRef.current = event.data.session_id;
-                            break;
+                    try {
+                        const event = JSON.parse(line.slice(6));
 
-                        case "content_delta":
-                            setMessages((prev) => {
-                                const updated = [...prev];
-                                const lastMsg = updated[updated.length - 1];
-                                lastMsg.content += event.data.chunk;
-                                return updated;
-                            });
-                            break;
+                        // イベントハンドリング
+                        switch (event.type) {
+                            case "session_init":
+                                setSessionId(event.data.session_id);
+                                sessionIdRef.current = event.data.session_id;
+                                break;
+                            case "content_delta":
+                                setMessages((prev) => {
+                                    // 配列の浅いコピーを作成
+                                    const updated = [...prev];
+
+                                    // 最後のメッセージのインデックスを取得
+                                    const lastIndex = updated.length - 1;
+
+                                    // オブジェクト自体もコピーして新しい参照を作る
+                                    const lastMsg = { ...updated[lastIndex] };
+
+                                    if (lastMsg.role === "assistant") {
+                                        // コピーしたオブジェクトに対して追記
+                                        lastMsg.content += event.data.chunk;
+                                        // 配列の該当箇所を新しいオブジェクトで置き換え
+                                        updated[lastIndex] = lastMsg;
+                                    }
+                                    return updated;
+                                });
+                                break;
+
+                            case "error":
+                                throw new Error(event.data.message);
+                        }
+                    } catch (e) {
+                        console.error("JSON Parse Error:", e);
                     }
                 }
             }
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "不明なエラー";
+            setError(errorMessage);
+            console.error("Generation error:", err);
         } finally {
             setIsGenerating(false);
         }
     }, []);
 
-    return { messages, isGenerating, sessionId, sendMessage };
+    const clearSession = useCallback(() => {
+        setMessages([]);
+        setSessionId(null);
+        sessionIdRef.current = null;
+        setError(null);
+    }, []);
+
+    return {
+        messages,
+        isGenerating,
+        sessionId,
+        error,
+        sendMessage,
+        clearSession,
+    };
 };
 </file>
 
@@ -4786,8 +5369,14 @@ Patent_Survey_APP
 │  │  │  ├─ client.py
 │  │  │  └─ config.py
 │  │  ├─ prompt
-│  │  │  ├─ idea_prompt.py
-│  │  │  └─ system_prompt.py
+│  │  │  ├─ manager.py
+│  │  │  └─ templates
+│  │  │     ├─ system
+│  │  │     │  └─ patent_system_prompt.py
+│  │  │     ├─ task
+│  │  │     │  ├─ analysis_prompt.py
+│  │  │     │  └─ idea_prompt.py
+│  │  │     └─ template_memo.py
 │  │  └─ services
 │  │     ├─ gemini
 │  │     │  ├─ generate_api.py
@@ -4842,6 +5431,8 @@ Patent_Survey_APP
 │  │  │  ├─ LeftSidebar.tsx
 │  │  │  └─ RightSidebar.tsx
 │  │  └─ ui
+│  ├─ constants
+│  │  └─ prompts.ts
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
 │  ├─ hooks

@@ -13,9 +13,10 @@ import { ChatSection } from "../section/ChatSection";
 import { HeaderInfo, StepTabs } from "../section/HeaderSection";
 import { IdeaSection } from "../section/IdeaSection";
 import { PreviewSection } from "../section/PreviewSection";
-import { SourceSidebar } from "../sidebar/SourceSidebar"; // 原文確認サイドバー
-// グローバルステート取得
+import { SourceSidebar } from "../sidebar/SourceSidebar";
+// カスタムフック
 import { useMenu } from "@/hooks/appState";
+import { useGeminiChat } from "@/hooks/useGeminiChat";
 
 // ============================================================
 // Screen 2. 生成画面
@@ -69,22 +70,46 @@ export const GeneratingScreen = ({
     // グローバルステート取得
     const { setRightSidebarContent, setIsRightSidebarOpen } = useMenu();
 
-    // ステップ管理
+    // 解析用フック
+    const {
+        messages: analysisMessages,
+        isGenerating: isGeneratingAnalysis,
+        error: analysisError,
+        sendMessage: sendAnalysisMessage,
+        clearSession: clearAnalysisSession,
+    } = useGeminiChat();
+
+    // アイデア生成用フック
+    const {
+        messages: ideaMessages,
+        isGenerating: isGeneratingIdea,
+        error: ideaError,
+        sendMessage: sendIdeaMessage,
+        clearSession: clearIdeaSession,
+    } = useGeminiChat();
+
+    // チャット用フック
+    const {
+        messages: chatMessages,
+        isGenerating: isGeneratingChat,
+        error: chatError,
+        sendMessage: sendChatMessage,
+        clearSession: clearChatSession,
+    } = useGeminiChat();
+
+    // ステップ関連
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
-    // 原文参照サイドバー
-    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null); // 参照された段落ID
-    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null); // 画像選択状態
-    // 生成テキストデータ
-    const [generatedAnalysisText, setGeneratedAnalysisText] = useState("");
-    const [generatedIdeaText, setGeneratedIdeaText] = useState("");
-    // 生成ステータス管理
+    // 右サイドバー関連
+    const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null);
+
+    // 生成テキストの管理
+    const [generatedAnalysisText, setGeneratedAnalysisText] = useState(""); // 解析
+    const [generatedIdeaText, setGeneratedIdeaText] = useState(""); // アイデア生成
+    const [chatHistory, setChatHistory] = useState<ChatMessageType[]>([]); // チャット
+    // エラー用
     const [error, setError] = useState<string | null>(null);
-    const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
-    const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
-    // チャット機能
-    const [chatHistory, setChatHistory] = useState<ChatMessageType[]>([]);
-    const [isGeneratingChat, setIsGeneratingChat] = useState(false);
 
     // ------------------------------------------------------------
     // データ処理
@@ -93,12 +118,6 @@ export const GeneratingScreen = ({
     // 全文取得（一度だけ実行）
     const fullText = useMemo(() => formatPatentToString(patentData), [patentData]);
     const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
-
-    // activeParagraphId がセットされたら自動でサイドバーを開く
-    const handleParagraphClick = (id: string) => {
-        setActiveParagraphId(id);
-        setIsRightSidebarOpen(true); // グローバルステートを変更
-    };
 
     // ------------------------------------------------------------
     // 右サイドバーに関する処理
@@ -132,175 +151,120 @@ export const GeneratingScreen = ({
         setIsRightSidebarOpen,
     ]);
 
-    // ------------------------------------------------------------
-    // API処理
-    // ------------------------------------------------------------
-
-    // 共通ストリーミング処理ヘルパー
-    const streamResponse = async (
-        url: string, // APIエンドポイント
-        body: object, // POSTに必要なボディ
-        onUpdate: (chunk: string) => void, // チャンク受診時のコールバック
-        onStart: () => void, // 開始時の状態更新コールバック
-        onComplete: () => void // 完了時の状態更新コールバック
-    ) => {
-        onStart();
-        setError(null);
-        try {
-            // リクエスト
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-            // レスポンス判定
-            if (!response.ok) {
-                // HTTPステータスコードに応じたエラー処理
-                if (response.status === 404) {
-                    throw new Error("特許データが見つかりませんでした");
-                } else if (response.status >= 500) {
-                    throw new Error("サーバーエラーが発生しました。時間をおいて再試行してください");
-                } else {
-                    throw new Error(`エラーが発生しました (${response.status})`);
-                }
-            }
-
-            if (!response.body) {
-                throw new Error("レスポンスが空です");
-            }
-            // ストリーム処理準備
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            // ストリーム処理
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                onUpdate(decoder.decode(value, { stream: true }));
-            }
-            // エラーハンドリング
-        } catch (err) {
-            console.error(err);
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("不明なエラーが発生しました");
-            }
-        } finally {
-            onComplete();
-        }
+    // activeParagraphId がセットされたら自動でサイドバーを開く
+    const handleParagraphClick = (id: string) => {
+        setActiveParagraphId(id);
+        setIsRightSidebarOpen(true); // グローバルステートを変更
     };
 
     // ------------------------------------------------------------
-    // API呼び出しハンドラー（特許解析＆アイデア生成）
+    // 解析結果の自動反映（analysisMessagesの最後のメッセージを監視）
+    // ------------------------------------------------------------
+    useEffect(() => {
+        const lastMessage = analysisMessages[analysisMessages.length - 1];
+        if (lastMessage?.role === "assistant") {
+            setGeneratedAnalysisText(lastMessage.content);
+        }
+    }, [analysisMessages]);
+
+    // ------------------------------------------------------------
+    // アイデア生成結果の自動反映
+    // ------------------------------------------------------------
+    useEffect(() => {
+        const lastMessage = ideaMessages[ideaMessages.length - 1];
+        if (lastMessage?.role === "assistant") {
+            setGeneratedIdeaText(lastMessage.content);
+        }
+    }, [ideaMessages]);
+
+    // ------------------------------------------------------------
+    // チャットメッセージの自動反映
     // ------------------------------------------------------------
 
-    // 特許解析ハンドラー
-    // 1. 解析開始
-    const handleStartAnalysis = () => {
-        // ステップを移動
+    useEffect(() => {
+        setChatHistory(
+            chatMessages.map((msg) => ({
+                role: msg.role === "user" ? "user" : "assistant",
+                content: msg.content,
+            }))
+        );
+    }, [chatMessages]);
+
+    // ------------------------------------------------------------
+    // エラーハンドリング（統合）
+    // ------------------------------------------------------------
+    useEffect(() => {
+        if (analysisError || ideaError || chatError) {
+            setError(analysisError || ideaError || chatError);
+        }
+    }, [analysisError, ideaError, chatError]);
+
+    // ------------------------------------------------------------
+    // 特許解析ハンドラー（Manager対応）
+    // ------------------------------------------------------------
+    const handleStartAnalysis = async () => {
         setCurrentStep(1);
         setMaxReachedStep((prev) => Math.max(prev, 1));
-        setGeneratedAnalysisText("");
 
-        streamResponse(
-            "http://localhost:8000/generate/patent",
-            { patent_id: patentId },
-            (chunk) => setGeneratedAnalysisText((prev) => prev + chunk),
-            () => setIsGeneratingAnalysis(true),
-            () => setIsGeneratingAnalysis(false)
-        );
+        clearAnalysisSession();
+        setGeneratedAnalysisText("");
+        setError(null);
+
+        // contextを構築して送信
+        await sendAnalysisMessage({
+            promptType: "analysis",
+            context: {
+                patent_text: fullText, // 特許テキスト
+            },
+            saveContext: false, // 解析は履歴不要
+        });
     };
 
-    // 2. アイデア生成開始
-    const handleStartIdea = () => {
-        // ステップを移動
+    // ------------------------------------------------------------
+    // アイデア生成ハンドラー（Manager対応）
+    // ------------------------------------------------------------
+    const handleStartIdea = async () => {
         setCurrentStep(2);
         setMaxReachedStep((prev) => Math.max(prev, 2));
-        setGeneratedIdeaText("");
 
-        streamResponse(
-            "http://localhost:8000/generate/idea",
-            { patent_id: patentId, explanation_text: generatedAnalysisText },
-            (chunk) => setGeneratedIdeaText((prev) => prev + chunk),
-            () => setIsGeneratingIdea(true),
-            () => setIsGeneratingIdea(false)
-        );
+        clearIdeaSession();
+        setGeneratedIdeaText("");
+        setError(null);
+
+        // 前段の成果物を含めて送信
+        await sendIdeaMessage({
+            promptType: "idea",
+            context: {
+                patent_text: fullText, // 特許テキスト
+                analysis_text: generatedAnalysisText, // 解析結果
+            },
+            saveContext: false,
+        });
     };
 
+    // チャット開始ハンドラー
     const handleStartChat = () => {
-        // ステップを移動
         setCurrentStep(3);
         setMaxReachedStep((prev) => Math.max(prev, 3));
+        setError(null);
     };
 
     // ------------------------------------------------------------
-    // API呼び出しハンドラー（チャット機能）
+    // チャット送信ハンドラー（Manager対応）
     // ------------------------------------------------------------
-
-    // 3. チャット送信
     const handleChatSubmit = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
-        // ユーザーメッセージを即座に表示
-        setChatHistory((prev) => [...prev, { role: "user", content: userMessage }]);
-
-        // アシスタント応答の初期化
-        setChatHistory((prev) => [...prev, { role: "assistant", content: "" }]);
-
-        setIsGeneratingChat(true);
-        setError(null);
-
-        try {
-            const response = await fetch("http://localhost:8000/generate/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    patent_id: patentId,
-                    user_message: userMessage,
-                    analysis_text: generatedAnalysisText,
-                    idea_text: generatedIdeaText,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`エラーが発生しました (${response.status})`);
-            }
-
-            if (!response.body) {
-                throw new Error("レスポンスが空です");
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            let assistantText = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                assistantText += chunk;
-
-                // 最後のアシスタントメッセージを更新
-                setChatHistory((prev) => {
-                    const updated = [...prev];
-                    const lastIdx = updated.length - 1;
-                    if (updated[lastIdx]?.role === "assistant") {
-                        updated[lastIdx] = {
-                            ...updated[lastIdx],
-                            content: assistantText,
-                        };
-                    }
-                    return updated;
-                });
-            }
-        } catch (err) {
-            console.error(err);
-            setError(err instanceof Error ? err.message : "不明なエラー");
-        } finally {
-            setIsGeneratingChat(false);
-        }
+        await sendChatMessage({
+            promptType: "chat",
+            userMessage: userMessage,
+            context: {
+                patent_text: fullText, // 特許テキスト
+                analysis_text: generatedAnalysisText, // 解析結果
+                idea_text: generatedIdeaText, // アイデアリスト
+            },
+            saveContext: true, // チャットは履歴保持
+        });
     };
 
     return (

@@ -1,177 +1,104 @@
-# backend/src/services/gemini/generate_api.py
-
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 from src.core.client import gemini_client
-from src.prompt import idea_prompt, system_prompt
-from src.services.gemini import session_store
+from src.prompt.manager import PromptManager
 from src.services.gemini.generate_func import generate_text_engine
 from src.services.gemini.schemas import GenerateRequest
-from src.services.patent.patent_store import get_patent
+from src.services.gemini.session_store import session_store
 
+# ルーター
 router = APIRouter(prefix="/generate", tags=["LLM生成"])
+
+# クライアント取得
 client = gemini_client
 
 
-# ============================================================
-# 統合エンドポイント（新規）
-# ============================================================
-
-
+# エンドポイント
 @router.post("/content")
 async def generate_chat(request: GenerateRequest):
-    """統一エンドポイント"""
+    """
+    統一エンドポイント
+    - save_context=False (解析・アイデア生成): 履歴を使わず、単発のリクエストとして処理
+    - save_context=True  (チャット): セッション履歴を読み書きして処理
+    - PromptManagerを経由してプロンプトを構築し、生成を行う
+    """
 
     async def event_stream():
         try:
-            # 1. セッション管理
-            session_id = request.session_id
-            history = []
+            # 1. PromptManagerを使用してプロンプトとシステムプロンプトを構築
+            # 戻り値: (ユーザー入力として扱うテキスト, システムプロンプト)
+            user_content_text, system_prompt = PromptManager.build(
+                prompt_type=request.prompt_type, context=request.context, user_input=request.user_message or ""
+            )
 
-            if not session_id and request.save_context:
-                session_id = session_store.create_session()
-                yield _format_event("session_init", {"session_id": session_id})
+            print(f"[DEBUG]PROMPT_TYPE: {request.prompt_type}")
+            print("[DEBUG]SYSTEM_PROMPT:")
+            print(system_prompt[:100], "..." or None)
+            print("[DEBUG]PROMPT:")
+            print(user_content_text[:100], "..." or None)
+            print("[DEBUG]RESULT:")
 
-            # 2. 履歴ロード
-            if session_id and request.save_context:
+            # ====================================================
+            # モードA: チャットモード (履歴を保持・更新する)
+            # ====================================================
+            if request.save_context:
+                session_id = request.session_id
+
+                # 新規セッションなら作成
+                if not session_id:
+                    session_id = session_store.create_session()
+                    yield _format_event("session_init", {"session_id": session_id})
+
+                # 履歴のロード
                 history = session_store.load(session_id)
 
-            # 3. システムプロンプト挿入（履歴が空の場合のみ）
-            if not history and request.system_instruction:
-                history.append({"role": "user", "parts": [{"text": f"[System]\n{request.system_instruction}"}]})
+                # 今回のユーザー入力を追加
+                new_message = {"role": "user", "parts": [{"text": user_content_text}]}
+                history.append(new_message)
 
-            # 4. プロンプト構築（patent_idが指定されている場合）
-            if request.patent_id:
-                patent_doc = get_patent(request.patent_id)
-                if not patent_doc:
-                    raise HTTPException(status_code=404, detail="Patent not found")
+                # 生成エンジン実行
+                full_response_text = ""
+                for event in generate_text_engine(
+                    client=gemini_client, contents=history, system_instruction=system_prompt
+                ):
+                    if event["type"] == "content_delta":
+                        full_response_text += event["data"]["chunk"]
+                    # デバッグ用
+                    if "chunk" in event["data"]:
+                        print(event["data"]["chunk"], end="")
+                    # フロントへ送信
+                    yield _format_event(event["type"], event["data"])
 
-                # プロンプトを自動構築（既存のbuild関数を利用）
-                request.prompt = idea_prompt.build_patent_prompt(patent_doc)
-
-            # 5. ユーザーメッセージ追加
-            history.append({"role": "user", "parts": [{"text": request.prompt}]})
-
-            # 6. 生成エンジン実行
-            for event in generate_text_engine(
-                client=gemini_client, contents=history, system_instruction=request.system_instruction
-            ):
-                yield _format_event(event["type"], event["data"])
-
-            # 7. 履歴保存（save_contextがtrueの場合のみ）
-            if session_id and request.save_context:
+                # 完了後、AIの応答も含めて履歴保存
+                history.append({"role": "model", "parts": [{"text": full_response_text}]})
                 session_store.save(session_id, history)
 
+            # ====================================================
+            # モードB: 単発生成モード (解析・アイデア生成)
+            # ====================================================
+            else:
+                # 履歴はロードせず、今回のプロンプトだけで構成する
+                contents = [{"role": "user", "parts": [{"text": user_content_text}]}]
+
+                for event in generate_text_engine(
+                    client=gemini_client, contents=contents, system_instruction=system_prompt
+                ):
+                    # デバッグ用
+                    if "chunk" in event["data"]:
+                        print(event["data"]["chunk"], end="")
+                    # フロントへ送信
+                    yield _format_event(event["type"], event["data"])
+
         except Exception as e:
+            print(f"Generate Error: {e}")
             yield _format_event("error", {"message": str(e)})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-# ============================================================
-# 既存エンドポイント（互換性維持のため一時的に残す）
-# ============================================================
-
-
-class GeneratePatentRequest(BaseModel):
-    patent_id: str
-
-
-class GenerateIdeaRequest(BaseModel):
-    patent_id: str
-    explanation_text: str
-
-
-class ChatRequest(BaseModel):
-    patent_id: str
-    user_message: str
-    analysis_text: str = ""
-    idea_text: str = ""
-
-
-@router.post("/patent")
-async def generate_from_patent(data: GeneratePatentRequest):
-    """特許解析（既存互換）"""
-
-    async def event_stream():
-        try:
-            patent_doc = get_patent(data.patent_id)
-            if not patent_doc:
-                raise HTTPException(status_code=404, detail="Patent not found")
-
-            prompt = idea_prompt.build_patent_prompt(patent_doc)
-            history = [{"role": "user", "parts": [{"text": prompt}]}]
-
-            for event in generate_text_engine(
-                client=client, contents=history, system_instruction=system_prompt.SYSTEM_PROMPT_PATENT
-            ):
-                if event["type"] == "content_delta":
-                    yield event["data"]["chunk"]
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    return StreamingResponse(event_stream(), media_type="text/plain; charset=utf-8")
-
-
-@router.post("/idea")
-async def generate_idea(data: GenerateIdeaRequest):
-    """アイデア生成（既存互換）"""
-
-    async def event_stream():
-        try:
-            patent_doc = get_patent(data.patent_id)
-            if not patent_doc:
-                raise HTTPException(status_code=404, detail="Patent not found")
-
-            prompt = idea_prompt.build_idea_prompt(patent_doc, data.explanation_text)
-            history = [{"role": "user", "parts": [{"text": prompt}]}]
-
-            for event in generate_text_engine(
-                client=client, contents=history, system_instruction=system_prompt.SYSTEM_PROMPT_PATENT
-            ):
-                if event["type"] == "content_delta":
-                    yield event["data"]["chunk"]
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    return StreamingResponse(event_stream(), media_type="text/plain; charset=utf-8")
-
-
-@router.post("/chat")
-async def chat_with_context(data: ChatRequest):
-    """チャット（既存互換）"""
-
-    async def event_stream():
-        try:
-            patent_doc = get_patent(data.patent_id)
-            if not patent_doc:
-                raise HTTPException(status_code=404, detail="Patent not found")
-
-            # システムプロンプト構築
-            system_instruction = system_prompt.build_chat_system_instruction(
-                patent_doc=patent_doc, analysis_text=data.analysis_text, idea_text=data.idea_text
-            )
-
-            # 履歴構築（新規の場合は空）
-            history = [{"role": "user", "parts": [{"text": data.user_message}]}]
-
-            for event in generate_text_engine(client=client, contents=history, system_instruction=system_instruction):
-                if event["type"] == "content_delta":
-                    yield event["data"]["chunk"]
-
-        except Exception as e:
-            print(f"Error: {e}")
-
-    return StreamingResponse(event_stream(), media_type="text/plain; charset=utf-8")
-
-
 def _format_event(event_type: str, data: dict) -> str:
-    """SSE形式にフォーマット"""
     chunk = {"type": event_type, "data": data}
     return f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
