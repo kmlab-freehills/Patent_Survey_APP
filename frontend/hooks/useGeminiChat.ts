@@ -25,6 +25,17 @@ export const useGeminiChat = () => {
     const [error, setError] = useState<string | null>(null);
     const sessionIdRef = useRef<string | null>(null);
 
+    // 外部からIDをセットできるようにする（データ反映）
+    const setSessionIdExternal = useCallback((id: string) => {
+        setSessionId(id);
+        sessionIdRef.current = id;
+    }, []);
+
+    // 外部から履歴をセットするための関数（UI反映）
+    const setMessagesExternal = useCallback((msgs: UIMessage[]) => {
+        setMessages(msgs);
+    }, []);
+
     // ==========================================
     // 送信処理
     // ==========================================
@@ -149,5 +160,7 @@ export const useGeminiChat = () => {
         error,
         sendMessage,
         clearSession,
+        setSessionId: setSessionIdExternal,
+        setMessages: setMessagesExternal
     };
 };

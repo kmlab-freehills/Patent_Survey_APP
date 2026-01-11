@@ -3,13 +3,14 @@
 import os
 from contextlib import asynccontextmanager  # ライフサイクルイベント
 
-from fastapi import FastAPI  # アプリ本体
+from fastapi import FastAPI, Request  # アプリ本体
 from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
 from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 
 from src.core.config import STATIC_BASE_PATH, CLEANUP_ON_EXIT, FRONTEND_URL
 from src.services.gemini import generate_api
 from src.services.patent import patent_api
+from src.services.session import session_api
 from src.services.patent.patent_store import cleanup_temp_files  # 一時ファイル処理用
 
 # ============================================================
@@ -65,7 +66,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL],  # フロントエンド の URL を指定
     allow_credentials=True,
-    allow_methods=["GET", "POST"],  # 必要なメソッドのみ許可
+    allow_methods=["*"],  # メソッドの許可
     allow_headers=["Content-Type", "Authorization"],  # 必要なヘッダーのみ許可
 )
 
@@ -76,6 +77,7 @@ app.add_middleware(
 
 app.include_router(generate_api.router)  # LLM生成API
 app.include_router(patent_api.router)  # 特許PDF処理API
+app.include_router(session_api.router)  # セッション管理
 
 
 # ============================================================
@@ -88,6 +90,13 @@ app.include_router(patent_api.router)  # 特許PDF処理API
 def read_root():
     return {"message": "Hello World"}
 
+# デバッグログ
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"[Request] {request.method} {request.url.path}")
+    response = await call_next(request)
+    print(f"[Response] {response.status_code}")
+    return response
 
 # 実行コマンド:
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload

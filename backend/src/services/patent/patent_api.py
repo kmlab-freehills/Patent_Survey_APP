@@ -8,6 +8,8 @@ from src.services.patent.patent_store import (
     build_figure_url,
     get_patent_figure_dir,
     save_patent,
+    load_patent_from_json,
+    get_patent_images_list,
 )
 
 ## upload_api.py / 特許PDFを処理するエンドポイント ##
@@ -57,4 +59,23 @@ async def upload_pdf(file: UploadFile = File(...)):
         "patent_id": patent_id,
         "patent_data": patent_doc.__dict__,
         "images": saved_figures,
+    }
+
+# 追加: IDによる特許データ再取得
+@router.get("/{patent_id}", response_model=patent_schemas.PatentUploadResponse)
+async def get_patent_data(patent_id: str):
+    # 1. JSONデータの読み込み
+    patent_data = load_patent_from_json(patent_id)
+    if not patent_data:
+        raise HTTPException(status_code=404, detail="Patent not found")
+    
+    # 2. 画像リストの再構築
+    images = get_patent_images_list(patent_id)
+    
+    # 3. レスポンス（Upload時と同じ形式で返す）
+    return {
+        "filename": "Restored Data", 
+        "patent_id": patent_id,
+        "patent_data": patent_data,
+        "images": images,
     }

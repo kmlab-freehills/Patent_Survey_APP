@@ -10,7 +10,6 @@ import React, { useCallback, useRef, useState } from "react";
 // Screen 1. 特許PDFアップロード画面
 // ============================================================
 
-
 // 特許PDFの型
 type PatentResponse = components["schemas"]["PatentUploadResponse"];
 type PatentContent = components["schemas"]["PatentContent"];
@@ -113,11 +112,21 @@ export const UploadScreen = ({
 
             const data: PatentResponse = await res.json();
 
-            // 親コンポーネントの状態を更新し、次画面へ遷移
+            // 親コンポーネントの状態を更新
             setFileName(data.filename);
             setPatentId(data.patent_id);
             setPatentData(data.patent_data);
             setPatentImages(data.images);
+
+            // リロード対策のためにlocalStorageに保存
+            localStorage.setItem(
+                "app_patent_context",
+                JSON.stringify({
+                    patentId: data.patent_id,
+                    fileName: data.filename,
+                })
+            );
+
             setScreen("generating");
         } catch (error) {
             console.error("Error uploading file:", error);

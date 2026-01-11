@@ -110,13 +110,14 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 import os
 from contextlib import asynccontextmanager  # ライフサイクルイベント
 
-from fastapi import FastAPI  # アプリ本体
+from fastapi import FastAPI, Request  # アプリ本体
 from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
 from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 
 from src.core.config import STATIC_BASE_PATH, CLEANUP_ON_EXIT, FRONTEND_URL
 from src.services.gemini import generate_api
 from src.services.patent import patent_api
+from src.services.session import session_api
 from src.services.patent.patent_store import cleanup_temp_files  # 一時ファイル処理用
 
 # ============================================================
@@ -172,7 +173,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL],  # フロントエンド の URL を指定
     allow_credentials=True,
-    allow_methods=["GET", "POST"],  # 必要なメソッドのみ許可
+    allow_methods=["*"],  # メソッドの許可
     allow_headers=["Content-Type", "Authorization"],  # 必要なヘッダーのみ許可
 )
 
@@ -183,6 +184,7 @@ app.add_middleware(
 
 app.include_router(generate_api.router)  # LLM生成API
 app.include_router(patent_api.router)  # 特許PDF処理API
+app.include_router(session_api.router)  # セッション管理
 
 
 # ============================================================
@@ -195,6 +197,13 @@ app.include_router(patent_api.router)  # 特許PDF処理API
 def read_root():
     return {"message": "Hello World"}
 
+# デバッグログ
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"[Request] {request.method} {request.url.path}")
+    response = await call_next(request)
+    print(f"[Response] {response.status_code}")
+    return response
 
 # 実行コマンド:
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -1085,7 +1094,8 @@ from typing import List, Dict
 
 
 class SessionStore:
-    def __init__(self, storage_path="./storage/sessions"):
+    # 変更後: storage_path="./storage/gemini_histories"
+    def __init__(self, storage_path="./storage/gemini_histories"):
         self.path = Path(storage_path)
         self.path.mkdir(exist_ok=True, parents=True)
 
@@ -1155,6 +1165,8 @@ from src.services.patent.patent_store import (
     build_figure_url,
     get_patent_figure_dir,
     save_patent,
+    load_patent_from_json,
+    get_patent_images_list,
 )
 
 ## upload_api.py / 特許PDFを処理するエンドポイント ##
@@ -1204,6 +1216,25 @@ async def upload_pdf(file: UploadFile = File(...)):
         "patent_id": patent_id,
         "patent_data": patent_doc.__dict__,
         "images": saved_figures,
+    }
+
+# 追加: IDによる特許データ再取得
+@router.get("/{patent_id}", response_model=patent_schemas.PatentUploadResponse)
+async def get_patent_data(patent_id: str):
+    # 1. JSONデータの読み込み
+    patent_data = load_patent_from_json(patent_id)
+    if not patent_data:
+        raise HTTPException(status_code=404, detail="Patent not found")
+    
+    # 2. 画像リストの再構築
+    images = get_patent_images_list(patent_id)
+    
+    # 3. レスポンス（Upload時と同じ形式で返す）
+    return {
+        "filename": "Restored Data", 
+        "patent_id": patent_id,
+        "patent_data": patent_data,
+        "images": images,
     }
 </file>
 
@@ -1256,15 +1287,16 @@ class PatentUploadResponse(BaseModel):
 <file path="backend/src/services/patent/patent_store.py">
 # backend/src/storage/patent_store.py
 
+import json  # JSON保存用に追加
 import os
 import shutil
-import json  # JSON保存用に追加
+from pathlib import Path  # Path操作用に追加
 from typing import Any, Dict, List
 from uuid import uuid4
-from pathlib import Path  # Path操作用に追加
 
-from src.services.patent.supports.patent_images import save_patent_images
 from src.core.config import STATIC_BASE_PATH, STATIC_BASE_URL
+from src.services.patent.supports.patent_images import save_patent_images
+from src.services.patent.supports.patent_text import PatentDocument
 
 # ==========================================
 # 1. 特許テキストデータ（idで管理）
@@ -1395,6 +1427,63 @@ def clear_chat_history(patent_id: str):
     """
     if patent_id in chat_sessions:
         chat_sessions[patent_id] = []
+
+
+# ============================================================
+# リロード保存処理
+# ============================================================
+
+
+def load_patent_from_json(patent_id: str) -> dict | None:
+    """
+    保存されたJSONから特許データを読み込む
+    """
+    patent_dir = STATIC_BASE_PATH / "patents" / patent_id
+    json_path = patent_dir / "data.json"
+
+    if not json_path.exists():
+        return None
+
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+            # 一度データクラスを経由させることで、欠損している必須フィールド(abstract等)にデフォルト値("")を埋める
+            doc = PatentDocument(**data)
+            return doc.__dict__
+
+    except Exception as e:
+        print(f"Failed to load patent json: {e}")
+        return None
+
+
+def get_patent_images_list(patent_id: str) -> list:
+    """
+    保存された画像ディレクトリから画像リストを再構築する
+    """
+    figure_dir_path = Path(get_patent_figure_dir(patent_id))
+    if not figure_dir_path.exists():
+        return []
+
+    saved_figures = []
+    # ファイル名順にソート
+    for fig_file in sorted(figure_dir_path.glob("fig_*.png")):
+        # fig_001.png -> 1
+        try:
+            idx = int(fig_file.stem.split("_")[1])
+            saved_figures.append(
+                {
+                    "id": fig_file.stem,
+                    "label": f"図{idx}",
+                    "page": 0,
+                    "url": build_figure_url(patent_id, fig_file.name),
+                }
+            )
+        except Exception as e:
+            print(f"Failed to get patent images list: {e}")
+            continue
+
+    return saved_figures
 </file>
 
 <file path="backend/src/services/patent/supports/patent_images.py">
@@ -1948,6 +2037,257 @@ def parse_patent_text(text: str) -> PatentDocument:
     return doc
 </file>
 
+<file path="backend/src/services/session/session_api.py">
+import uuid
+
+from fastapi import APIRouter, HTTPException
+
+from src.services.session.session_schema import SaveArtifactRequest, SessionData, UpdateSessionRequest
+from src.services.session.session_store import session_store
+
+router = APIRouter(prefix="/session", tags=["Session"])
+
+# ============================================================
+# セッション管理
+# ============================================================
+
+
+@router.post("/", response_model=SessionData)
+async def create_session():
+    """新規セッションを作成"""
+    session_id = str(uuid.uuid4())
+    session = session_store.create_session(session_id)
+    return session
+
+
+@router.get("/{session_id}", response_model=SessionData)
+async def get_session(session_id: str):
+    """セッションを取得"""
+    session = session_store.load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
+
+
+@router.put("/{session_id}", response_model=SessionData)
+async def update_session(session_id: str, request: UpdateSessionRequest):
+    """セッションを更新（部分更新可能）"""
+    session = session_store.update_session(
+        session_id,
+        artifacts=request.artifacts,
+        conversation=request.conversation,
+        gemini_session_id=request.gemini_session_id,
+    )
+    return session
+
+
+@router.delete("/{session_id}")
+async def delete_session(session_id: str):
+    """セッションを削除"""
+    session_store.delete_session(session_id)
+    return {"status": "deleted", "session_id": session_id}
+
+
+# ============================================================
+# Artifact管理（簡易版）
+# ============================================================
+
+
+@router.post("/{session_id}/artifact", response_model=SessionData)
+async def save_artifact(session_id: str, request: SaveArtifactRequest):
+    """Artifactを保存"""
+    session = session_store.save_artifact(session_id, request.name, request.data)
+    return session
+</file>
+
+<file path="backend/src/services/session/session_schema.py">
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+# ============================================================
+# セッション全体のスキーマ
+# ============================================================
+
+# 生成された成果物
+class ArtifactOutput(BaseModel):
+    text: str
+    generated_at: str  # ISO 8601形式
+
+# 生成された成果物のメタデータ
+class ArtifactData(BaseModel):
+    step: int
+    type: str  # "single_shot"
+    prompt_type: str  # "analysis", "idea"
+    input: Dict[str, str]  # patent_text, analysis_text等
+    output: Optional[ArtifactOutput] = None  # 未生成の場合はNone
+
+# チャットメッセージ
+class ConversationMessage(BaseModel):
+    id: str
+    role: str  # "user" | "assistant"
+    content: str
+    timestamp: str
+
+# チャットメタデータ
+class ConversationData(BaseModel):
+    step: int
+    type: str  # "multi_turn"
+    context_refs: List[str]  # ["patent_summary", "idea_generation"]
+    messages: List[ConversationMessage] = Field(default_factory=list)
+
+# セッション全体のデータ
+class SessionData(BaseModel):
+    session_id: str
+    created_at: str
+    updated_at: str
+    gemini_session_id: Optional[str] = None  # Gemini側のセッションID
+    artifacts: Dict[str, ArtifactData] = Field(default_factory=dict) # 成果物
+    conversation: Optional[ConversationData] = None # チャット
+
+
+# ============================================================
+# APIリクエスト・レスポンスのスキーマ
+# ============================================================
+
+# 成果物のセーブ
+class SaveArtifactRequest(BaseModel):
+    name: str  # "patent_summary", "idea_generation"
+    data: ArtifactData
+
+# 更新処理
+class UpdateSessionRequest(BaseModel):
+    artifacts: Optional[Dict[str, ArtifactData]] = None
+    conversation: Optional[ConversationData] = None
+    gemini_session_id: Optional[str] = None
+</file>
+
+<file path="backend/src/services/session/session_store.py">
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Optional
+
+from src.services.session.session_schema import ArtifactData, ConversationData, SessionData
+
+
+class SessionStore:
+    def __init__(self, storage_path: str = "./storage/sessions"):
+        self.path = Path(storage_path)
+        self.path.mkdir(exist_ok=True, parents=True)
+
+    def _get_session_path(self, session_id: str) -> Path:
+        return self.path / f"{session_id}.json"
+
+    def _now_iso(self) -> str:
+        """現在時刻をISO 8601形式で返す"""
+        return datetime.utcnow().isoformat() + "Z"
+
+    # ============================================================
+    # 基本操作
+    # ============================================================
+
+    def create_session(self, session_id: str) -> SessionData:
+        """新規セッションを作成"""
+        now = self._now_iso()
+        session = SessionData(session_id=session_id, created_at=now, updated_at=now)
+        self._write_session(session)
+        return session
+
+    def load_session(self, session_id: str) -> Optional[SessionData]:
+        """セッションを読み込み（存在しない場合はNone）"""
+        path = self._get_session_path(session_id)
+        if not path.exists():
+            return None
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return SessionData(**data)
+        except Exception as e:
+            print(f"Failed to load session {session_id}: {e}")
+            return None
+
+    def _write_session(self, session: SessionData):
+        """セッションをJSONに書き込み"""
+        path = self._get_session_path(session.session_id)
+
+        # デバッグログ
+        print(f"[Session] Saving: {session.session_id}")
+        print(f"  - Artifacts: {list(session.artifacts.keys())}")
+        print(f"  - Conversation messages: {len(session.conversation.messages) if session.conversation else 0}")
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(session.dict(), f, ensure_ascii=False, indent=2)
+
+    # ============================================================
+    # 部分更新
+    # ============================================================
+
+    def save_artifact(self, session_id: str, artifact_name: str, artifact_data: ArtifactData) -> SessionData:
+        """Artifactを保存（部分更新）"""
+        session = self.load_session(session_id)
+        if not session:
+            session = self.create_session(session_id)
+
+        session.artifacts[artifact_name] = artifact_data
+        session.updated_at = self._now_iso()
+
+        self._write_session(session)
+        return session
+
+    def save_conversation(self, session_id: str, conversation: ConversationData) -> SessionData:
+        """Conversationを保存（上書き）"""
+        session = self.load_session(session_id)
+        if not session:
+            session = self.create_session(session_id)
+
+        session.conversation = conversation
+        session.updated_at = self._now_iso()
+
+        self._write_session(session)
+        return session
+
+    def update_session(
+        self,
+        session_id: str,
+        artifacts: Optional[Dict[str, ArtifactData]] = None,
+        conversation: Optional[ConversationData] = None,
+        gemini_session_id: Optional[str] = None,
+    ) -> SessionData:
+        """セッション全体を更新"""
+        session = self.load_session(session_id)
+        if not session:
+            session = self.create_session(session_id)
+
+        if artifacts:
+            session.artifacts.update(artifacts)
+        if conversation:
+            session.conversation = conversation
+        if gemini_session_id:
+            session.gemini_session_id = gemini_session_id
+
+        session.updated_at = self._now_iso()
+
+        self._write_session(session)
+        return session
+
+    # ============================================================
+    # クリーンアップ
+    # ============================================================
+
+    def delete_session(self, session_id: str):
+        """セッションを削除"""
+        path = self._get_session_path(session_id)
+        if path.exists():
+            os.remove(path)
+
+
+# シングルトンインスタンス
+session_store = SessionStore()
+</file>
+
 <file path="docker-compose.yml">
 services: # 管理するコンテナのリスト
     backend: # サービス名 `backend`
@@ -2085,6 +2425,7 @@ import { SourceSidebar } from "../sidebar/SourceSidebar";
 // カスタムフック
 import { useMenu } from "@/hooks/appState";
 import { useGeminiChat } from "@/hooks/useGeminiChat";
+import { useSessionPersistence, type SessionData } from "@/hooks/useSessionPersistence";
 
 // ============================================================
 // Screen 2. 生成画面
@@ -2119,6 +2460,8 @@ interface GeneratingScreenProps {
     patentId: string;
     patentData: PatentContent;
     patentImages: PatentImage[];
+    sessionId: string; // セッションID
+    onReset?: () => void; // 「別の特許を解析」用
 }
 
 // ------------------------------------------------------------
@@ -2130,6 +2473,8 @@ export const GeneratingScreen = ({
     patentId,
     patentData,
     patentImages,
+    sessionId,
+    onReset,
 }: GeneratingScreenProps) => {
     // ------------------------------------------------------------
     // State定義
@@ -2163,6 +2508,9 @@ export const GeneratingScreen = ({
         error: chatError,
         sendMessage: sendChatMessage,
         clearSession: clearChatSession,
+        setSessionId: setGeminiChatSessionId,
+        sessionId: currentGeminiSessionId,
+        setMessages: setChatMessages,
     } = useGeminiChat();
 
     // ステップ関連
@@ -2178,6 +2526,177 @@ export const GeneratingScreen = ({
     const [chatHistory, setChatHistory] = useState<ChatMessageType[]>([]); // チャット
     // エラー用
     const [error, setError] = useState<string | null>(null);
+
+    // ============================================================
+    // セッション管理（新規追加）
+    // ============================================================
+    const { createSession, loadSession, saveArtifact, updateSession } = useSessionPersistence();
+
+    // ============================================================
+    // 初期化: セッションからStateを復元
+    // ============================================================
+    useEffect(() => {
+        const restoreSession = async () => {
+            if (!sessionId) return;
+
+            const session = await loadSession(sessionId);
+            if (!session) return;
+
+            // 復元されたデータに基づいて、最新のステップを特定する変数
+            let restoredMaxStep = 0;
+
+            // 1. 解析結果の復元
+            if (session.artifacts.patent_summary?.output) {
+                setGeneratedAnalysisText(session.artifacts.patent_summary.output.text);
+                restoredMaxStep = 1; // 解析まで完了
+            }
+
+            // 2. アイデアの復元
+            if (session.artifacts.idea_generation?.output) {
+                setGeneratedIdeaText(session.artifacts.idea_generation.output.text);
+                restoredMaxStep = 2; // アイデアまで完了
+            }
+
+            // チャットの復元
+            if (session.conversation?.messages) {
+                // 型変換 (ConversationMessage -> UIMessage)
+                const restoredMessages = session.conversation.messages.map((msg) => ({
+                    id: msg.id,
+                    role: msg.role as "user" | "assistant",
+                    content: msg.content,
+                }));
+
+                // 1. 画面表示用Stateを更新
+                setChatHistory(restoredMessages);
+
+                // 2. フック内部のStateも更新
+                setChatMessages(restoredMessages);
+
+                // ステップ更新
+                setMaxReachedStep((prev) => Math.max(prev, 3));
+            }
+
+            // GeminiのセッションIDも復元
+            if (session.gemini_session_id) {
+                console.log("[Session] Restoring Gemini ID:", session.gemini_session_id);
+                setGeminiChatSessionId(session.gemini_session_id);
+            }
+
+            // 状態を一括更新
+            setMaxReachedStep((prev) => Math.max(prev, restoredMaxStep));
+
+            // 復元した最新のステップへ画面を切り替える
+            if (restoredMaxStep > 0) {
+                setCurrentStep(restoredMaxStep);
+            }
+        };
+
+        restoreSession();
+    }, [sessionId]);
+
+    // ============================================================
+    // Stateの復元
+    // ============================================================
+    const restoreStateFromSession = (session: SessionData) => {
+        // Artifact: patent_summary
+        if (session.artifacts.patent_summary?.output) {
+            setGeneratedAnalysisText(session.artifacts.patent_summary.output.text);
+            setMaxReachedStep((prev) => Math.max(prev, 1));
+        }
+
+        // Artifact: idea_generation
+        if (session.artifacts.idea_generation?.output) {
+            setGeneratedIdeaText(session.artifacts.idea_generation.output.text);
+            setMaxReachedStep((prev) => Math.max(prev, 2));
+        }
+
+        // Conversation
+        if (session.conversation?.messages) {
+            const messages = session.conversation.messages.map((msg) => ({
+                role: msg.role,
+                content: msg.content,
+            }));
+            setChatHistory(messages);
+            setMaxReachedStep((prev) => Math.max(prev, 3));
+        }
+    };
+
+    // ============================================================
+    // 自動保存: 解析結果
+    // ============================================================
+    useEffect(() => {
+        if (!sessionId || !generatedAnalysisText) return;
+
+        const timer = setTimeout(() => {
+            saveArtifact(sessionId, "patent_summary", {
+                step: 1,
+                type: "single_shot",
+                prompt_type: "analysis",
+                input: {
+                    patent_id: patentId,
+                    patent_text: fullText,
+                },
+                output: {
+                    text: generatedAnalysisText,
+                    generated_at: new Date().toISOString(),
+                },
+            });
+        }, 1000); // 1秒後に保存（debounce）
+
+        return () => clearTimeout(timer);
+    }, [sessionId, generatedAnalysisText]);
+
+    // ============================================================
+    // 自動保存: アイデア生成結果
+    // ============================================================
+    useEffect(() => {
+        if (!sessionId || !generatedIdeaText) return;
+
+        const timer = setTimeout(() => {
+            saveArtifact(sessionId, "idea_generation", {
+                step: 2,
+                type: "single_shot",
+                prompt_type: "idea",
+                input: {
+                    patent_id: patentId,
+                    patent_text: fullText,
+                    analysis_text: generatedAnalysisText,
+                },
+                output: {
+                    text: generatedIdeaText,
+                    generated_at: new Date().toISOString(),
+                },
+            });
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [sessionId, generatedIdeaText]);
+
+    // ============================================================
+    // 自動保存: チャット履歴
+    // ============================================================
+    useEffect(() => {
+        if (!sessionId || chatHistory.length === 0) return;
+
+        const timer = setTimeout(() => {
+            updateSession(sessionId, {
+                conversation: {
+                    step: 3,
+                    type: "multi_turn",
+                    context_refs: ["patent_summary", "idea_generation"],
+                    messages: chatHistory.map((msg, idx) => ({
+                        id: `msg_${idx}`,
+                        role: msg.role,
+                        content: msg.content,
+                        timestamp: new Date().toISOString(),
+                    })),
+                },
+                gemini_session_id: currentGeminiSessionId || undefined,
+            });
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [sessionId, chatHistory]);
 
     // ------------------------------------------------------------
     // データ処理
@@ -2340,6 +2859,11 @@ export const GeneratingScreen = ({
             <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
                 {/* ヘッダー情報 */}
                 <HeaderInfo fileName={fileName} setIsSourceOpen={setIsRightSidebarOpen} />
+                <button
+                    onClick={onReset}
+                    className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg">
+                    別の特許を解析
+                </button>
                 {/* タブナビゲーション */}
                 <StepTabs
                     currentStep={currentStep}
@@ -2414,7 +2938,6 @@ import React, { useCallback, useRef, useState } from "react";
 // ============================================================
 // Screen 1. 特許PDFアップロード画面
 // ============================================================
-
 
 // 特許PDFの型
 type PatentResponse = components["schemas"]["PatentUploadResponse"];
@@ -2518,11 +3041,21 @@ export const UploadScreen = ({
 
             const data: PatentResponse = await res.json();
 
-            // 親コンポーネントの状態を更新し、次画面へ遷移
+            // 親コンポーネントの状態を更新
             setFileName(data.filename);
             setPatentId(data.patent_id);
             setPatentData(data.patent_data);
             setPatentImages(data.images);
+
+            // リロード対策のためにlocalStorageに保存
+            localStorage.setItem(
+                "app_patent_context",
+                JSON.stringify({
+                    patentId: data.patent_id,
+                    fileName: data.filename,
+                })
+            );
+
             setScreen("generating");
         } catch (error) {
             console.error("Error uploading file:", error);
@@ -3799,17 +4332,22 @@ const ReferenceText = ({ children, onClickParagraph }: ReferenceTextProps) => {
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GeneratingScreen } from "./components/screen/GeneratingScreen";
 import { UploadScreen } from "./components/screen/PatentUploadScreen";
+import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 
 import type { components } from "@/types/schema"; // 自動生成型定義
 type PatentContent = components["schemas"]["PatentContent"];
 type PatentImage = components["schemas"]["PatentImage"];
+type PatentResponse = components["schemas"]["PatentUploadResponse"];
 
 // ============================================================
 // 特許解析～アイデア生成機能
 // ============================================================
+
+// ローカルストレージのキー定数
+const STORAGE_KEY_PATENT_CONTEXT = "app_patent_context";
 
 // 画面状態の型定義
 type ScreenState = "upload" | "generating";
@@ -3822,6 +4360,121 @@ export default function IdeaPage() {
     const [fileName, setFileName] = useState<string>("");
     const [patentData, setPatentData] = useState<PatentContent | null>(null);
     const [patentImages, setPatentImages] = useState<PatentImage[]>([]);
+
+    // ローディング状態（復元中かどうか）
+    const [isRestoring, setIsRestoring] = useState(true);
+
+    // セッション管理（新規追加）
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const { createSession, loadSession } = useSessionPersistence();
+
+    // ============================================================
+    // 1. 初期化時の復元ロジック (リロード対策)
+    // ============================================================
+    useEffect(() => {
+        const restoreState = async () => {
+            setIsRestoring(true);
+            try {
+                // localStorageから前回の作業コンテキストを取得
+                const storedContext = localStorage.getItem(STORAGE_KEY_PATENT_CONTEXT);
+
+                if (!storedContext) {
+                    setIsRestoring(false);
+                    return;
+                }
+
+                const { patentId: storedId, fileName: storedName } = JSON.parse(storedContext);
+
+                if (storedId) {
+                    // A. バックエンドから特許データ(JSON)を再取得
+                    const res = await fetch(`http://localhost:8000/patent/${storedId}`);
+                    if (res.ok) {
+                        const data: PatentResponse = await res.json();
+
+                        setPatentId(data.patent_id);
+                        setFileName(storedName || data.filename); // 保存しておいたファイル名を優先
+                        setPatentData(data.patent_data);
+                        setPatentImages(data.images);
+
+                        // B. セッションIDの復元 (既存ロジックの再利用)
+                        const sessionKey = `session_for_patent_${storedId}`;
+                        const storedSessionId = localStorage.getItem(sessionKey);
+                        if (storedSessionId) {
+                            setSessionId(storedSessionId);
+                        } else {
+                            // セッションがなければ新規作成
+                            const newSessionId = await createSession();
+                            setSessionId(newSessionId);
+                            localStorage.setItem(sessionKey, newSessionId);
+                        }
+
+                        // 画面を遷移
+                        setScreen("generating");
+                    } else {
+                        // データが見つからない場合（サーバー再起動で消えた等）はクリア
+                        console.warn("Patent data not found on server.");
+                        localStorage.removeItem(STORAGE_KEY_PATENT_CONTEXT);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to restore state:", e);
+                localStorage.removeItem(STORAGE_KEY_PATENT_CONTEXT);
+            } finally {
+                setIsRestoring(false);
+            }
+        };
+
+        restoreState();
+    }, []); // 初回のみ実行
+
+    // ============================================================
+    // 2. アップロード成功時の保存ロジック
+    // ============================================================
+    // UploadScreenに渡すセットアップ関数をラップして、ストレージ保存を追加
+    const handleUploadSuccess = (
+        pId: string,
+        fName: string,
+        pData: PatentContent,
+        pImages: PatentImage[]
+    ) => {
+        setPatentId(pId);
+        setFileName(fName);
+        setPatentData(pData);
+        setPatentImages(pImages);
+
+        // localStorageに保存
+        localStorage.setItem(
+            STORAGE_KEY_PATENT_CONTEXT,
+            JSON.stringify({
+                patentId: pId,
+                fileName: fName,
+            })
+        );
+
+        setScreen("generating");
+    };
+
+    // ============================================================
+    // 3. リセット処理
+    // ============================================================
+    const handleResetSession = () => {
+        setScreen("upload");
+        setPatentId("");
+        setSessionId(null);
+        setPatentData(null);
+        setPatentImages([]);
+
+        // ストレージもクリア
+        localStorage.removeItem(STORAGE_KEY_PATENT_CONTEXT);
+    };
+
+    if (isRestoring) {
+        return (
+            <div className="flex h-screen items-center justify-center text-slate-500">
+                データを復元中...
+            </div>
+        );
+    }
 
     return (
         <>
@@ -3843,6 +4496,8 @@ export default function IdeaPage() {
                     patentId={patentId}
                     patentData={patentData}
                     patentImages={patentImages}
+                    sessionId={sessionId || ""}
+                    onReset={handleResetSession}
                 />
             )}
         </>
@@ -4568,6 +5223,17 @@ export const useGeminiChat = () => {
     const [error, setError] = useState<string | null>(null);
     const sessionIdRef = useRef<string | null>(null);
 
+    // 外部からIDをセットできるようにする（データ反映）
+    const setSessionIdExternal = useCallback((id: string) => {
+        setSessionId(id);
+        sessionIdRef.current = id;
+    }, []);
+
+    // 外部から履歴をセットするための関数（UI反映）
+    const setMessagesExternal = useCallback((msgs: UIMessage[]) => {
+        setMessages(msgs);
+    }, []);
+
     // ==========================================
     // 送信処理
     // ==========================================
@@ -4692,6 +5358,152 @@ export const useGeminiChat = () => {
         error,
         sendMessage,
         clearSession,
+        setSessionId: setSessionIdExternal,
+        setMessages: setMessagesExternal
+    };
+};
+</file>
+
+<file path="frontend/hooks/useSessionPersistence.ts">
+import { useCallback } from "react";
+
+// ============================================================
+// 型定義（backend/session_schemas.pyと対応）
+// ============================================================
+
+export interface ArtifactOutput {
+    text: string;
+    generated_at: string;
+}
+
+export interface ArtifactData {
+    step: number;
+    type: string;
+    prompt_type: string;
+    input: Record<string, string>;
+    output?: ArtifactOutput;
+}
+
+export interface ConversationMessage {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+    timestamp: string;
+}
+
+export interface ConversationData {
+    step: number;
+    type: string;
+    context_refs: string[];
+    messages: ConversationMessage[];
+}
+
+export interface SessionData {
+    session_id: string;
+    created_at: string;
+    updated_at: string;
+    artifacts: Record<string, ArtifactData>;
+    conversation?: ConversationData;
+    gemini_session_id?: string;
+}
+
+// ============================================================
+// フック本体
+// ============================================================
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+export const useSessionPersistence = () => {
+    // --------------------------------------------------------
+    // セッションの作成
+    // --------------------------------------------------------
+    const createSession = useCallback(async (): Promise<string> => {
+        const response = await fetch(`${API_BASE}/session/`, {
+            method: "POST",
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to create session");
+        }
+
+        const session: SessionData = await response.json();
+        return session.session_id;
+    }, []);
+
+    // --------------------------------------------------------
+    // セッションの読み込み
+    // --------------------------------------------------------
+    const loadSession = useCallback(async (sessionId: string): Promise<SessionData | null> => {
+        const response = await fetch(`${API_BASE}/session/${sessionId}`);
+
+        if (response.status === 404) {
+            return null;
+        }
+
+        if (!response.ok) {
+            throw new Error("Failed to load session");
+        }
+
+        return response.json();
+    }, []);
+
+    // --------------------------------------------------------
+    // Artifactの保存
+    // --------------------------------------------------------
+    const saveArtifact = useCallback(
+        async (sessionId: string, name: string, data: ArtifactData): Promise<void> => {
+            try {
+                const response = await fetch(`${API_BASE}/session/${sessionId}/artifact`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, data }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to save artifact: ${response.statusText}`);
+                }
+                
+                console.log(`[Session] Artifact saved: ${name}`);
+            } catch (error) {
+                console.error(`[Session] Error saving artifact ${name}:`, error);
+                // エラーをユーザーに通知する場合はここで処理
+            }
+        },
+        []
+    );
+
+    // --------------------------------------------------------
+    // セッション全体の更新
+    // --------------------------------------------------------
+    const updateSession = useCallback(
+        async (
+            sessionId: string,
+            updates: {
+                artifacts?: Record<string, ArtifactData>;
+                conversation?: ConversationData;
+                gemini_session_id?: string;
+            }
+        ): Promise<void> => {
+            const response = await fetch(`${API_BASE}/session/${sessionId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(updates),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to update session");
+            }
+        },
+        []
+    );
+
+    return {
+        createSession,
+        loadSession,
+        saveArtifact,
+        updateSession,
     };
 };
 </file>
@@ -4981,6 +5793,8 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ## ディレクトリ構造
 
+
+
 ```
 Patent_Survey_APP
 ├─ backend
@@ -5007,15 +5821,19 @@ Patent_Survey_APP
 │  │     │  ├─ generate_func.py
 │  │     │  ├─ schemas.py
 │  │     │  └─ session_store.py
-│  │     └─ patent
-│  │        ├─ functions.py
-│  │        ├─ patent_api.py
-│  │        ├─ patent_schemas.py
-│  │        ├─ patent_store.py
-│  │        └─ supports
-│  │           ├─ patent_images.py
-│  │           ├─ patent_parser.py
-│  │           └─ patent_text.py
+│  │     ├─ patent
+│  │     │  ├─ functions.py
+│  │     │  ├─ patent_api.py
+│  │     │  ├─ patent_schemas.py
+│  │     │  ├─ patent_store.py
+│  │     │  └─ supports
+│  │     │     ├─ patent_images.py
+│  │     │     ├─ patent_parser.py
+│  │     │     └─ patent_text.py
+│  │     └─ session
+│  │        ├─ session_api.py
+│  │        ├─ session_schema.py
+│  │        └─ session_store.py
 │  └─ uv.lock
 ├─ docker-compose.yml
 ├─ frontend
@@ -5061,7 +5879,8 @@ Patent_Survey_APP
 │  ├─ eslint.config.mjs
 │  ├─ hooks
 │  │  ├─ appState.tsx
-│  │  └─ useGeminiChat.ts
+│  │  ├─ useGeminiChat.ts
+│  │  └─ useSessionPersistence.ts
 │  ├─ next.config.ts
 │  ├─ package-lock.json
 │  ├─ package.json

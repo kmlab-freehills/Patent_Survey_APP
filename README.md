@@ -116,6 +116,8 @@ AI の回答の根拠となる原文箇所をハイライト表示
 
 ## ディレクトリ構造
 
+
+
 ```
 Patent_Survey_APP
 ├─ backend
@@ -142,15 +144,19 @@ Patent_Survey_APP
 │  │     │  ├─ generate_func.py
 │  │     │  ├─ schemas.py
 │  │     │  └─ session_store.py
-│  │     └─ patent
-│  │        ├─ functions.py
-│  │        ├─ patent_api.py
-│  │        ├─ patent_schemas.py
-│  │        ├─ patent_store.py
-│  │        └─ supports
-│  │           ├─ patent_images.py
-│  │           ├─ patent_parser.py
-│  │           └─ patent_text.py
+│  │     ├─ patent
+│  │     │  ├─ functions.py
+│  │     │  ├─ patent_api.py
+│  │     │  ├─ patent_schemas.py
+│  │     │  ├─ patent_store.py
+│  │     │  └─ supports
+│  │     │     ├─ patent_images.py
+│  │     │     ├─ patent_parser.py
+│  │     │     └─ patent_text.py
+│  │     └─ session
+│  │        ├─ session_api.py
+│  │        ├─ session_schema.py
+│  │        └─ session_store.py
 │  └─ uv.lock
 ├─ docker-compose.yml
 ├─ frontend
@@ -196,7 +202,8 @@ Patent_Survey_APP
 │  ├─ eslint.config.mjs
 │  ├─ hooks
 │  │  ├─ appState.tsx
-│  │  └─ useGeminiChat.ts
+│  │  ├─ useGeminiChat.ts
+│  │  └─ useSessionPersistence.ts
 │  ├─ next.config.ts
 │  ├─ package-lock.json
 │  ├─ package.json

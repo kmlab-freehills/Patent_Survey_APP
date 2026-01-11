@@ -1,14 +1,15 @@
 # backend/src/storage/patent_store.py
 
+import json  # JSON保存用に追加
 import os
 import shutil
-import json  # JSON保存用に追加
+from pathlib import Path  # Path操作用に追加
 from typing import Any, Dict, List
 from uuid import uuid4
-from pathlib import Path  # Path操作用に追加
 
-from src.services.patent.supports.patent_images import save_patent_images
 from src.core.config import STATIC_BASE_PATH, STATIC_BASE_URL
+from src.services.patent.supports.patent_images import save_patent_images
+from src.services.patent.supports.patent_text import PatentDocument
 
 # ==========================================
 # 1. 特許テキストデータ（idで管理）
@@ -139,3 +140,60 @@ def clear_chat_history(patent_id: str):
     """
     if patent_id in chat_sessions:
         chat_sessions[patent_id] = []
+
+
+# ============================================================
+# リロード保存処理
+# ============================================================
+
+
+def load_patent_from_json(patent_id: str) -> dict | None:
+    """
+    保存されたJSONから特許データを読み込む
+    """
+    patent_dir = STATIC_BASE_PATH / "patents" / patent_id
+    json_path = patent_dir / "data.json"
+
+    if not json_path.exists():
+        return None
+
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+            # 一度データクラスを経由させることで、欠損している必須フィールド(abstract等)にデフォルト値("")を埋める
+            doc = PatentDocument(**data)
+            return doc.__dict__
+
+    except Exception as e:
+        print(f"Failed to load patent json: {e}")
+        return None
+
+
+def get_patent_images_list(patent_id: str) -> list:
+    """
+    保存された画像ディレクトリから画像リストを再構築する
+    """
+    figure_dir_path = Path(get_patent_figure_dir(patent_id))
+    if not figure_dir_path.exists():
+        return []
+
+    saved_figures = []
+    # ファイル名順にソート
+    for fig_file in sorted(figure_dir_path.glob("fig_*.png")):
+        # fig_001.png -> 1
+        try:
+            idx = int(fig_file.stem.split("_")[1])
+            saved_figures.append(
+                {
+                    "id": fig_file.stem,
+                    "label": f"図{idx}",
+                    "page": 0,
+                    "url": build_figure_url(patent_id, fig_file.name),
+                }
+            )
+        except Exception as e:
+            print(f"Failed to get patent images list: {e}")
+            continue
+
+    return saved_figures

@@ -17,6 +17,7 @@ import { SourceSidebar } from "../sidebar/SourceSidebar";
 // カスタムフック
 import { useMenu } from "@/hooks/appState";
 import { useGeminiChat } from "@/hooks/useGeminiChat";
+import { useSessionPersistence, type SessionData } from "@/hooks/useSessionPersistence";
 
 // ============================================================
 // Screen 2. 生成画面
@@ -51,6 +52,8 @@ interface GeneratingScreenProps {
     patentId: string;
     patentData: PatentContent;
     patentImages: PatentImage[];
+    sessionId: string; // セッションID
+    onReset?: () => void; // 「別の特許を解析」用
 }
 
 // ------------------------------------------------------------
@@ -62,6 +65,8 @@ export const GeneratingScreen = ({
     patentId,
     patentData,
     patentImages,
+    sessionId,
+    onReset,
 }: GeneratingScreenProps) => {
     // ------------------------------------------------------------
     // State定義
@@ -95,6 +100,9 @@ export const GeneratingScreen = ({
         error: chatError,
         sendMessage: sendChatMessage,
         clearSession: clearChatSession,
+        setSessionId: setGeminiChatSessionId,
+        sessionId: currentGeminiSessionId,
+        setMessages: setChatMessages,
     } = useGeminiChat();
 
     // ステップ関連
@@ -110,6 +118,177 @@ export const GeneratingScreen = ({
     const [chatHistory, setChatHistory] = useState<ChatMessageType[]>([]); // チャット
     // エラー用
     const [error, setError] = useState<string | null>(null);
+
+    // ============================================================
+    // セッション管理（新規追加）
+    // ============================================================
+    const { createSession, loadSession, saveArtifact, updateSession } = useSessionPersistence();
+
+    // ============================================================
+    // 初期化: セッションからStateを復元
+    // ============================================================
+    useEffect(() => {
+        const restoreSession = async () => {
+            if (!sessionId) return;
+
+            const session = await loadSession(sessionId);
+            if (!session) return;
+
+            // 復元されたデータに基づいて、最新のステップを特定する変数
+            let restoredMaxStep = 0;
+
+            // 1. 解析結果の復元
+            if (session.artifacts.patent_summary?.output) {
+                setGeneratedAnalysisText(session.artifacts.patent_summary.output.text);
+                restoredMaxStep = 1; // 解析まで完了
+            }
+
+            // 2. アイデアの復元
+            if (session.artifacts.idea_generation?.output) {
+                setGeneratedIdeaText(session.artifacts.idea_generation.output.text);
+                restoredMaxStep = 2; // アイデアまで完了
+            }
+
+            // チャットの復元
+            if (session.conversation?.messages) {
+                // 型変換 (ConversationMessage -> UIMessage)
+                const restoredMessages = session.conversation.messages.map((msg) => ({
+                    id: msg.id,
+                    role: msg.role as "user" | "assistant",
+                    content: msg.content,
+                }));
+
+                // 1. 画面表示用Stateを更新
+                setChatHistory(restoredMessages);
+
+                // 2. フック内部のStateも更新
+                setChatMessages(restoredMessages);
+
+                // ステップ更新
+                setMaxReachedStep((prev) => Math.max(prev, 3));
+            }
+
+            // GeminiのセッションIDも復元
+            if (session.gemini_session_id) {
+                console.log("[Session] Restoring Gemini ID:", session.gemini_session_id);
+                setGeminiChatSessionId(session.gemini_session_id);
+            }
+
+            // 状態を一括更新
+            setMaxReachedStep((prev) => Math.max(prev, restoredMaxStep));
+
+            // 復元した最新のステップへ画面を切り替える
+            if (restoredMaxStep > 0) {
+                setCurrentStep(restoredMaxStep);
+            }
+        };
+
+        restoreSession();
+    }, [sessionId]);
+
+    // ============================================================
+    // Stateの復元
+    // ============================================================
+    const restoreStateFromSession = (session: SessionData) => {
+        // Artifact: patent_summary
+        if (session.artifacts.patent_summary?.output) {
+            setGeneratedAnalysisText(session.artifacts.patent_summary.output.text);
+            setMaxReachedStep((prev) => Math.max(prev, 1));
+        }
+
+        // Artifact: idea_generation
+        if (session.artifacts.idea_generation?.output) {
+            setGeneratedIdeaText(session.artifacts.idea_generation.output.text);
+            setMaxReachedStep((prev) => Math.max(prev, 2));
+        }
+
+        // Conversation
+        if (session.conversation?.messages) {
+            const messages = session.conversation.messages.map((msg) => ({
+                role: msg.role,
+                content: msg.content,
+            }));
+            setChatHistory(messages);
+            setMaxReachedStep((prev) => Math.max(prev, 3));
+        }
+    };
+
+    // ============================================================
+    // 自動保存: 解析結果
+    // ============================================================
+    useEffect(() => {
+        if (!sessionId || !generatedAnalysisText) return;
+
+        const timer = setTimeout(() => {
+            saveArtifact(sessionId, "patent_summary", {
+                step: 1,
+                type: "single_shot",
+                prompt_type: "analysis",
+                input: {
+                    patent_id: patentId,
+                    patent_text: fullText,
+                },
+                output: {
+                    text: generatedAnalysisText,
+                    generated_at: new Date().toISOString(),
+                },
+            });
+        }, 1000); // 1秒後に保存（debounce）
+
+        return () => clearTimeout(timer);
+    }, [sessionId, generatedAnalysisText]);
+
+    // ============================================================
+    // 自動保存: アイデア生成結果
+    // ============================================================
+    useEffect(() => {
+        if (!sessionId || !generatedIdeaText) return;
+
+        const timer = setTimeout(() => {
+            saveArtifact(sessionId, "idea_generation", {
+                step: 2,
+                type: "single_shot",
+                prompt_type: "idea",
+                input: {
+                    patent_id: patentId,
+                    patent_text: fullText,
+                    analysis_text: generatedAnalysisText,
+                },
+                output: {
+                    text: generatedIdeaText,
+                    generated_at: new Date().toISOString(),
+                },
+            });
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [sessionId, generatedIdeaText]);
+
+    // ============================================================
+    // 自動保存: チャット履歴
+    // ============================================================
+    useEffect(() => {
+        if (!sessionId || chatHistory.length === 0) return;
+
+        const timer = setTimeout(() => {
+            updateSession(sessionId, {
+                conversation: {
+                    step: 3,
+                    type: "multi_turn",
+                    context_refs: ["patent_summary", "idea_generation"],
+                    messages: chatHistory.map((msg, idx) => ({
+                        id: `msg_${idx}`,
+                        role: msg.role,
+                        content: msg.content,
+                        timestamp: new Date().toISOString(),
+                    })),
+                },
+                gemini_session_id: currentGeminiSessionId || undefined,
+            });
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [sessionId, chatHistory]);
 
     // ------------------------------------------------------------
     // データ処理
@@ -272,6 +451,11 @@ export const GeneratingScreen = ({
             <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
                 {/* ヘッダー情報 */}
                 <HeaderInfo fileName={fileName} setIsSourceOpen={setIsRightSidebarOpen} />
+                <button
+                    onClick={onReset}
+                    className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg">
+                    別の特許を解析
+                </button>
                 {/* タブナビゲーション */}
                 <StepTabs
                     currentStep={currentStep}

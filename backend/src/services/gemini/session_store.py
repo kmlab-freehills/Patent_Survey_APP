@@ -7,7 +7,8 @@ from typing import List, Dict
 
 
 class SessionStore:
-    def __init__(self, storage_path="./storage/sessions"):
+    # 変更後: storage_path="./storage/gemini_histories"
+    def __init__(self, storage_path="./storage/gemini_histories"):
         self.path = Path(storage_path)
         self.path.mkdir(exist_ok=True, parents=True)
 
