@@ -14,64 +14,13 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * テキスト生成
-         * @description Gemini APIを使用してテキストをストリーミング生成
+         * Generate Chat
+         * @description 統一エンドポイント
+         *     - save_context=False (解析・アイデア生成): 履歴を使わず、単発のリクエストとして処理
+         *     - save_context=True  (チャット): セッション履歴を読み書きして処理
+         *     - PromptManagerを経由してプロンプトを構築し、生成を行う
          */
-        post: operations["generate_generate_content_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/generate/patent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate From Patent */
-        post: operations["generate_from_patent_generate_patent_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/generate/idea": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate Idea */
-        post: operations["generate_idea_generate_idea_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/generate/chat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Chat With Context
-         * @description 特許文脈を保持したマルチターンチャット
-         */
-        post: operations["chat_with_context_generate_chat_post"];
+        post: operations["generate_chat_generate_content_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -87,10 +36,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Upload Pdf
-         * @description アップロードされたJ-PlatPat由来の特許PDFを処理し、ファイル情報・ID・本文・画像(メタデータ)を返す
-         */
+        /** Upload Pdf */
         post: operations["upload_pdf_patent_upload_post"];
         delete?: never;
         options?: never;
@@ -127,41 +73,39 @@ export interface components {
              */
             file: string;
         };
-        /** ChatRequest */
-        ChatRequest: {
-            /** Patent Id */
-            patent_id: string;
-            /** User Message */
-            user_message: string;
-            /**
-             * Analysis Text
-             * @default
-             */
-            analysis_text: string;
-            /**
-             * Idea Text
-             * @default
-             */
-            idea_text: string;
-        };
-        /** GenerateIdeaRequest */
-        GenerateIdeaRequest: {
-            /** Patent Id */
-            patent_id: string;
-            /** Explanation Text */
-            explanation_text: string;
-        };
-        /** GeneratePatentRequest */
-        GeneratePatentRequest: {
-            /** Patent Id */
-            patent_id: string;
-        };
-        /** GenerateRequest */
+        /**
+         * GenerateRequest
+         * @description 統一リクエスト
+         */
         GenerateRequest: {
-            /** Prompt */
-            prompt: string;
-            /** Tool Mode */
-            tool_mode: string;
+            /**
+             * Prompt Type
+             * @description 使用するプロンプトテンプレートのID
+             */
+            prompt_type: string;
+            /**
+             * Context
+             * @description プロンプトに埋め込むためのコンテキスト情報
+             */
+            context?: {
+                [key: string]: string;
+            };
+            /**
+             * User Message
+             * @description ユーザー入力
+             */
+            user_message: string | null;
+            /**
+             * Session Id
+             * @description 既存セッションID
+             */
+            session_id?: string | null;
+            /**
+             * Save Context
+             * @description 履歴保存モード（False=シングルショット）
+             * @default true
+             */
+            save_context: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -281,7 +225,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    generate_generate_content_post: {
+    generate_chat_generate_content_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -291,105 +235,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["GenerateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_from_patent_generate_patent_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GeneratePatentRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_idea_generate_idea_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateIdeaRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    chat_with_context_generate_chat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChatRequest"];
             };
         };
         responses: {

@@ -317,7 +317,7 @@ class PromptManager:
             # プロンプト構築
             system_prompt = SYSTEM_PROMPT_PATENT
             prompt = build_idea_prompt(patent_text, analysis_text)
-            return prompt, None
+            return prompt, system_prompt
 
         # 3. チャット用（システムプロンプト構築）
         elif prompt_type == "chat":
@@ -334,7 +334,7 @@ class PromptManager:
             # プロンプト構築
             system_prompt = build_patent_chat_system_prompt(patent_text, analysis_text, idea_text)
             # ユーザーメッセージはそのまま返す
-            return user_input, prompt
+            return user_input, system_prompt
 
         else:
             raise ValueError(f"未定義のプロンプトタイプ: {prompt_type}")
@@ -911,24 +911,43 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from src.core.client import gemini_client
+from src.prompt.manager import PromptManager
 from src.services.gemini.generate_func import generate_text_engine
 from src.services.gemini.schemas import GenerateRequest
 from src.services.gemini.session_store import session_store
 
+# ルーター
 router = APIRouter(prefix="/generate", tags=["LLM生成"])
+
+# クライアント取得
 client = gemini_client
 
 
+# エンドポイント
 @router.post("/content")
 async def generate_chat(request: GenerateRequest):
     """
     統一エンドポイント
     - save_context=False (解析・アイデア生成): 履歴を使わず、単発のリクエストとして処理
     - save_context=True  (チャット): セッション履歴を読み書きして処理
+    - PromptManagerを経由してプロンプトを構築し、生成を行う
     """
 
     async def event_stream():
         try:
+            # 1. PromptManagerを使用してプロンプトとシステムプロンプトを構築
+            # 戻り値: (ユーザー入力として扱うテキスト, システムプロンプト)
+            user_content_text, system_prompt = PromptManager.build(
+                prompt_type=request.prompt_type, context=request.context, user_input=request.user_message or ""
+            )
+
+            print(f"[DEBUG]PROMPT_TYPE: {request.prompt_type}")
+            print("[DEBUG]SYSTEM_PROMPT:")
+            print(system_prompt[:100], "..." or None)
+            print("[DEBUG]PROMPT:")
+            print(user_content_text[:100], "..." or None)
+            print("[DEBUG]RESULT:")
+
             # ====================================================
             # モードA: チャットモード (履歴を保持・更新する)
             # ====================================================
@@ -944,16 +963,20 @@ async def generate_chat(request: GenerateRequest):
                 history = session_store.load(session_id)
 
                 # 今回のユーザー入力を追加
-                new_message = {"role": "user", "parts": [{"text": request.prompt}]}
+                new_message = {"role": "user", "parts": [{"text": user_content_text}]}
                 history.append(new_message)
 
                 # 生成エンジン実行
                 full_response_text = ""
                 for event in generate_text_engine(
-                    client=gemini_client, contents=history, system_instruction=request.system_instruction
+                    client=gemini_client, contents=history, system_instruction=system_prompt
                 ):
                     if event["type"] == "content_delta":
                         full_response_text += event["data"]["chunk"]
+                    # デバッグ用
+                    if "chunk" in event["data"]:
+                        print(event["data"]["chunk"], end="")
+                    # フロントへ送信
                     yield _format_event(event["type"], event["data"])
 
                 # 完了後、AIの応答も含めて履歴保存
@@ -965,13 +988,15 @@ async def generate_chat(request: GenerateRequest):
             # ====================================================
             else:
                 # 履歴はロードせず、今回のプロンプトだけで構成する
-                contents = [{"role": "user", "parts": [{"text": request.prompt}]}]
+                contents = [{"role": "user", "parts": [{"text": user_content_text}]}]
 
                 for event in generate_text_engine(
-                    client=gemini_client, contents=contents, system_instruction=request.system_instruction
+                    client=gemini_client, contents=contents, system_instruction=system_prompt
                 ):
+                    # デバッグ用
                     if "chunk" in event["data"]:
                         print(event["data"]["chunk"], end="")
+                    # フロントへ送信
                     yield _format_event(event["type"], event["data"])
 
         except Exception as e:
@@ -2056,12 +2081,10 @@ import { ChatSection } from "../section/ChatSection";
 import { HeaderInfo, StepTabs } from "../section/HeaderSection";
 import { IdeaSection } from "../section/IdeaSection";
 import { PreviewSection } from "../section/PreviewSection";
-import { SourceSidebar } from "../sidebar/SourceSidebar"; // 原文確認サイドバー
-// グローバルステート取得
+import { SourceSidebar } from "../sidebar/SourceSidebar";
+// カスタムフック
 import { useMenu } from "@/hooks/appState";
-
-import { useGeminiChat } from "@/hooks/useGeminiChat"; // 🆕 追加
-import { SYSTEM_PROMPT_PATENT } from "@/constants/prompts"; // 🆕 追加（後で作成）
+import { useGeminiChat } from "@/hooks/useGeminiChat";
 
 // ============================================================
 // Screen 2. 生成画面
@@ -2133,7 +2156,7 @@ export const GeneratingScreen = ({
         clearSession: clearIdeaSession,
     } = useGeminiChat();
 
-    // 🆕 チャット用フック（マルチターン）
+    // チャット用フック
     const {
         messages: chatMessages,
         isGenerating: isGeneratingChat,
@@ -2142,22 +2165,19 @@ export const GeneratingScreen = ({
         clearSession: clearChatSession,
     } = useGeminiChat();
 
-    // 既存のState
+    // ステップ関連
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [maxReachedStep, setMaxReachedStep] = useState<number>(0);
+    // 右サイドバー関連
     const [activeParagraphId, setActiveParagraphId] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<PatentImage | null>(null);
-    
-    // 🔧 解析結果の管理方法を変更
-    const [generatedAnalysisText, setGeneratedAnalysisText] = useState("");
-    const [generatedIdeaText, setGeneratedIdeaText] = useState("");
+
+    // 生成テキストの管理
+    const [generatedAnalysisText, setGeneratedAnalysisText] = useState(""); // 解析
+    const [generatedIdeaText, setGeneratedIdeaText] = useState(""); // アイデア生成
+    const [chatHistory, setChatHistory] = useState<ChatMessageType[]>([]); // チャット
+    // エラー用
     const [error, setError] = useState<string | null>(null);
-
-
-    // 🔧 チャット履歴の管理方法を変更（UIMessage型に変換）
-    const [chatHistory, setChatHistory] = useState<ChatMessageType[]>([]);
-
-
 
     // ------------------------------------------------------------
     // データ処理
@@ -2166,12 +2186,6 @@ export const GeneratingScreen = ({
     // 全文取得（一度だけ実行）
     const fullText = useMemo(() => formatPatentToString(patentData), [patentData]);
     const sourceBlocks = useMemo(() => parseSourceText(fullText), [fullText]);
-
-    // activeParagraphId がセットされたら自動でサイドバーを開く
-    const handleParagraphClick = (id: string) => {
-        setActiveParagraphId(id);
-        setIsRightSidebarOpen(true); // グローバルステートを変更
-    };
 
     // ------------------------------------------------------------
     // 右サイドバーに関する処理
@@ -2205,8 +2219,14 @@ export const GeneratingScreen = ({
         setIsRightSidebarOpen,
     ]);
 
+    // activeParagraphId がセットされたら自動でサイドバーを開く
+    const handleParagraphClick = (id: string) => {
+        setActiveParagraphId(id);
+        setIsRightSidebarOpen(true); // グローバルステートを変更
+    };
+
     // ------------------------------------------------------------
-    // 🆕 解析結果の自動反映（analysisMessagesの最後のメッセージを監視）
+    // 解析結果の自動反映（analysisMessagesの最後のメッセージを監視）
     // ------------------------------------------------------------
     useEffect(() => {
         const lastMessage = analysisMessages[analysisMessages.length - 1];
@@ -2216,7 +2236,7 @@ export const GeneratingScreen = ({
     }, [analysisMessages]);
 
     // ------------------------------------------------------------
-    // 🆕 アイデア生成結果の自動反映
+    // アイデア生成結果の自動反映
     // ------------------------------------------------------------
     useEffect(() => {
         const lastMessage = ideaMessages[ideaMessages.length - 1];
@@ -2228,7 +2248,7 @@ export const GeneratingScreen = ({
     // ------------------------------------------------------------
     // チャットメッセージの自動反映
     // ------------------------------------------------------------
-    
+
     useEffect(() => {
         setChatHistory(
             chatMessages.map((msg) => ({
@@ -2239,7 +2259,7 @@ export const GeneratingScreen = ({
     }, [chatMessages]);
 
     // ------------------------------------------------------------
-    // 🆕 エラーハンドリング（統合）
+    // エラーハンドリング（統合）
     // ------------------------------------------------------------
     useEffect(() => {
         if (analysisError || ideaError || chatError) {
@@ -2247,141 +2267,71 @@ export const GeneratingScreen = ({
         }
     }, [analysisError, ideaError, chatError]);
 
-
-
     // ------------------------------------------------------------
-    // 🆕 特許解析ハンドラー（新方式）
+    // 特許解析ハンドラー（Manager対応）
     // ------------------------------------------------------------
     const handleStartAnalysis = async () => {
-        // ステップ移動
         setCurrentStep(1);
         setMaxReachedStep((prev) => Math.max(prev, 1));
-        
-        // 前回のセッションをクリア
+
         clearAnalysisSession();
         setGeneratedAnalysisText("");
         setError(null);
 
-        const patentPrompt = buildPatentPromptClient(fullText);
-
-        // 🆕 useGeminiChatを使用した生成
+        // contextを構築して送信
         await sendAnalysisMessage({
-            prompt: patentPrompt,
-            patentId: patentId,
-            saveContext: false, // シングルショット
-            systemInstruction: SYSTEM_PROMPT_PATENT,
+            promptType: "analysis",
+            context: {
+                patent_text: fullText, // 特許テキスト
+            },
+            saveContext: false, // 解析は履歴不要
         });
     };
 
     // ------------------------------------------------------------
-    // 🆕 アイデア生成ハンドラー（新方式）
+    // アイデア生成ハンドラー（Manager対応）
     // ------------------------------------------------------------
     const handleStartIdea = async () => {
         setCurrentStep(2);
         setMaxReachedStep((prev) => Math.max(prev, 2));
-        
+
         clearIdeaSession();
         setGeneratedIdeaText("");
         setError(null);
 
-        // 🔧 プロンプトを手動構築（一時的な対応）
-        // Phase 2でバックエンドに移動予定
-        const ideaPrompt = buildIdeaPromptClient(generatedAnalysisText, fullText);
-
+        // 前段の成果物を含めて送信
         await sendIdeaMessage({
-            prompt: ideaPrompt,
-            patentId: patentId,
+            promptType: "idea",
+            context: {
+                patent_text: fullText, // 特許テキスト
+                analysis_text: generatedAnalysisText, // 解析結果
+            },
             saveContext: false,
-            systemInstruction: SYSTEM_PROMPT_PATENT,
         });
     };
 
-    // 🆕 チャット開始ハンドラー（セッションクリア）
+    // チャット開始ハンドラー
     const handleStartChat = () => {
         setCurrentStep(3);
         setMaxReachedStep((prev) => Math.max(prev, 3));
-        
         setError(null);
     };
 
     // ------------------------------------------------------------
-    // API処理
+    // チャット送信ハンドラー（Manager対応）
     // ------------------------------------------------------------
-
-    // 共通ストリーミング処理ヘルパー
-    const streamResponse = async (
-        url: string, // APIエンドポイント
-        body: object, // POSTに必要なボディ
-        onUpdate: (chunk: string) => void, // チャンク受診時のコールバック
-        onStart: () => void, // 開始時の状態更新コールバック
-        onComplete: () => void // 完了時の状態更新コールバック
-    ) => {
-        onStart();
-        setError(null);
-        try {
-            // リクエスト
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-            // レスポンス判定
-            if (!response.ok) {
-                // HTTPステータスコードに応じたエラー処理
-                if (response.status === 404) {
-                    throw new Error("特許データが見つかりませんでした");
-                } else if (response.status >= 500) {
-                    throw new Error("サーバーエラーが発生しました。時間をおいて再試行してください");
-                } else {
-                    throw new Error(`エラーが発生しました (${response.status})`);
-                }
-            }
-
-            if (!response.body) {
-                throw new Error("レスポンスが空です");
-            }
-            // ストリーム処理準備
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            // ストリーム処理
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                onUpdate(decoder.decode(value, { stream: true }));
-            }
-            // エラーハンドリング
-        } catch (err) {
-            console.error(err);
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("不明なエラーが発生しました");
-            }
-        } finally {
-            onComplete();
-        }
-    };
-
-    // ------------------------------------------------------------
-    // API呼び出しハンドラー（チャット機能）
-    // ------------------------------------------------------------
-
-    // 🆕 チャット送信ハンドラー（新方式）
     const handleChatSubmit = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
-        // 🔧 システムプロンプトを構築（特許原文 + 解析結果 + アイデアを含む）
-        const chatSystemPrompt = buildChatSystemPromptClient(
-            fullText,
-            generatedAnalysisText,
-            generatedIdeaText
-        );
-
         await sendChatMessage({
-            prompt: userMessage,
-            patentId: patentId,
-            saveContext: true, // 🔑 マルチターン（履歴保持）
-            systemInstruction: chatSystemPrompt,
+            promptType: "chat",
+            userMessage: userMessage,
+            context: {
+                patent_text: fullText, // 特許テキスト
+                analysis_text: generatedAnalysisText, // 解析結果
+                idea_text: generatedIdeaText, // アイデアリスト
+            },
+            saveContext: true, // チャットは履歴保持
         });
     };
 
@@ -2450,341 +2400,6 @@ export const GeneratingScreen = ({
         </div>
     );
 };
-
-// ------------------------------------------------------------
-// 🆕 一時的なクライアント側プロンプト構築関数
-// Phase 2でバックエンドに移動予定
-// ------------------------------------------------------------
-function buildPatentPromptClient(fullText:string): string {
-    return `
-## 1. 基本原則
-- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
-- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
-- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
-
-## 2. 該当記述がない場合の対応
-各項目について、以下の基準で判断してください：
-
-1. **明確な記述がある** → そのまま抽出
-2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
-3. **該当する記述が見当たらない** → 「該当記述なし」と明記
-
-## 3. 出典の明記
-可能な限り、抽出した情報の出典を明示してください：
-- 段落番号、図番号、表番号などを併記
-  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
-
-## 4. 分類に関する補足
-
-### 複数項目に該当する要素の扱い
-同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
-
-例:
-- 項目2-1: 「温度センサー」（物理的構成要素として）
-- 項目3-1: 「温度センシング技術」（検出原理として）
-- 項目3-2: 「周囲温度の測定」（要素機能として）
-
-### 不明確な分類の場合
-どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
-
-## 5. 出力テンプレート
-
-抽出内容は、以下の構造で記述してください。
-
-\`\`\`markdown
-# [特許の名称]
-
-## 1. 発明の技術分野
-【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
-
----
-
-## 2. 技術の物理的構成
-
-### 2-1. 構成要素（部材・部品）
-**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
-- 該当例: モーター、センサー筐体、フレーム、ギア、配線
-- 非該当例: ソフトウェア、アルゴリズム、製造方法
-
-### 2-2. 構成材料・原料
-構成要素を**作るための材料・材質**を箇条書きでリストアップ。
-- 該当例: 金属、樹脂、化学物質、合金、繊維
-- 非該当例: 完成した部品（それは2-1に記載）
-
-### 2-3. 形態・形状・構造
-技術が「どのような形・構造」をしているかを記述。
-- 全体の形状、配置関係、構造的特徴など
-
----
-
-## 3. 技術の機能的構成
-
-### 3-1. 基盤技術・要素技術
-**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
-- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
-- 非該当例: 物理的な部品（それは2-1に記載）
-
-### 3-2. 要素機能（部品レベル）
-各構成要素が果たす**個別の役割**を記述。
-
-### 3-3. システム機能（全体レベル）
-技術全体として実現される**主要な機能**を記述。
-
-### 3-4. 動作フロー（該当記述がある場合のみ）
-技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
-
----
-
-## 4. 定量データ・仕様情報
-
-以下のルールで数値データを抽出してください：
-
-**抽出原則:**
-1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
-2. **文脈を保持**: 数値が何を示すかを明記
-3. **出典を明記**: 段落番号、図番号、表番号を併記
-4. **範囲と条件**: 数値に条件がある場合、その条件も記載
-
-**抽出対象:**
-- 寸法・サイズ
-- 物理量
-- 性能指標
-- 配合・比率
-- その他の定量的記述
-\`\`\`
-## 対象資料
-
-<document>
-${fullText}
-</document>
-
-`.trim();
-}
-
-// ------------------------------------------------------------
-// 🆕 一時的なクライアント側プロンプト構築関数
-// Phase 2でバックエンドに移動予定
-// ------------------------------------------------------------
-function buildIdeaPromptClient(analysisText: string, fullText:string): string {
-    return `
-特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
-
-## アイデア生成の指針
-
-### 基本的な問い
-すべてのアイデアは、以下の問いに答えるものとしてください：
-
-1. **誰の課題を解決するのか？**（ターゲットの明確化）
-2. **どのように解決するのか？**（技術との接続）
-3. **なぜこの技術が適しているのか？**（技術的優位性）
-
-### アイデアの多様性
-以下のような多様性を持つアイデアを含めてください：
-
-- **近接応用**: 特許文書に記載された用途に近い応用
-- **遠隔転用**: 全く異なる分野への転用
-- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
-
-## 重要な原則
-
-### 1. 事実と推測の明確な分離
-あなたが生成するアイデアは、以下の2つの要素から構成されます：
-
-**【事実層】特許文書に基づく技術的事実**
-- 解析結果で抽出された情報のみを使用
-- 引用または要約の形式で明示
-
-**【推測層】あなたの創造的な解釈・応用**
-- 事実層を出発点とした、論理的な推論
-- 市場ニーズや応用可能性の想定
-- **必ず[推測]とマークする**
-
-### 2. 推測の誠実な表現
-推測箇所では、以下のような表現を使用してください：
-
-- 「〜の可能性がある」
-- 「〜が期待される」
-- 「〜と想定される」
-- 「〜への応用が考えられる」
-
-**絶対に使用しないこと：**
-- 断定的な表現（「〜である」「〜できる」）
-- 根拠なき数値（「約○○%向上」）
-- 架空の事例（「A社では〜」）
-
-## 出力テンプレート
-
-各アイデアは、以下の構造で記述してください。
-
-\`\`\`markdown
-# アイデアリスト
-
----
-
-## アイデア1: [名称]
-
-### 技術的基盤（事実層）
-
-この特許技術は、以下の特性を持つ：
-- [解析結果からの引用または要約箇所を出典と共にリストアップ]
-
-### アイデアの概要（推測層）
-
-[上記の技術的基盤を出発点として、どのような応用が考えられるか]
-
-### 解決できる課題（推測層）
-
-[このアイデアがどのような課題を解決するか]
-
-### ターゲット像（推測層）
-
-- 企業: [想定される企業・組織]
-- 消費者: [想定される消費者層]
-
-### 提供価値（推測層）
-
-[このアイデアが提供するベネフィット]
-
-### 技術的接続点（事実層 + 推測層）
-
-特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
-根拠: （解析結果参照）
-
-### 実装上の検討事項（推測層）
-
-- 技術的ハードル: [想定される課題]
-- 市場・規制リスク: [想定されるリスク]
-
----
-
-## アイデア2: [名称]
-...(省略)
-\`\`\`
-
-## 対象技術に関する資料
-
-
-### 特許技術の構造化
-<document>
-${analysisText}
-</document>
-
-### 特許原文（前提）
-<document>
-${fullText}
-</document>
-
----
-
-上記の指示と資料に基づき、アイデアを生成してください。
-`.trim();
-}
-
-// ------------------------------------------------------------
-// 🆕 チャット用システムプロンプト構築（一時的）
-// Phase 2でバックエンドに移動予定
-// ------------------------------------------------------------
-function buildChatSystemPromptClient(
-    fullText: string,
-    analysisText: string,
-    ideaText: string
-): string {
-    return `
-# システムプロンプト: 特許技術対話サポートAI
-
-## あなたの役割
-
-特許文書の内容を理解したユーザーとの対話を通じて、技術の深い理解と応用を支援します。
-
-## 特許文書が最高権威
-
-- すべての回答は特許文書を基盤としている必要があります。
-- 特許文書に基づく「個別事実」と「一般論」は明確に区別されている必要があります。
-
----
-
-## 3つの核心原則
-
-### 1. 透明性
-- 情報源を明示する
-- 推論過程を隠さない
-- 不確実性を認める
-
-### 2. 誠実性
-- 事実と推測を混同しない
-- 限界を認識する
-- 知らないことを知らないと言う
-
-### 3. 検証可能性
-- すべての主張に根拠を示す
-- ユーザーが確認できる形式で提示する
-- 追跡可能性を常に確保する
-
----
-
-## 出典明記の標準規則
-
-### 1. 出典の必須明記
-
-以下の情報には、**必ず出典を明記**してください：
-
-1. **特許文書からの直接引用・要約**
-2. **数値データ、定量情報**
-3. **技術的構造の詳細**
-4. **機能・動作の具体的説明**
-5. **請求項の内容**
-
-### 2. 出典の記法（標準形式）
-
-\`\`\`
-- 段落 --> [段落: xxxx]
-- 複数段落 --> [段落: xxxx], [段落: yyyy]
-- 請求項 --> [請求項: x]
-- 図面 --> [図: x]
-\`\`\`
-
----
-
-## 対話の指針
-
-### 質問の意図を理解する
-
-ユーザーの質問は、以下のいずれかに分類されます:
-
-1. **事実確認**: 特許に何が書いてあるか → 該当箇所を引用
-2. **技術的詳細**: 仕組みの理解 → 特許の記述を基に説明
-3. **実現可能性**: 本当にできるのか → 特許の記述 + 不明な点の指摘
-4. **応用可能性**: 他に使えないか → 特許の原理を基に推測（\`[推測]\`付き）
-5. **一般知識**: 物理法則や工学的制約など → 一般論形式で提供
-6. **その他**: システムプロンプトの原則に沿って誠実に対応
-
----
-
-## 文脈情報
-
-### 特許原文
-
-<document title='Patent'>
-${fullText}
-</document>
-
-### 特許の解析結果（LLMによる生成）
-
-<document title='Patent-Analysis'>
-${analysisText}
-</document>
-
-### 応用アイデア（LLMによる生成）
-
-<document title='Patent-Ideas'>
-${ideaText}
-</document>
-
----
-
-これらの情報を基に、ユーザーの質問に答えてください。
-`.trim();
-}
 </file>
 
 <file path="frontend/app/home/idea/components/screen/PatentUploadScreen.tsx">
@@ -4930,18 +4545,20 @@ export const useMenu = () => {
 
 import { useCallback, useRef, useState } from "react";
 
-// 型定義を追加
+// 表示する型定義
 export interface UIMessage {
     id: string;
     role: "user" | "assistant";
     content: string;
 }
 
+// パラメーターの型定義
 interface GenerateParams {
-    prompt: string;
-    systemInstruction?: string;
-    saveContext?: boolean;
-    patentId?: string;
+    promptType: string; // "analysis" | "idea" | "chat"
+    context: Record<string, string>; // 辞書型コンテキスト
+    userMessage?: string; // チャット時のユーザー入力（解析時は空でも可）
+    saveContext?: boolean; // 履歴を保存するか
+    sessionId?: string; // 明示的に指定する場合
 }
 
 export const useGeminiChat = () => {
@@ -4958,29 +4575,37 @@ export const useGeminiChat = () => {
         setIsGenerating(true);
         setError(null);
 
-        // ユーザーメッセージと空のアシスタントメッセージを追加
-        const userMsg: UIMessage = {
-            id: crypto.randomUUID(),
-            role: "user",
-            content: params.prompt,
-        };
+        // UI表示用のメッセージ処理
+        // 解析・アイデア生成モードの場合は、システム的なメッセージは表示しない、
+        // またはユーザー入力がある場合（チャット）のみ表示する等の制御が必要
+        if (params.userMessage) {
+            const userMsg: UIMessage = {
+                id: crypto.randomUUID(),
+                role: "user",
+                content: params.userMessage,
+            };
+            setMessages((prev) => [...prev, userMsg]);
+        }
+
+        // アシスタントの空メッセージ枠を追加（ストリーミング用）
         const assistantMsg: UIMessage = {
             id: crypto.randomUUID(),
             role: "assistant",
             content: "",
         };
-        setMessages((prev) => [...prev, userMsg, assistantMsg]);
+        setMessages((prev) => [...prev, assistantMsg]);
 
         try {
             const response = await fetch("http://localhost:8000/generate/content", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    prompt: params.prompt,
-                    session_id: sessionIdRef.current,
+                    // バックエンドの GenerateRequest スキーマに合わせる
+                    prompt_type: params.promptType,
+                    context: params.context,
+                    user_message: params.userMessage || null,
+                    session_id: params.sessionId || sessionIdRef.current,
                     save_context: params.saveContext ?? true,
-                    system_instruction: params.systemInstruction,
-                    patent_id: params.patentId,
                 }),
             });
 
@@ -5355,7 +4980,6 @@ AI の回答の根拠となる原文箇所をハイライト表示
 ---
 
 ## ディレクトリ構造
-
 
 ```
 Patent_Survey_APP
