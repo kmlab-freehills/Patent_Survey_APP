@@ -1,5 +1,4 @@
-# Patent_Survey_APP/backend/src/func/patent_pdf.py
-
+# Patent_Survey_APP/backend/src/services/patent/supports/patent_text.py
 
 import re
 import unicodedata
@@ -431,5 +430,3 @@ def parse_patent_text(text: str) -> PatentDocument:
             doc.others[header_key] = content
 
     return doc
-
-

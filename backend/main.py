@@ -6,12 +6,8 @@ from contextlib import asynccontextmanager  # ライフサイクルイベント
 from fastapi import FastAPI, Request  # アプリ本体
 from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
 from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
-
-from src.core.config import STATIC_BASE_PATH, CLEANUP_ON_EXIT, FRONTEND_URL
-from src.services.gemini import generate_api
-from src.services.patent import patent_api
-from src.services.session import session_api
-from src.services.patent.patent_store import cleanup_temp_files  # 一時ファイル処理用
+from src.services.report import report_api  # レポート管理
+from src.core.config import STATIC_BASE_PATH, FRONTEND_URL
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -28,15 +24,13 @@ async def lifespan(app: FastAPI):
 
     # --- 起動時の処理 ---
     print("アプリケーションを起動しています...")
-    if not os.path.exists(STATIC_BASE_PATH):
-        os.makedirs(STATIC_BASE_PATH, exist_ok=True)
+
 
     yield  # ← ここでアプリケーションが実行される
 
     # --- 終了時の処理 ---
     print("アプリケーションを終了しています...")
-    if CLEANUP_ON_EXIT == "true":
-        cleanup_temp_files()  # 一時ファイル削除実行
+
 
 
 # ============================================================
@@ -75,10 +69,7 @@ app.add_middleware(
 # ルーター登録
 # ============================================================
 
-app.include_router(generate_api.router)  # LLM生成API
-app.include_router(patent_api.router)  # 特許PDF処理API
-app.include_router(session_api.router)  # セッション管理
-
+app.include_router(report_api.router) # レポート管理
 
 # ============================================================
 # エンドポイント（テスト用）

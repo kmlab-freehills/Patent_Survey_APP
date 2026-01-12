@@ -2,9 +2,9 @@
 
 "use client";
 
-import { useMenu } from "@/hooks/appState";
+import { useLayoutState } from "@/hooks/useLayoutState";
 import { PanelRight } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, memo } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 // ============================================================
 // コンテンツラッパー（メモ化による再レンダリング防止）
@@ -44,7 +44,7 @@ export const RightSidebar = () => {
         rightSidebarWidth,
         setRightSidebarWidth,
         rightSidebarContent,
-    } = useMenu();
+    } = useLayoutState();
 
     const [isResizing, setIsResizing] = useState(false);
     
