@@ -1,3 +1,5 @@
+// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/layout.tsx
+
 "use client";
 
 import { useLayoutState } from "@/hooks/useLayoutState";

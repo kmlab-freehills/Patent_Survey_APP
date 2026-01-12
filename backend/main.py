@@ -9,6 +9,7 @@ from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 from src.services.report import report_api  # レポート管理
 from src.core.config import STATIC_BASE_PATH, FRONTEND_URL # 環境変数やパス等
 from src.services.patent import patent_api # 特許解析
+from src.services.gemini import generate_api # 生成AI処理
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -72,6 +73,8 @@ app.add_middleware(
 
 app.include_router(report_api.router) # レポート管理
 app.include_router(patent_api.router) # 特許解析
+app.include_router(generate_api.router) # 生成AI処理
+
 
 # ============================================================
 # エンドポイント（テスト用）

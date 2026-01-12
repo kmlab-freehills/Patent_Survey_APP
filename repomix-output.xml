@@ -102,6 +102,7 @@ from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 from src.services.report import report_api  # レポート管理
 from src.core.config import STATIC_BASE_PATH, FRONTEND_URL # 環境変数やパス等
 from src.services.patent import patent_api # 特許解析
+from src.services.gemini import generate_api # 生成AI処理
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -165,6 +166,8 @@ app.add_middleware(
 
 app.include_router(report_api.router) # レポート管理
 app.include_router(patent_api.router) # 特許解析
+app.include_router(generate_api.router) # 生成AI処理
+
 
 # ============================================================
 # エンドポイント（テスト用）
@@ -266,6 +269,1035 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 # 静的ファイル
 STATIC_BASE_PATH = PROJECT_ROOT / "storage"
 STATIC_BASE_URL = "/static"
+</file>
+
+<file path="backend/src/prompt/manager.py">
+# Patent_Survey_APP/backend/src/prompt/manager.py
+
+from typing import Dict, Optional
+from src.prompt.templates.task.analysis_prompt import build_analysis_prompt
+from src.prompt.templates.task.idea_prompt import build_idea_prompt
+from src.prompt.templates.system.patent_system_prompt import SYSTEM_PROMPT_PATENT, build_patent_chat_system_prompt
+
+# ============================================================
+# 【プロンプト管理】
+# context --> {"資料の種類": "該当資料のテキスト"}
+# ============================================================
+
+class PromptManager:
+    """
+    PromptManagerの責務:
+    - contextのバリデーション
+    - prompt文字列への変換
+    - レポート構造・DBには一切触れない
+    """
+    @staticmethod
+    def build_prompt(prompt_type: str, context: Dict[str, str]) -> str:
+        """タスクプロンプト構築"""
+        
+        # ============================================================
+        # 特許解析～アイデア生成～チャット
+        # ============================================================
+        
+        # 1. 特許解析用
+        if prompt_type == "analysis":
+            # 辞書から取得
+            patent_text = context.get("patent_text", "")
+            # 必須チェック
+            if not patent_text:
+                raise ValueError("特許解析には 'patent_text' が必要です")
+            # プロンプト構築
+            prompt = build_analysis_prompt(patent_text)
+            return prompt
+
+        # 2. アイデア生成用
+        elif prompt_type == "idea":
+            # 辞書から取得
+            patent_text = context.get("patent_text", "")
+            analysis_text = context.get("analysis_text", "")
+            # 必須チェック
+            if not patent_text:
+                raise ValueError("アイデア生成には 'patent_text' が必要です")
+            if not analysis_text:
+                raise ValueError("アイデア生成には 'analysis_text' が必要です")
+            # プロンプト構築
+            prompt = build_idea_prompt(patent_text, analysis_text)
+            return prompt
+
+        # （将来的に、機能追加に合わせて増やしていく）
+
+        else:
+            raise ValueError(f"未定義のプロンプトタイプ: {prompt_type}")
+    
+    @staticmethod
+    def build_system_prompt(system_prompt_type: str, context: Dict[str, str]) -> Optional[str]:
+        """システムプロンプト構築"""
+        # 指定しない場合のハンドリング
+        if not system_prompt_type:
+            return None
+
+        # ============================================================
+        # 特許解析～アイデア生成～チャット
+        # ============================================================
+
+        # 1. 特許解析＆アイデア生成用（返り値の記述は明示的に揃える）
+        if system_prompt_type == "patent":
+            system_prompt = SYSTEM_PROMPT_PATENT
+            return system_prompt
+
+        # 2. チャット用
+        elif  system_prompt_type == "patent_chat":
+            # 辞書から取得
+            patent_text = context.get("patent_text", "")
+            analysis_text = context.get("analysis_text", "")
+            idea_text = context.get("idea_text")
+            if not patent_text:
+                raise ValueError("チャットには 'patent_text' が必要です")
+            if not analysis_text:
+                raise ValueError("チャットには 'analysis_text' が必要です")
+            if not idea_text:
+                raise ValueError("チャットには 'idea_text' が必要です")
+            # プロンプト構築
+            system_prompt = build_patent_chat_system_prompt(patent_text, analysis_text, idea_text)
+            return system_prompt
+        
+        else:
+            raise ValueError(f"未定義のシステムプロンプトタイプ: {system_prompt_type}")
+        
+        # （将来的に、機能追加に合わせて増やしていく）
+</file>
+
+<file path="backend/src/prompt/templates/system/patent_system_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/system_prompt.py
+
+# ============================================================
+# 特許解析＆アイデア生成共通システムプロンプト
+# ============================================================
+
+SYSTEM_PROMPT_PATENT = """
+# システムプロンプト: 特許解析サポートAI
+
+## あなたの役割
+
+あなたは、特許文書の解析とアイデア生成を支援するAIアシスタントです。
+ユーザーは、特許技術の理解を深め、新しい活用方法を探索しようとしています。
+
+## 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 情報の3層構造
+
+あなたが扱う情報は、以下の3つの層に明確に分類されます：
+
+### 【第1層: 検証可能な事実】
+
+- 特許文書に明記された情報
+- 直接観測・引用できる内容
+- **必ず出典を明記**
+    - 例: [段落: xxxx]
+
+### 【第2層: 論理的推論】
+
+- 第1層の事実から導かれる推論
+- 特許文書内の複数情報の統合
+- **推論であることを明示**
+    - 例: Xにより、Yが実現されると考えられる。[段落: xxxx], [段落: yyyy]に基づく推論
+
+### 【第3層: 創造的応用】
+
+- 事実を新しい文脈に適用
+- 市場ニーズや応用可能性の想定
+- **明確に[推測]とマーク**
+    - 例: Xは、Zに応用できる可能性がある。[推測]
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # **入れ子にしない**
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+### 3. 複数出典の扱い
+
+同じ情報が複数箇所に記載されている場合：
+
+**原則: 代表的な1-2箇所のみを記載**
+
+ただし、以下の場合は複数出典が有益：
+
+- 異なる側面を示す場合（構造と機能）
+- 異なる情報源タイプ（請求項と実施例）
+
+### 4. 出典なしで記述してよい場合
+
+以下は出典を省略可：
+
+- 明らかに文書全体の前提となる基本概念
+- 文書タイトルや技術分野
+
+""".strip()
+
+
+def build_patent_chat_system_prompt(patent_text: str, analysis_text: str, idea_text: str) -> str:
+    # 資料がない場合のフォールバック（仮）
+    if not patent_text:
+        pass
+    if not analysis_text:
+        pass
+    if not idea_text:
+        pass
+
+    system_prompt = f"""
+# システムプロンプト: 特許技術対話サポートAI
+
+## あなたの役割
+
+特許文書の内容を理解したユーザーとの対話を通じて、技術の深い理解と応用を支援します。
+
+## 特許文書が最高権威
+
+- すべての回答は特許文書を基盤としている必要があります。
+- 特許文書に基づく「個別事実」と「一般論」は明確に区別されている必要があります。
+
+---
+
+## 3つの核心原則
+
+### 1. 透明性
+
+- 情報源を明示する
+- 推論過程を隠さない
+- 不確実性を認める
+
+### 2. 誠実性
+
+- 事実と推測を混同しない
+- 限界を認識する
+- 知らないことを知らないと言う
+
+### 3. 検証可能性
+
+- すべての主張に根拠を示す
+- ユーザーが確認できる形式で提示する
+- 追跡可能性を常に確保する
+
+---
+
+## 出典明記の標準規則
+
+### 1. 出典の必須明記
+
+以下の情報には、**必ず出典を明記**してください：
+
+1. **特許文書からの直接引用・要約**
+2. **数値データ、定量情報**
+3. **技術的構造の詳細**
+4. **機能・動作の具体的説明**
+5. **請求項の内容**
+
+### 2. 出典の記法（標準形式）
+
+以下の統一された記法を使用してください：
+
+```
+- 段落 --> [段落: xxxx]
+- 複数段落 --> [段落: xxxx], [段落: yyyy]
+- 請求項 --> [請求項: x]
+- 図面 --> [図: x]
+(※ xは数字に置き換える)
+```
+
+**禁止例：**
+
+```
+誤: [段落: 0013, 0014]  # **入れ子にしない**
+誤: [0013]              # 何の番号か不明
+誤: (段落0013)          # 記法の不統一
+```
+
+---
+
+## 一般論の慎重な扱い
+
+一般論は、具体的な情報源を明示しなかったとしても、説得力があるため**盲信されやすい**です。
+
+そのため、特許に基づく「個別事実」とあなたの学習データに基づく「一般論」は**明確に区別**されている必要があります。
+
+### 一般論の性質
+
+- 特許文書に記載されていない内容です
+- あなたの学習データに基づく推測です
+- あくまで参考情報としての位置づけであり、絶対的な事実ではありません
+
+### 一般論の原則
+
+- 一般論は「方向性を示す」ものであり、「詳細な情報を提供する」ものではありません
+- 一般論であっても、断定的な表現は避けてください
+
+### 一般論提供時のガイドライン
+
+特許文書に明記されていない一般論を提供する際は、必ず注意喚起を実施してください。
+また、詳細情報が必要な場合は、専門文献や外部リソースへの誘導を行ってください。
+
+**提供してよい場合:**
+- ユーザーが明示的に質問している
+- 特許文書に該当記述がない
+- 物理法則や工学知見などの一般論が直接関連する
+
+**提供する際の形式:**
+```
+【特許文書の記述】
+[該当箇所の引用または「該当記述なし」]
+
+【参考: 一般的な工学知識】
+[説明]
+
+【注意】
+[注意事項に関する言及]
+```
+
+**絶対に避けること:**
+- 特許文書の記述を全面否定すること
+- 「実現不可能」という断定
+- 根拠のない数値的断定
+
+### ユーザーに提示する注意事項について
+
+注意事項が定型化してしまうと、ユーザーに対する効果が低下します。
+そのため、文脈に応じた注意喚起を実施してください。
+
+**注意事項の例:**
+```
+(...技術的課題に関する一般論の後)
+【注意】
+上記はAIの学習に基づく一般的な工学的考察であり、この特許技術の具体的な実装における課題ではありません。
+実際の設計では、専門家による詳細な検証が必要です。
+
+(...規制に関する一般論の後)
+【注意】
+上記はAIの学習に基づく一般的な規制環境の概要です。
+実際の運用では、地域・国・用途により異なる規制が適用されるため、法務専門家への相談を推奨します。
+```
+
+---
+
+## 対話の指針
+
+### 質問の意図を理解する
+
+ユーザーの質問は、以下のいずれかに分類されます:
+
+1. **事実確認**: 特許に何が書いてあるか
+   → 該当箇所を引用
+
+2. **技術的詳細**: 仕組みの理解
+   → 特許の記述を基に説明
+
+3. **実現可能性**: 本当にできるのか
+   → 特許の記述 + 不明な点の指摘
+
+4. **応用可能性**: 他に使えないか
+   → 特許の原理を基に推測（`[推測]`付き）
+
+5. **一般知識**: 物理法則や工学的制約など
+   → 上記の「一般論の形式」で提供
+
+6. **その他**: いずれにも該当しない場合
+   → システムプロンプトの原則・指針に沿って誠実な対応を実施
+
+## 文脈情報
+
+### 特許原文
+
+<document title='Patent'>
+{patent_text.strip()}
+</document>
+
+
+### 特許の解析結果（LLMによる生成）
+<document title='Patent-Analysis-by-LLM'>
+{analysis_text.strip()}
+</document>
+
+### 応用アイデア（LLMによる生成）
+<document title='Patent-Idea-by-LLM'>
+{idea_text.strip()}
+</document>
+
+これらの情報を基に、ユーザーの質問に答えてください。
+""".strip()
+
+    return system_prompt
+</file>
+
+<file path="backend/src/prompt/templates/task/analysis_prompt.py">
+def build_analysis_prompt(patent_text: str) -> str:
+    # 資料がない場合のフォールバック（仮）
+    if not patent_text:
+        pass
+    
+    prompt = f"""
+## 1. 基本原則
+- 与えられた資料から、発明や技術に関する**事実のみ**を抽出してください。
+- あなた自身の推測・解釈・意見・一般的知識は**一切含めないでください**。
+- 資料に明記された表現を優先し、あなたの言葉への言い換えは最小限にとどめてください。
+
+## 2. 該当記述がない場合の対応
+各項目について、以下の基準で判断してください：
+
+1. **明確な記述がある** → そのまま抽出
+2. **間接的・部分的な記述がある** → 抽出し、「部分的な記述」と明記
+3. **該当する記述が見当たらない** → 「該当記述なし」と明記
+
+## 3. 出典の明記
+可能な限り、抽出した情報の出典を明示してください：
+- 段落番号、図番号、表番号などを併記
+  - 例: 文末や行末に[段落: 0023], [図: 2], [請求項: 1] などを記載
+
+## 4. 分類に関する補足
+
+### 複数項目に該当する要素の扱い
+同じ要素が複数の項目に該当する場合、**それぞれの側面で記載**してください。
+
+例:
+- 項目2-1: 「温度センサー」（物理的構成要素として）
+- 項目3-1: 「温度センシング技術」（検出原理として）
+- 項目3-2: 「周囲温度の測定」（要素機能として）
+
+### 不明確な分類の場合
+どの項目に該当するか判断が難しい場合、**最も適切と思われる項目に記載**し、その旨を注記してください。
+
+## 5. 出力テンプレート
+
+抽出内容は、以下の構造で記述してください。
+
+```markdown
+# [特許の名称]
+
+## 1. 発明の技術分野
+【技術分野】に記載されている分野を、原文の表現に沿って簡潔に記述してください。
+
+---
+
+## 2. 技術の物理的構成
+
+### 2-1. 構成要素（部材・部品）
+**物理的な形状を持つ**部材、部品、機材、機械を箇条書きでリストアップ。
+- 該当例: モーター、センサー筐体、フレーム、ギア、配線
+- 非該当例: ソフトウェア、アルゴリズム、製造方法
+
+### 2-2. 構成材料・原料
+構成要素を**作るための材料・材質**を箇条書きでリストアップ。
+- 該当例: 金属、樹脂、化学物質、合金、繊維
+- 非該当例: 完成した部品（それは2-1に記載）
+
+### 2-3. 形態・形状・構造
+技術が「どのような形・構造」をしているかを記述。
+- 全体の形状、配置関係、構造的特徴など
+
+---
+
+## 3. 技術の機能的構成
+
+### 3-1. 基盤技術・要素技術
+**技術的な原理、方法論、プロセス**を箇条書きでリストアップ。
+- 該当例: 製造方法、制御アルゴリズム、信号処理技術、化学反応原理
+- 非該当例: 物理的な部品（それは2-1に記載）
+
+### 3-2. 要素機能（部品レベル）
+各構成要素が果たす**個別の役割**を記述。
+
+### 3-3. システム機能（全体レベル）
+技術全体として実現される**主要な機能**を記述。
+
+### 3-4. 動作フロー（該当記述がある場合のみ）
+技術が**どのような順序で動作するか**、プロセスやシーケンスを記述。
+
+---
+
+## 4. 定量データ・仕様情報
+
+以下のルールで数値データを抽出してください：
+
+**抽出原則:**
+1. **原文に忠実に**: 「約」「およそ」「〜以上」などの修飾語も含める
+2. **文脈を保持**: 数値が何を示すかを明記
+3. **出典を明記**: 段落番号、図番号、表番号を併記
+4. **範囲と条件**: 数値に条件がある場合、その条件も記載
+
+**抽出対象:**
+- 寸法・サイズ
+- 物理量
+- 性能指標
+- 配合・比率
+- その他の定量的記述
+```
+
+## 対象資料
+<document>
+{patent_text.strip()}
+</document>
+""".strip()
+
+    return prompt
+</file>
+
+<file path="backend/src/prompt/templates/task/idea_prompt.py">
+# Patent_Survey_APP/backend/src/prompt/idea_prompt.py
+
+# ============================================================
+# 特許解析プロンプト
+# ============================================================
+def build_idea_prompt(patent_text: str, analysis_text) -> str:
+    # 資料がない場合のフォールバック（仮）
+    if not patent_text:
+        pass
+    if not analysis_text:
+        pass
+
+    prompt = f"""
+特許文書に記載された技術について、現実的な活用アイデアを**3件程度**生成してください。
+
+## アイデア生成の指針
+
+### 基本的な問い
+すべてのアイデアは、以下の問いに答えるものとしてください：
+
+1. **誰の課題を解決するのか？**（ターゲットの明確化）
+2. **どのように解決するのか？**（技術との接続）
+3. **なぜこの技術が適しているのか？**（技術的優位性）
+
+### アイデアの多様性
+以下のような多様性を持つアイデアを含めてください：
+
+- **近接応用**: 特許文書に記載された用途に近い応用
+- **遠隔転用**: 全く異なる分野への転用
+- **具体的ニッチ**: 特定の狭い市場・用途に特化したもの
+
+## 重要な原則
+
+### 1. 事実と推測の明確な分離
+あなたが生成するアイデアは、以下の2つの要素から構成されます：
+
+**【事実層】特許文書に基づく技術的事実**
+- フェーズ1で抽出された情報のみを使用
+- 引用または要約の形式で明示
+
+**【推測層】あなたの創造的な解釈・応用**
+- 事実層を出発点とした、論理的な推論
+- 市場ニーズや応用可能性の想定
+- **必ず[推測]とマークする**
+
+### 2. 推測の誠実な表現
+推測箇所では、以下のような表現を使用してください：
+
+- 「〜の可能性がある」
+- 「〜が期待される」
+- 「〜と想定される」
+- 「〜への応用が考えられる」
+
+**絶対に使用しないこと：**
+- 断定的な表現（「〜である」「〜できる」）
+- 根拠なき数値（「約○○%向上」）
+- 架空の事例（「A社では〜」）
+
+## 出力テンプレート
+
+各アイデアは、以下の構造で記述してください。
+
+```markdown
+# [特許の名称] アイデアリスト
+
+---
+
+## アイデア1: [名称]
+
+### 技術的基盤（事実層）
+
+この特許技術は、以下の特性を持つ：
+- [特許文書からの引用または要約箇所を出典と共にリストアップ]
+
+### アイデアの概要（推測層）
+
+[上記の技術的基盤を出発点として、どのような応用が考えられるか]
+
+### 解決できる課題（推測層）
+
+[このアイデアがどのような課題を解決するか]
+
+### ターゲット像（推測層）
+
+- 企業: [想定される企業・組織]
+- 消費者: [想定される消費者層]
+
+### 提供価値（推測層）
+
+[このアイデアが提供するベネフィット]
+
+### 技術的接続点（事実層 + 推測層）
+
+特許技術の[具体的特性X]により、[期待される効果Y]が見込まれる。[推測]
+根拠: （[段落: xxxx]参照）
+
+### 実装上の検討事項（推測層）
+
+- 技術的ハードル: [想定される課題]
+- 市場・規制リスク: [想定されるリスク]
+
+---
+
+## アイデア2: [名称]
+...(省略)
+```
+
+## 対象技術に関する資料
+
+### 特許技術の構造化
+<document>
+{analysis_text.strip()}
+</document>
+
+### 特許原文（前提）
+<document>
+{patent_text.strip()}
+</document>
+
+---
+
+上記の指示と資料に基づき、アイデアを生成してください。
+""".strip()
+
+    return prompt
+</file>
+
+<file path="backend/src/prompt/templates/template_memo.py">
+# プロンプト構築関数のひな型
+
+def build_prompt(document: str) -> str:
+    # 資料がない場合のフォールバック
+    if not document:
+        pass
+
+    prompt = f"""
+{document}
+""".strip()
+
+    return prompt
+</file>
+
+<file path="backend/src/services/gemini/functions.py">
+# Patent_Survey_APP/backend/src/services/gemini/functions.py
+
+from typing import Any, Dict, Generator
+
+from google.genai.types import GenerateContentConfig
+from src.core.client import gemini_client  # APIキー認証済みclient
+
+# テキスト生成＆ストリーミング処理
+def generate_text_engine(
+    model: str, contents: list, temperature: float, system_instruction: str = None
+) -> Generator[Dict[str, Any], None, None]:
+    # コンフィグ構築
+    config = GenerateContentConfig(system_instruction=system_instruction, temperature=temperature)
+
+    # ストリーム生成
+    response = gemini_client.models.generate_content_stream(model=model, contents=contents, config=config)
+
+    for chunk in response:
+        if not chunk.candidates:
+            continue
+
+        for part in chunk.candidates[0].content.parts:
+            text = part.text or ""
+            if text:
+                yield {"type": "content_delta", "data": {"chunk": text}}
+
+    yield {"type": "done", "data": {}}
+
+# messagesオブジェクトをgeminiが要求する型に変換
+def convert_messages_to_gemini_contents(messages):
+    contents = []
+    for msg in messages:
+        contents.append({"role": msg.role, "parts": [{"text": msg.content}]})
+    return contents
+</file>
+
+<file path="backend/src/services/gemini/generate_api.py">
+# Patent_Survey_APP/backend/src/services/gemini/generate_api.py
+import json
+from datetime import datetime
+
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+
+from src.prompt.manager import PromptManager
+from src.services.gemini.functions import (
+    convert_messages_to_gemini_contents,
+    generate_text_engine,
+)
+from src.services.gemini.schemas import (
+    GeneratedArtifact,
+    GeneratedMeta,
+    GenerateMultiTurnRequest,
+    GenerateSingleShotRequest,
+    StreamEvent,
+)
+from src.services.report.store import report_store
+
+# ルーター
+router = APIRouter(prefix="/generate", tags=["LLM生成（各機能共通）"])
+
+# ============================================================
+# 【シングルショット】
+# ============================================================
+
+
+@router.post("/single-shot")
+async def generate_single_shot_content(request: GenerateSingleShotRequest):
+    """シングルショット生成エンドポイント"""
+
+    async def event_stream():
+        try:
+            # --------------------------------------------------
+            # 1. レポート取得
+            # --------------------------------------------------
+            report = report_store.load_report(request.report_type, request.report_id)
+            if not report:
+                raise ValueError("Report not found")
+
+            # --------------------------------------------------
+            # 2. プロンプト構築
+            # --------------------------------------------------
+            # タスクプロンプト
+            prompt = PromptManager.build_prompt(
+                prompt_type=request.prompt_type,
+                context=request.context,
+            )
+
+            # 型をGeminiに合わせる
+            contents = [{"role": "user", "parts": [{"text": prompt}]}]
+
+            # システムプロンプト
+            system_prompt = PromptManager.build_system_prompt(
+                system_prompt_type=request.system_prompt_type,
+                context={},  # single-shotでは task prompt 側に集約
+            )
+
+            # --------------------------------------------------
+            # 3. 生成パラメータ（暫定的にここで定義/将来的にリクエスト対応）
+            # --------------------------------------------------
+            model = "gemini-2.5-flash"
+            temperature = 0.7
+
+            # --------------------------------------------------
+            # 4. 生成実行（ストリーミング）
+            # --------------------------------------------------
+            full_response_text = ""
+            for event in generate_text_engine(
+                model=model,  # モデル名
+                contents=contents,  # 構築したプロンプト
+                system_instruction=system_prompt,  # 構築したシステムプロンプト
+                temperature=temperature,  # 多様性
+            ):
+                # 変数格納
+                if event["type"] == "content_delta":
+                    full_response_text += event["data"]["chunk"]
+                # フロントエンドに送信
+                yield _format_event(StreamEvent(**event))
+
+            # --------------------------------------------------
+            # 5. generated.artifacts へ保存（report.json）
+            # --------------------------------------------------
+            artifact = GeneratedArtifact(
+                system_prompt_type=request.system_prompt_type or "",
+                prompt_type=request.prompt_type,
+                input=list(request.context.values()),
+                output=full_response_text,
+                meta=GeneratedMeta(
+                    model=model,
+                    temperature=temperature,
+                    last_run_at=datetime.utcnow().isoformat() + "Z",
+                ),
+            )
+
+            report.content.setdefault("generated", {})
+            report.content["generated"].setdefault("artifacts", {})
+            report.content["generated"]["artifacts"][request.artifact_name] = artifact.model_dump()
+
+            report_store.save_report(report)
+
+        # エラーハンドリング（エラーフラグと完了フラグを送信）
+        except Exception as e:
+            print(f"Generate Error: {e}")
+            # エラーイベント
+            yield _format_event(StreamEvent(type="error", data={"message": str(e)}))
+            # 完了イベント
+            yield _format_event(StreamEvent(type="done", data={}))
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ============================================================
+# 【マルチターン】
+# ============================================================
+
+
+@router.post("/multi-turn")
+async def generate_multi_turn_content(request: GenerateMultiTurnRequest):
+    """マルチターン生成エンドポイント"""
+
+    async def event_stream():
+        try:
+            print("マルチターン")
+            # --------------------------------------------------
+            # 1. レポート取得
+            # --------------------------------------------------
+            report = report_store.load_report(request.report_type, request.report_id)
+            if not report:
+                raise ValueError("Report not found")
+
+            # --------------------------------------------------
+            # 2. プロンプト構築
+            # --------------------------------------------------
+            # Gemini形式のオブジェクトに変換
+            contents = convert_messages_to_gemini_contents(request.messages)
+
+            # システムプロンプト
+            system_prompt = PromptManager.build_system_prompt(
+                system_prompt_type=request.system_prompt_type,
+                context=request.context,
+            )
+
+            # --------------------------------------------------
+            # 3. 生成パラメータ（暫定的にここで定義/将来的にリクエスト対応）
+            # --------------------------------------------------
+            model = "gemini-2.5-flash"
+            temperature = 0.7
+
+            # --------------------------------------------------
+            # 4. 生成実行
+            # --------------------------------------------------
+            assistant_text = ""
+            for event in generate_text_engine(
+                model=model,  # モデル名
+                contents=contents,  # 構築したプロンプト
+                system_instruction=system_prompt,  # 構築したシステムプロンプト
+                temperature=temperature,  # 多様性
+            ):
+                # 変数格納
+                if event["type"] == "content_delta":
+                    assistant_text += event["data"]["chunk"]
+                # フロントエンドに送信
+                yield _format_event(StreamEvent(**event))
+
+            # --------------------------------------------------
+            # 5. 会話を保存（assistantを追加）
+            # --------------------------------------------------
+            messages = [m.model_dump() for m in request.messages]
+            messages.append({"role": "assistant", "content": assistant_text})
+
+            report.content.setdefault("generated", {})
+            report.content["generated"]["conversation"] = {
+                "type": "multi_turn",
+                "system_prompt_type": request.system_prompt_type or "",
+                "context": list(request.context.keys()),
+                "messages": messages,
+                "meta": {
+                    "model": model,
+                    "temperature": temperature,
+                    "last_run_at": datetime.utcnow().isoformat() + "Z",
+                },
+            }
+
+            report_store.save_report(report)
+
+        # エラーハンドリング（エラーフラグと完了フラグを送信）
+        except Exception as e:
+            print(f"Generate Error: {e}")
+            # エラーイベント
+            yield _format_event(StreamEvent(type="error", data={"message": str(e)}))
+            # 完了イベント
+            yield _format_event(StreamEvent(type="done", data={}))
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ============================================================
+# 【UIイベント】
+# ============================================================
+
+
+def _format_event(event: StreamEvent) -> str:
+    """
+    StreamEvent を SSE フォーマットに変換
+    """
+    payload = event.model_dump()
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+</file>
+
+<file path="backend/src/services/gemini/schemas.py">
+# backend/src/services/gemini/schemas.py
+
+from typing import Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
+
+# ============================================================
+# 方針:
+# - 生成処理自体は各機能で汎用的かつ共通で使用できるように
+#   - 引数や表示の工夫でカスタマイズ
+# - Gemini側にセッション情報は持たせない
+# - レポートが唯一の状態
+# レポートのフィールド:
+# - content: 機能ごとに自由
+# - generated: 各機能共通 <-- 対象
+# 責任:
+# - フロントエンド:
+#   - プロンプトタイプ指定
+#   - 資料テキストの実体を取得して送信
+#   - 完全な会話履歴を構築して送信
+# - バックエンド:
+#   - プロンプト構築
+#   - UIイベントの送信
+#   - レポート保存(?)
+# ============================================================
+
+
+# ============================================================
+# 【共通・汎用】
+# ============================================================
+
+
+class Message(BaseModel):
+    # systemはgeminiの場合、messagesに含めなくていい（引数で直接挿入）、tool等は今は不要
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class GeneratedMeta(BaseModel):
+    """生成 AI 実行時のメタ情報（フロント型と一致）"""
+
+    model: str
+    temperature: float
+    last_run_at: str
+
+
+class GeneratedArtifact(BaseModel):
+    """単発生成 artifact"""
+
+    type: Literal["single_shot"] = "single_shot"
+    system_prompt_type: str
+    prompt_type: Optional[str] = None
+    input: List[str]
+    output: str
+    meta: Optional[GeneratedMeta] = None
+
+
+# ============================================================
+# 【シングルショット】
+# ============================================================
+
+
+class GenerateSingleShotRequest(BaseModel):
+    """シングルショット生成のリクエスト"""
+
+    # --- プロンプトの指定 --- (例: "analysis", "idea", "chat_system")
+    prompt_type: str = Field(..., description="使用するプロンプトの識別子（必須）")
+    system_prompt_type: Optional[str] = Field(None, description="使用するシステムプロンプトの識別子（任意）")
+
+    # --- 柔軟なコンテキスト辞書 ---
+    # キー: "patent_text", "analysis_result", "idea_list" など
+    # バリュー: フロントエンドで取得したテキスト全文
+    context: Dict[str, str] = Field(default_factory=dict, description="プロンプトに埋め込むためのコンテキスト情報")
+
+    # --- 保存先 ---
+    report_type: str = Field(..., description="レポートの種類")
+    report_id: str = Field(..., description="レポートID")
+    artifact_name: str = Field(..., description="生成物の名称")  # 例: "patent_summary", "idea_generation"
+
+
+# ============================================================
+# 【マルチターン】
+# ============================================================
+
+
+class GenerateMultiTurnRequest(BaseModel):
+    """マルチターン生成（対話等）のリクエスト"""
+
+    messages: List[Message] = Field(..., description="今回の user メッセージを含む完全な会話履歴")
+
+    # --- プロンプトの種類 ---
+    system_prompt_type: Optional[str] = Field(None, description="使用するシステムプロンプトの識別子（任意）")
+
+    # --- 柔軟なコンテキスト辞書 ---
+    # キー: "patent_text", "analysis_result", "idea_list" など
+    context: Dict[str, str] = Field(default_factory=dict, description="プロンプトに埋め込むためのコンテキスト情報")
+
+    # --- 保存先 ---
+    report_type: str = Field(..., description="レポートの種類")
+    report_id: str = Field(..., description="レポートID")
+
+
+# ============================================================
+# 【UIイベント】
+# ============================================================
+
+
+class StreamEvent(BaseModel):
+    """UIイベント"""
+
+    type: Literal[
+        "content_delta",  # テキスト追記
+        "done",  # 完了
+        "error",  # エラー
+    ]
+    data: dict
 </file>
 
 <file path="backend/src/services/patent/__init__.py">
@@ -389,7 +1421,7 @@ async def upload_and_analyze_patent(report_type: str, report_id: str, file: Uplo
     # 「特許データを持っています」というフラグや、基本情報を記録
     report.content["patent_info"] = {
         "filename": file.filename,
-        "patent_id": report_id,  # 現時点でレポートIDと特許IDを同一視（別途管理も可）
+        "patent_id": report_id,  # 現在はレポートIDと特許IDを同一視（別途管理も可）
         "has_patent": True,
         "image_count": len(saved_images),
     }
@@ -986,6 +2018,8 @@ def parse_patent_text(text: str) -> PatentDocument:
 </file>
 
 <file path="backend/src/services/report/report_api.py">
+# Patent_Survey_APP/backend/src/services/report/report_api.py
+
 import uuid
 from datetime import datetime
 from typing import List
@@ -1086,6 +2120,8 @@ async def upload_assets(report_type: str, report_id: str, files: List[UploadFile
 </file>
 
 <file path="backend/src/services/report/schemas.py">
+# Patent_Survey_APP/backend/src/services/report/schemas.py
+
 from typing import Any, Dict
 
 from pydantic import BaseModel, Field
@@ -1353,6 +2389,328 @@ export default function Page() {
 }
 </file>
 
+<file path="frontend/app/workspace/idea/[reportId]/analysis/page.tsx">
+// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/analysis/page.tsx
+
+"use client";
+
+import { CopyButton } from "@/components/ui/CopyButton";
+import MarkdownViewer from "@/components/ui/MarkdownViewer";
+import { useReport } from "@/hooks/useReport";
+import { Bot, Lightbulb, Play, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { IdeaReportContent } from "../ideaReportType";
+
+export default function AnalysisPage() {
+    const { currentReport } = useReport<IdeaReportContent>();
+
+    // 将来的にはレポートのcontentから解析結果を取得する
+    // const analysisContent = currentReport?.content.analysis?.result || null;
+    const analysisContent = null; // 仮: まだデータがない状態
+
+    // ローカルState（生成中の制御用）
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    // 解析開始ハンドラ（モック）
+    const handleStartAnalysis = () => {
+        setIsGenerating(true);
+        console.log("Start analysis...");
+        // ここに将来、ストリーミング開始処理が入る
+    };
+
+    return (
+        <div className="h-full flex flex-col bg-slate-50/50">
+            {/* ツールバー */}
+            <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-bold">
+                        <Bot size={18} />
+                        <span>AI構造化解析</span>
+                    </div>
+                    <span className="text-slate-400 text-sm">Step 2 / 4</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {/* 解析済みの場合のみ表示するアクション */}
+                    {analysisContent && !isGenerating && (
+                        <>
+                            <CopyButton text={analysisContent} />
+                            <Link
+                                href={`/workspace/idea/${currentReport?.metadata.report_id}/ideas`}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
+                                <Lightbulb size={18} />
+                                <span>アイデア生成へ</span>
+                            </Link>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* メインコンテンツ */}
+            <div className="flex-1 overflow-y-auto p-8">
+                <div className="max-w-4xl mx-auto">
+                    {/* Case 1: データがない場合 (Empty State) */}
+                    {!analysisContent && !isGenerating && (
+                        <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in-95 duration-500">
+                            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+                                <Bot size={40} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-800 mb-3">
+                                特許文書の構造化解析
+                            </h2>
+                            <p className="text-slate-500 max-w-lg leading-relaxed mb-10">
+                                AIが特許テキストを読み込み、「技術的構成」「機能」「課題」などの
+                                要素に分解して整理します。
+                                <br />
+                                長い特許文書を要約し、アイデア出しの土台を作ります。
+                            </p>
+
+                            <button
+                                onClick={handleStartAnalysis}
+                                className="group flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white text-lg font-bold rounded-xl shadow-md hover:bg-indigo-700 hover:-translate-y-0.5 transition-all">
+                                <Play size={24} className="fill-white/20" />
+                                <span>解析を開始する</span>
+                                <Sparkles
+                                    size={20}
+                                    className="opacity-50 group-hover:opacity-100 transition-opacity"
+                                />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Case 2: 生成中 または データがある場合 */}
+                    {(analysisContent || isGenerating) && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 min-h-[60vh] p-8 md:p-12">
+                            {isGenerating && !analysisContent && (
+                                <div className="flex items-center gap-3 text-indigo-600 font-medium animate-pulse mb-8">
+                                    <Bot size={24} />
+                                    <span>AIが特許文書を解析しています...</span>
+                                </div>
+                            )}
+
+                            {/* Markdown表示エリア */}
+                            <div className="prose prose-slate max-w-none">
+                                <MarkdownViewer
+                                    content={analysisContent || ""} // 生成中はストリーミングテキストが入る予定
+                                    className="leading-relaxed"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="frontend/app/workspace/idea/[reportId]/ideaReportType.ts">
+// frontend/app/workspace/idea/[reportId]/ideaReportType.ts
+
+// ============================================================
+// 【アイデア生成レポート (Idea Report) の content フィールドの型定義】
+// レポート共通原則:
+// - 大きな機能ごとに異なる柔軟なフィールドを持つ（レポート指向）
+// - metadata はバックエンドで定義して共通フィールドとして固め、content は各機能で設計
+// 設計方針:
+// - レポートは 1 JSON ドキュメントとして完結させる
+// - DB 正規化や細粒度テーブルは行わない
+// - 実装コストが発生するフィールドは最小限に留める
+// - バックエンドの実装に合わせて柔軟に拡張・修正を行う
+// - 将来の拡張余地は「構造」と「コメント」で確保し、必要になった段階で追記する
+// ============================================================
+
+
+export interface IdeaReportContent {
+    // ============================================================
+    // 【レポートの進行状況】
+    //  UI の状態管理（どのステップにいるか）を目的とした最小構成。
+    //  ステップ詳細や履歴管理が必要になった場合は、ここを拡張する。
+    // ============================================================
+
+    progress?: {
+        // 現在のステップ（例: "upload" | "analysis" | "ideas" | "chat"）
+        current_step: string;
+
+        // レポート全体の状態（例: "draft" | "in_progress" | "completed" | "error"）
+        status: string;
+    };
+
+    // ============================================================
+    // 【Step 1: 特許登録情報】
+    //  バックエンド: backend/src/services/patent/patent_api.py
+    //  特許ファイルがアップロードされた時点で保存される。
+    // ============================================================
+
+    patent_info?: {
+        filename: string; // アップロードされた特許ファイル名
+        patent_id: string; // 特許ID（現状は report_id と同一）
+        has_patent: boolean; // 特許データが存在するかどうか
+        image_count: number; // 特許 PDF から抽出された画像枚数
+    };
+
+    // ============================================================
+    // 【生成 AI によって作られたコンテンツ群】
+    // 人間入力や外部データと明確に区別するために
+    // generated 配下にまとめている。
+    // ============================================================
+
+    generated?: {
+        // ------------------------------------------------------------
+        // 【単発実行で生成された成果物群】
+        // 各 artifact は再生成・差し替え可能な単位。（例: 特許解析・アイデア生成結果）
+        // ------------------------------------------------------------
+
+        artifacts?: {
+            patent_summary?: GeneratedArtifact;
+            idea_generation?: GeneratedArtifact;
+
+            // 今後 artifact が増えた場合はここに追加する
+            // [artifactName: string]: GeneratedArtifact;
+        };
+
+        // ------------------------------------------------------------
+        // 【ユーザーと AI の対話ログ】
+        // 状態を持つため artifacts とは分離している。
+        // ------------------------------------------------------------
+
+        conversation?: {
+            // 実行タイプ（単発か対話かの明示的な区別）
+            type: "multi_turn";
+
+            // 対話用のシステムプロンプトの識別子（バックエンドで動的にプロンプトを構築する際に参照）
+            system_prompt_type: string;
+
+            // 対話時に参照している文脈情報（システムプロンプト末尾に挿入される）
+            context: string[]; // （例: 特許原文 / 解析結果 / アイデア生成結果）
+
+            // チャットメッセージの履歴
+            messages: {
+                role: "user" | "assistant";
+                content: string;
+            }[];
+
+            // 会話生成時のメタデータ（サンプリングパラメータ等は必要になった段階で拡張）
+            meta?: GeneratedMeta;
+        };
+    };
+}
+
+// ============================================================
+// 【単発生成 artifact の共通構造】
+// 「再実行可能な生成結果」を表す。
+// ============================================================
+
+export interface GeneratedArtifact {
+    // 実行タイプ（単発か対話かの明示的な区別）
+    type: "single_shot";
+
+    // 使用するシステムプロンプトの識別子（バックエンドで動的にプロンプトを構築する際に参照）
+    system_prompt_type: string;
+
+    // 使用するプロンプトの識別子（バックエンドで動的にプロンプトを構築する際に参照）
+    prompt_type?: string;
+
+    // 入力として与えた情報
+    input: string[];
+
+    // 生成結果（現状はテキスト前提）
+    output: string;
+
+    // 生成メタデータ（実装コストが重いため、現段階では最小限に留める）
+    meta?: GeneratedMeta;
+}
+
+// ============================================================
+// 【生成 AI 実行時の最小メタ情報】
+// 将来的にトークン数やサンプリングパラメータ等を
+// 追加できる余地を残している。
+// ============================================================
+
+export interface GeneratedMeta {
+    // 使用したモデル名
+    model: string;
+
+    // temperature（他のサンプリングパラメータは未定義）
+    temperature: number;
+
+    // 最終実行日時
+    last_run_at: string;
+}
+
+// === 以下、サンプルJSON ===
+// 
+//     "metadata": {
+//         "report_id": "0b4348df-cf8d-41f5-8cde-f4f949902127",
+//         "title": "新規アイデア生成レポート",
+//         "report_type": "idea",
+//         "created_at": "2026-01-12T13:17:23.287704Z",
+//         "updated_at": "2026-01-12T13:17:23.287704Z"
+//     },
+//     "content": {
+//         "progress": {
+//             "current_step": "chat",
+//             "status": "completed"
+//         },
+//         "patent_info": {
+//             "filename": "JPB 007501936-000000.pdf",
+//             "patent_id": "0b4348df-cf8d-41f5-8cde-f4f949902127",
+//             "has_patent": true,
+//             "image_count": 2
+//         },
+//         "generated": {
+//             "artifacts": {
+//                 "patent_summary": {
+//                     "type": "single_shot",
+//                     "system_prompt_type": "SYSTEM_PROMPT_PATENT",
+//                     "prompt_type": "analysis_prompt",
+//                     "input": ["特許原文"],
+//                     "output": "特許解析結果",
+//                     "meta": {
+//                         "model": "gemini-2.5-flash",
+//                         "temperature": 0.6,
+//                         "last_run_at": "2026-01-12T13:40:00Z"
+//                     }
+//                 },
+//                 "idea_generation": {
+//                     "type": "single_shot",
+//                     "system_prompt_type": "SYSTEM_PROMPT_PATENT",
+//                     "prompt_type": "idea_prompt",
+//                     "input": ["特許原文", "特許解析結果"],
+//                     "output": "アイデア生成結果",
+//                     "meta": {
+//                         "model": "gemini-2.5-flash",
+//                         "temperature": 1.0,
+//                         "last_run_at": "2026-01-12T13:40:00Z"
+//                     }
+//                 }
+//             },
+//             "conversation": {
+//                 "type": "multi_turn",
+//                 "system_prompt_type": "patent_chat_system_prompt",
+//                 "context": ["特許原文", "特許解析結果", "アイデア生成結果"],
+//                 "messages": [
+//                     {
+//                         "role": "user",
+//                         "content": "このアイデアをさらに具体化して"
+//                     },
+//                     {
+//                         "role": "assistant",
+//                         "content": "はい、以下のように..."
+//                     }
+//                 ],
+//                 "meta": {
+//                     "model": "gemini-2.5-flash",
+//                     "temperature": 0.7,
+//                     "last_run_at": "2026-01-12T13:40:00Z"
+//                 }
+//             }
+//         }
+//     }
+// }
+</file>
+
 <file path="frontend/app/workspace/idea/[reportId]/IdeaSidebar.tsx">
 "use client";
 
@@ -1490,6 +2848,8 @@ export const IdeaSidebar = () => {
 </file>
 
 <file path="frontend/app/workspace/idea/[reportId]/layout.tsx">
+// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/layout.tsx
+
 "use client";
 
 import { useLayoutState } from "@/hooks/useLayoutState";
@@ -1845,7 +3205,7 @@ export default function IdeaUploadPage() {
     };
 
     // ------------------------------------------------------------
-    // 送信ハンドラ (実装)
+    // 送信ハンドラ 
     // ------------------------------------------------------------
     const handleUpload = async () => {
         if (!selectedFile || !currentReport) return;
@@ -1871,7 +3231,7 @@ export default function IdeaUploadPage() {
             }
 
             // 成功したら次のステップ（解析確認画面）へ遷移
-            // ※本来はContextの更新などを行いますが、まずは遷移を優先
+            // ※後にContextの更新などを記述
             console.log("Upload success!");
             router.push(`/workspace/idea/${reportId}/viewer`);
         } catch (error) {
@@ -2013,7 +3373,345 @@ export default function IdeaUploadPage() {
 </file>
 
 <file path="frontend/app/workspace/idea/[reportId]/viewer/page.tsx">
+// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/viewer/page.tsx
 
+"use client";
+
+import { CopyButton } from "@/components/ui/CopyButton";
+import { ImageModal } from "@/components/ui/ImageModal";
+import MarkdownViewer from "@/components/ui/MarkdownViewer";
+import { useReport } from "@/hooks/useReport";
+import { components } from "@/types/schema";
+import {
+    AlertCircle,
+    FileText,
+    Image as ImageIcon,
+    Loader2,
+    PanelRightClose,
+    PanelRightOpen,
+    Bot,
+    ArrowRight,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { IdeaReportContent } from "../ideaReportType"; // 型定義をインポート
+
+// ------------------------------------------------------------
+// 型定義
+// ------------------------------------------------------------
+type PatentContent = components["schemas"]["PatentContent"];
+type PatentImage = components["schemas"]["PatentImage"];
+
+// 見出しラベルの辞書 --> 表示順序の制御には使用せず、キーの日本語化にのみ使用。受け取った順で表示するため。
+const SECTION_LABELS: Record<string, string> = {
+    abstract: "要約",
+    claims: "特許請求の範囲",
+    tech_field: "技術分野",
+    background: "背景技術",
+    problem_to_solve: "解決しようとする課題",
+    means_to_solve: "解決手段",
+    effect: "発明の効果",
+    drawings_desc: "図面の簡単な説明",
+    embodiments: "実施形態",
+    symbols_desc: "符号の説明",
+    industrial_applicability: "産業上の利用可能性",
+};
+
+// 環境変数
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export default function PatentViewerPage() {
+    // Contextから現在のレポート情報を取得（型安全にアクセス）
+    const { currentReport } = useReport<IdeaReportContent>();
+
+    // Local State
+    const [patentData, setPatentData] = useState<PatentContent | null>(null);
+    const [images, setImages] = useState<PatentImage[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [showImages, setShowImages] = useState(true);
+    const [selectedImage, setSelectedImage] = useState<{
+        url: string;
+        label: string;
+    } | null>(null);
+
+    // ------------------------------------------------------------
+    // データ取得
+    // ------------------------------------------------------------
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!currentReport) return;
+
+            setIsLoading(true);
+            setError(null);
+
+            const { report_type, report_id } = currentReport.metadata;
+
+            try {
+                // 並列でデータと画像リストを取得
+                // ※ バックエンドの保存パス仕様に基づく: storage/reports/{type}/{id}/patent/data.json
+                const [dataRes, imagesRes] = await Promise.all([
+                    fetch(
+                        `${API_BASE}/static/reports/${report_type}/${report_id}/patent/data.json`
+                    ),
+                    fetch(
+                        `${API_BASE}/static/reports/${report_type}/${report_id}/patent/images.json`
+                    ),
+                ]);
+
+                if (!dataRes.ok) throw new Error("テキストデータの取得に失敗しました");
+                const data: PatentContent = await dataRes.json();
+                setPatentData(data);
+
+                // 画像は存在しない場合もあるため、404なら空配列とする
+                if (imagesRes.ok) {
+                    const imgList: PatentImage[] = await imagesRes.json();
+                    setImages(imgList);
+                } else {
+                    setImages([]);
+                }
+            } catch (err) {
+                console.error("Fetch error:", err);
+                setError(
+                    "データの読み込みに失敗しました。まだ解析が完了していない可能性があります。"
+                );
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [currentReport]);
+
+    // 全文結合ロジック（コピー用）
+    const fullText = useMemo(() => {
+        if (!patentData) return "";
+        return Object.entries(patentData)
+            .map(([key, content]) => {
+                if (key === "others" && typeof content === "object") {
+                    return Object.entries(content)
+                        .map(([k, v]) => `【${k}】\n${v}`)
+                        .join("\n\n");
+                }
+                if (typeof content === "string" && content) {
+                    const label = SECTION_LABELS[key] || key;
+                    return `【${label}】\n${content}`;
+                }
+                return "";
+            })
+            .filter(Boolean)
+            .join("\n\n");
+    }, [patentData]);
+
+    // ------------------------------------------------------------
+    // ローディング / エラー表示
+    // ------------------------------------------------------------
+    if (isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center bg-white text-slate-500 gap-2">
+                <Loader2 className="animate-spin" />
+                <span>解析データを読み込んでいます...</span>
+            </div>
+        );
+    }
+
+    if (error || !patentData) {
+        return (
+            <div className="flex h-full items-center justify-center bg-white p-8">
+                <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl flex items-center gap-3 max-w-lg">
+                    <AlertCircle size={24} />
+                    <div>
+                        <h3 className="font-bold">エラーが発生しました</h3>
+                        <p className="text-sm mt-1">{error || "データが見つかりません"}</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ------------------------------------------------------------
+    // メインレンダリング
+    // ------------------------------------------------------------
+    const hasImages = images.length > 0;
+
+    return (
+        <div className="h-full flex flex-col max-w-7xl mx-auto bg-white">
+            {/* 画像拡大モーダル */}
+            <ImageModal
+                isOpen={!!selectedImage}
+                onClose={() => setSelectedImage(null)}
+                imageUrl={selectedImage ? `${API_BASE}${selectedImage.url}` : null}
+                altText={selectedImage?.label}
+            />
+
+            {/* ヘッダーエリア */}
+            <div className="flex items-center justify-between px-8 pt-6 pb-4 border-b border-slate-100">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        <FileText className="text-blue-600" />
+                        解析結果 {currentReport?.content.patent_info?.filename || "特許文書"}
+                    </h2>
+                    <div className="flex items-center mt-1">
+                        <span className="text-xs text-slate-400 font-mono">
+                            ID:
+                            {currentReport?.content.patent_info?.patent_id ||
+                                currentReport?.metadata.report_id}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <CopyButton text={fullText} label="全文をコピー" />
+
+                    {hasImages && (
+                        <button
+                            onClick={() => setShowImages(!showImages)}
+                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border
+                            bg-white text-slate-500 border-slate-200
+                            hover:bg-slate-50 hover:text-slate-700 transition-all"
+                            title={showImages ? "画像を非表示" : "画像を表示"}>
+                            {showImages ? (
+                                <PanelRightClose size={16} />
+                            ) : (
+                                <PanelRightOpen size={16} />
+                            )}
+                            <span className="hidden sm:inline">
+                                {showImages ? "画像OFF" : "画像ON"}
+                            </span>
+                        </button>
+                    )}
+                    {/* 次のステップへの遷移ボタン */}
+          <Link
+            href={`/workspace/idea/${currentReport?.metadata.report_id}/analysis`}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm ml-2"
+          >
+            <Bot size={18} />
+            <span>AI解析に進む</span>
+            <ArrowRight size={16} />
+          </Link>
+                </div>
+            </div>
+
+            {/* コンテンツエリア */}
+            <div className="flex flex-1 overflow-hidden">
+                {/* 左カラム: テキスト本文 (Markdown) */}
+                <div className="flex-1 overflow-y-auto p-8 pb-20">
+                    <div className="max-w-4xl mx-auto space-y-12">
+                        {/* JSONデータの並び順を信頼し、そのままマップする */}
+                        {Object.entries(patentData).map(([key, content]) => {
+                            // 'others' キーはネストされたオブジェクトとして処理
+                            if (
+                                key === "others" &&
+                                typeof content === "object" &&
+                                content !== null
+                            ) {
+                                return Object.entries(content as Record<string, string>).map(
+                                    ([otherKey, otherContent]) => (
+                                        <SectionBlock
+                                            key={otherKey}
+                                            title={otherKey}
+                                            content={otherContent}
+                                            isCustomSection
+                                        />
+                                    )
+                                );
+                            }
+
+                            // 通常の文字列セクション
+                            if (typeof content === "string" && content) {
+                                const label = SECTION_LABELS[key] || key; // 辞書にあれば日本語、なければキーそのまま
+                                return (
+                                    <SectionBlock
+                                        key={key}
+                                        title={label}
+                                        content={content}
+                                        isCustomSection={false}
+                                    />
+                                );
+                            }
+
+                            return null;
+                        })}
+                    </div>
+                </div>
+
+                {/* 右カラム: 画像一覧 */}
+                {hasImages && showImages && (
+                    <div className="w-80 lg:w-96 shrink-0 flex flex-col border-l border-slate-100 bg-slate-50/50">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm">
+                                <ImageIcon size={16} />
+                                抽出画像 ({images.length})
+                            </h3>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {images.map((img) => (
+                                <div
+                                    key={img.id}
+                                    className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                                    <div
+                                        className="aspect-video bg-slate-100 rounded-md overflow-hidden mb-2 flex items-center justify-center relative cursor-zoom-in group"
+                                        onClick={() =>
+                                            setSelectedImage({ url: img.url, label: img.label })
+                                        }>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={`${API_BASE}${img.url}`}
+                                            alt={img.label}
+                                            className="max-w-full max-h-40 object-contain transition-transform duration-300 group-hover:scale-105"
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-600">
+                                            {img.label}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ------------------------------------------------------------
+// サブコンポーネント: セクション表示ブロック
+// ------------------------------------------------------------
+const SectionBlock = ({
+    title,
+    content,
+    isCustomSection,
+}: {
+    title: string;
+    content: string;
+    isCustomSection: boolean;
+}) => {
+    return (
+        <section className="group">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                <h3
+                    className={`text-lg font-bold text-slate-800 border-l-4 pl-3 ${
+                        isCustomSection ? "border-slate-400" : "border-blue-600"
+                    }`}>
+                    {title}
+                </h3>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <CopyButton text={content} className="text-slate-400 hover:text-slate-600" />
+                </div>
+            </div>
+            <div className="px-1">
+                <MarkdownViewer
+                    content={content}
+                    className="text-slate-700 leading-relaxed text-sm patent-content"
+                />
+            </div>
+        </section>
+    );
+};
 </file>
 
 <file path="frontend/app/workspace/layout.tsx">
@@ -2088,7 +3786,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 "use client";
 
-import { useReport } from "@/hooks/useReport"; // フックをインポート
+import { useReport } from "@/hooks/useReport";
 import { ArrowRight, Building2, FileJson, Lightbulb, Loader2, Search, Upload } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
@@ -3334,6 +5032,180 @@ EXPOSE 3000
 CMD ["npm", "run", "dev"]
 </file>
 
+<file path="frontend/hooks/internal/readSSE.ts">
+// frontend/hooks/internal/readSSE.ts
+
+export async function readSSE(response: Response, onEvent: (event: any) => void) {
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("Response body is empty");
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            onEvent(JSON.parse(line.slice(6)));
+        }
+    }
+}
+</file>
+
+<file path="frontend/hooks/useGeminiMultiTurn.ts">
+// frontend/hooks/useGeminiMultiTurn.ts
+
+import { UIMessage } from "@/types/gemini";
+import { useCallback, useState } from "react";
+import { readSSE } from "./internal/readSSE";
+
+interface MultiTurnParams {
+    reportType: string;
+    reportId: string;
+    systemPromptType: string;
+    context: Record<string, string>;
+}
+
+export const useGeminiMultiTurn = () => {
+    const [messages, setMessages] = useState<UIMessage[]>([]);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const sendMessage = useCallback(
+        async (userContent: string, params: MultiTurnParams) => {
+            setIsGenerating(true);
+            setError(null);
+
+            const userMsg: UIMessage = {
+                id: crypto.randomUUID(),
+                role: "user",
+                content: userContent,
+            };
+
+            const assistantMsg: UIMessage = {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: "",
+            };
+
+            setMessages((prev) => [...prev, userMsg, assistantMsg]);
+
+            try {
+                const response = await fetch("/generate/multi-turn", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        report_type: params.reportType,
+                        report_id: params.reportId,
+                        system_prompt_type: params.systemPromptType,
+                        context: params.context,
+                        messages: [...messages, userMsg].map((m) => ({
+                            role: m.role,
+                            content: m.content,
+                        })),
+                    }),
+                });
+
+                await readSSE(response, (event) => {
+                    if (event.type === "content_delta") {
+                        setMessages((prev) => {
+                            const updated = [...prev];
+                            updated[updated.length - 1] = {
+                                ...updated[updated.length - 1],
+                                content: updated[updated.length - 1].content + event.data.chunk,
+                            };
+                            return updated;
+                        });
+                    }
+
+                    if (event.type === "error") {
+                        throw new Error(event.data.message);
+                    }
+                });
+            } catch (e) {
+                setError(e instanceof Error ? e.message : "Unknown error");
+            } finally {
+                setIsGenerating(false);
+            }
+        },
+        [messages]
+    );
+
+    return {
+        messages,
+        isGenerating,
+        error,
+        sendMessage,
+        setMessages, // report から復元する用
+    };
+};
+</file>
+
+<file path="frontend/hooks/useGeminiSingleShot.ts">
+// frontend/hooks/useGeminiSingleShot.ts
+
+import { useCallback, useState } from "react";
+import { readSSE } from "./internal/readSSE";
+
+interface SingleShotParams {
+    reportType: string;
+    reportId: string;
+    artifactName: string;
+
+    promptType: string;
+    systemPromptType?: string;
+    context: Record<string, string>;
+}
+
+export const useGeminiSingleShot = () => {
+    const [output, setOutput] = useState("");
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const generate = useCallback(async (params: SingleShotParams) => {
+        setIsGenerating(true);
+        setOutput("");
+        setError(null);
+
+        try {
+            const response = await fetch("/generate/single-shot", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    report_type: params.reportType,
+                    report_id: params.reportId,
+                    artifact_name: params.artifactName,
+                    prompt_type: params.promptType,
+                    system_prompt_type: params.systemPromptType,
+                    context: params.context,
+                }),
+            });
+
+            await readSSE(response, (event) => {
+                if (event.type === "content_delta") {
+                    setOutput((prev) => prev + event.data.chunk);
+                }
+                if (event.type === "error") {
+                    throw new Error(event.data.message);
+                }
+            });
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Unknown error");
+        } finally {
+            setIsGenerating(false);
+        }
+    }, []);
+
+    return { output, isGenerating, error, generate };
+};
+</file>
+
 <file path="frontend/hooks/useLayoutState.tsx">
 // Patent_Survey_APP/frontend/hooks/useLayoutState.tsx
 
@@ -3444,6 +5316,8 @@ export const useLayoutState = () => {
 </file>
 
 <file path="frontend/hooks/useReport.tsx">
+// Patent_Survey_APP/frontend/hooks/useReport.tsx
+
 "use client";
 
 import type { components } from "@/types/schema";
@@ -3881,146 +5755,256 @@ export default {
 };
 </file>
 
+<file path="frontend/types/gemini.ts">
+// frontend/types/gemini.ts
+
+export interface UIMessage {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+}
+
+export interface StreamEvent {
+    type: "content_delta" | "done" | "error";
+    data: any;
+}
+</file>
+
 <file path="README.md">
 # Patent Survey App
 
-### リファクタリング基本方針
+背景:
+- 一連のコードは、リファクタリングを進めている途中のものです。
+- 特許読み込み～解析～アイデア生成～対話までの流れは過去に実装しているものの、情報保持周りが複雑になりすぎてしまったため、一度ブランチを切って最初から再構築しているところです。
 
-**ドキュメント指向 / ファイルベースアーキテクチャ**
 
-「Jupyter Notebook の Web アプリ化」
+## 概要
 
-「アプリの状態をシステムが裏で必死に維持する」のではなく、**「ユーザーがファイルを管理し、アプリはそれを開くための高性能なエディタ/ビューワーである」**という考え方にシフト
+Patent Survey App は、特許情報を起点として
+**解析・アイデア生成・対話を行い、その結果を「レポート」として蓄積・再利用する**ためのアプリケーションです。
 
-### 1. セッションから「ドキュメント」へ
-
-|              | 従来のアプローチ (Session-Centric)  | **新しいアプローチ (Document-Centric)**       |
-| ------------ | ----------------------------------- | --------------------------------------------- |
-| **主役**     | **システム** (勝手に保存・復元する) | **ユーザー** (明示的に作成・保存・開く)       |
-| **データ**   | 裏側の DB や隠しファイル            | **レポートファイル** (JSON/zip)               |
-| **リロード** | 「消えちゃった！復元しなきゃ！」    | 「初期画面に戻る (当たり前)」                 |
-| **再開**     | 自動復元 (不安定になりがち)         | **「レポートを開く」**で確実に戻る            |
-| **分岐**     | 難しい (1 つの特許 = 1 つの状態)    | **容易** (「別名で保存」すれば無限に分岐可能) |
-
-### 2. 具体的なワークフローの変化
-
-ユーザー体験（UX）は以下のようにシンプルかつ強力になります。
-
-#### シナリオ A：新規作成（New Report）
-
-1. **トップ画面:** 「新規作成」ボタンを押す。
-2. **アップロード:** 特許 PDF をアップロード。
-3. **解析・生成:** LLM が解析 → アイデア生成（今のフロー）。
-4. **保存:** ユーザーが「保存」ボタンを押すと、**現在の状態すべて（特許 ID, 解析文, チャット履歴）を含んだ JSON ファイル**がダウンロードされる（またはサーバー上のユーザーフォルダに名前付きで保存される）。
-
-#### シナリオ B：続きから再開 / 他の人に共有（Load Report）
-
-1. **トップ画面:** 「レポートを開く（JSON アップロード）」ボタンを押す。
-2. **復元:** アプリが JSON を読み込み、**「あの時の Step 3 の状態」**を完全に再現する。
-3. **再開:** そのままチャットを続けたり、アイデアを修正したりする。
-
-#### シナリオ C：分析の分岐（Branching）
-
--   ある特許について「食品業界向け」のアイデア出しをしたレポートがある。
--   それを読み込み、今度は対話機能で「自動車業界向けにアレンジして」と指示し、**「別名で保存」**する。
--   → **1 つの特許から、複数の異なる分析レポートが派生する。** これは RDB でガチガチに管理するよりも、ファイルベースの方が圧倒的に柔軟です。
+本アプリは、従来の「セッション中心・状態隠蔽型」な Web アプリ設計から脱却し、
+**ドキュメント（レポート）を主役に据えた設計**を採用しています。
 
 ---
 
-### 1. 新しい画面遷移とディレクトリ構成
+## 設計思想（最重要）
 
-これまで `GeneratingScreen.tsx` という巨大なコンポーネントの中で `Step` ステートを切り替えていましたが、これを **Next.js のルーティング** に任せます。
+### ドキュメント指向 / レポート指向アーキテクチャ
 
-#### ディレクトリ構造（案）
+> **「Jupyter Notebook の Web アプリ化」**
 
-```
-frontend/app/
-├── page.tsx  (トップページ: ダッシュボード)
-├── layout.tsx (全体レイアウト)
-└── workspace (作業画面)
-    ├── layout.tsx (ヘッダー・サイドバー・Context提供)
-    ├── idea (アイデア生成機能)
-    │   ├── page.tsx (リダイレクト用)
-    │   ├── analysis (Step 1)
-    │   │   └── page.tsx
-    │   ├── generation (Step 2)
-    │   │   └── page.tsx
-    │   └── chat (Step 3)
-    │       └── page.tsx
-    ├── search (特許検索機能: 将来)
-    │   └── ...
-    └── matching (マッチング機能: 将来)
-        └── ...
+本アプリでは、
+「アプリが裏で状態を必死に維持する」のではなく、
 
-```
+> **ユーザーがレポート（ファイル）を管理し、
+> アプリはそれを開くための高性能なエディタ / ビューワーである**
 
-こうすることで、**「今はどの工程にいるのか」が URL で表現**され、ブラウザの「戻る・進む」も自然に機能します。
+という考え方を採用しています。
 
-### 2. データ管理：`ReportContext`
+---
 
-すべての状態を管理する「レポートファイル」の構造を定義し、これを `useContext` でアプリ全体に供給します。
+## 1. セッション中心設計からの脱却
 
-**レポート JSON の構造イメージ (`ReportData`)**
+### 従来のアプローチとの比較
+
+|          | 従来のアプローチ (Session-Centric) | **新しいアプローチ (Document / Report-Centric)** |
+| -------- | ---------------------------------- | ------------------------------------------------ |
+| **主役** | システム                           | **ユーザー**                                     |
+| **状態** | セッション / DB に分散             | **1 つのレポート(JSON)**                         |
+| **復元** | 自動復元（壊れやすい）             | **「レポートを開く」だけ**                       |
+| **分岐** | 困難                               | **容易（別名保存）**                             |
+| **共有** | 実装コストが高い                   | **ファイル共有で完結**                           |
+
+---
+
+## 2. レポートという「唯一の状態」
+
+### 基本原則
+
+-   アプリの状態は **常にレポートが正**
+-   フロントエンドの state は **表示用キャッシュ**
+-   バックエンド・LLM は **状態を持たない**
+-   再取得できるものは保存しない
+
+---
+
+## 3. レポート構造の考え方
+
+### レポートは 1 JSON ドキュメント
 
 ```json
 {
-  "metadata": {
-    "title": "特許AB-1234 アイデア出し",
-    "type": "idea_generation", // レポートの種類
-    "created_at": "2025-01-01T12:00:00Z",
-    "updated_at": "2025-01-02T15:30:00Z"
-  },
-  "content": {
-    // 機能ごとに構造が変わる部分
-    "analysis_result": "...",
-    "ideas": "...",
-    "chat_history": [...]
-  }
+    "metadata": {
+        "report_id": "...",
+        "title": "...",
+        "report_type": "idea",
+        "created_at": "...",
+        "updated_at": "..."
+    },
+    "content": {
+        // 機能ごとに自由に設計される
+    }
 }
-
 ```
 
-**Context の役割**
+#### metadata
 
--   `loadReport(json)`: ファイルを読み込んで State にセット → 画面遷移
--   `saveReport()`: 現在の State を JSON ファイルとしてダウンロード（またはサーバー保存）
--   `updateContent(key, value)`: 各ページからの更新を受け付ける
+-   一覧表示・検索・ルーティングに必要な最小限の共通情報
+-   バックエンドで統一管理
 
-### 3. UI の役割分担
+#### content
 
-| UI エリア    | 役割               | 挙動                       |
-| ------------ | ------------------ | -------------------------- |
-| **ヘッダー** | **ファイル操作盤** | ・現在のファイル名表示<br> |
+-   機能ごとに構造が異なる自由領域
+-   正規化は行わない
+-   「1 レポート = 1 完結した作業成果物」
 
-<br>・「上書き保存」「別名保存」ボタン<br>
+---
 
-<br>・「ホームに戻る」 |
-| **サイドバー** | **目次 (TOC)** | ・機能に応じたステップを表示（今は Step1, 2, 3）<br>
+## 4. generated フィールドの共通化
 
-<br>・クリックで `router.push('/workspace/idea/chat')` 等へ遷移<br>
+### 人間入力と AI 生成物を明確に分離
 
-<br>・完了済みのステップにチェックマーク |
-| **メイン** | **作業エリア** | ・各 `page.tsx` の内容を表示<br>
+```ts
+content.generated;
+```
 
-<br>・余計な枠を排除し、コンテンツに集中できる |
+配下は、**すべての機能で共通利用可能**な構造として設計されています。
 
-### 4. トップページ（ダッシュボード）のデザイン
+### 4.1 単発生成（artifact）
 
-「何をしますか？」から始まる、明確なエントリーポイントにします。
+-   特許要約
+-   解析結果
+-   アイデア生成結果 など
 
-```text
-[ Patent Survey App ]
+```ts
+GeneratedArtifact {
+  type: "single_shot"
+  system_prompt_type
+  prompt_type
+  input
+  output
+  meta
+}
+```
 
-■ 新規作成 (Create New)
-+------------------------+  +------------------------+  +------------------------+
-|  アイデア生成レポート  |  |  特許検索レポート      |  |  マッチングレポート    |
-|  (特許PDFから発想)     |  |  (キーワードから調査)  |  |  (アイデアから協業先)  |
-+------------------------+  +------------------------+  +------------------------+
+**再生成・差し替え可能な最小単位**として扱います。
 
-■ 読み込み (Load)
-[ 📂 JSONファイルを開く... ]
+---
 
-## 現時点のディレクトリ構成
+### 4.2 対話（conversation）
+
+-   状態を持つため artifact とは分離
+-   会話履歴はすべてレポートに保存
+
+```ts
+conversation {
+  type: "multi_turn"
+  system_prompt_type
+  context
+  messages
+  meta
+}
+```
+
+---
+
+## 5. 生成処理における責務分離
+
+### フロントエンドの責務
+
+-   プロンプトタイプの指定
+-   context に渡すテキストの収集
+-   UI 表示（ストリーミング描画）
+-   レポートの読み込み・表示
+
+### バックエンドの責務
+
+-   プロンプト構築
+-   LLM 実行
+-   **generated フィールドへの保存**
+-   レポート更新の一元管理
+
+> フロントエンドは
+> **「状態を作らない・持たない・壊さない」**
+> ことを最優先します。
+
+---
+
+## 6. UI 設計とレポート指向
+
+### Next.js ルーティングによる工程表現
+
+```
+/workspace/idea/[reportId]/analysis
+/workspace/idea/[reportId]/generation
+/workspace/idea/[reportId]/chat
+```
+
+-   URL が「今どの工程か」を表す
+-   ブラウザの戻る・進むが自然に機能
+-   Step 管理ロジックを UI から排除
+
+---
+
+## 7. ReportContext の役割
+
+```ts
+loadReport(report);
+saveReport();
+updateContent(path, value);
+```
+
+-   ReportContext は **唯一の状態供給源**
+-   各ページは content の一部を編集するだけ
+-   画面遷移 ≠ 状態遷移
+
+---
+
+## 8. ワークフロー例
+
+### 新規作成
+
+1. レポート作成
+2. 特許アップロード
+3. 解析・生成
+4. 保存
+
+### 再開・共有
+
+-   レポートを開くだけで完全復元
+
+### 分岐
+
+-   別名保存で無限に派生可能
+
+---
+
+## 9. 実装上の優先順位（判断基準）
+
+1. **レポートが壊れないこと**
+2. 再実行・再生成が容易であること
+3. フロントエンドを薄く保つこと
+4. 将来フィールド追加しても破綻しない構造
+5. 「今は使わないものは作らない」
+
+---
+
+## まとめ
+
+このアプリは、
+
+-   状態管理の複雑さを **構造で解消**
+-   AI 実装を **汎用・再利用可能** に保ち
+-   UX を **ファイル操作として直感的** にする
+
+ことを目的とした、
+**レポート指向アプリケーション**です。
+
+---
+
+## ディレクトリ構造
+
 
 
 ```
@@ -4034,7 +6018,20 @@ Patent_Survey_APP
 │  │  ├─ core
 │  │  │  ├─ client.py
 │  │  │  └─ config.py
+│  │  ├─ prompt
+│  │  │  ├─ manager.py
+│  │  │  └─ templates
+│  │  │     ├─ system
+│  │  │     │  └─ patent_system_prompt.py
+│  │  │     ├─ task
+│  │  │     │  ├─ analysis_prompt.py
+│  │  │     │  └─ idea_prompt.py
+│  │  │     └─ template_memo.py
 │  │  └─ services
+│  │     ├─ gemini
+│  │     │  ├─ functions.py
+│  │     │  ├─ generate_api.py
+│  │     │  └─ schemas.py
 │  │     ├─ patent
 │  │     │  ├─ functions.py
 │  │     │  ├─ patent_api.py
@@ -4059,12 +6056,16 @@ Patent_Survey_APP
 │  │  └─ workspace
 │  │     ├─ idea
 │  │     │  └─ [reportId]
+│  │     │     ├─ analysis
+│  │     │     │  └─ page.tsx
+│  │     │     ├─ ideaReportType.ts
 │  │     │     ├─ IdeaSidebar.tsx
 │  │     │     ├─ layout.tsx
 │  │     │     ├─ page.tsx
 │  │     │     ├─ upload
 │  │     │     │  └─ page.tsx
 │  │     │     └─ viewer
+│  │     │        └─ page.tsx
 │  │     ├─ layout.tsx
 │  │     ├─ MainLayout.tsx
 │  │     └─ page.tsx
@@ -4081,6 +6082,10 @@ Patent_Survey_APP
 │  ├─ Dockerfile
 │  ├─ eslint.config.mjs
 │  ├─ hooks
+│  │  ├─ internal
+│  │  │  └─ readSSE.ts
+│  │  ├─ useGeminiMultiTurn.ts
+│  │  ├─ useGeminiSingleShot.ts
 │  │  ├─ useLayoutState.tsx
 │  │  └─ useReport.tsx
 │  ├─ next.config.ts
@@ -4093,6 +6098,7 @@ Patent_Survey_APP
 │  ├─ tailwind.config.js
 │  ├─ tsconfig.json
 │  └─ types
+│     ├─ gemini.ts
 │     └─ schema.ts
 ├─ README.md
 ├─ repomix-output.xml
@@ -4102,110 +6108,5 @@ Patent_Survey_APP
 ```
 </file>
 
-<file path="SETUP.md">
-# Patent Survey App 環境構築手順
-
-Hirano ブランチで開発を進めていきます。（2025/12/25 記載）
-
-Dockerを利用して環境構築が可能です。
-普段の開発ではDockerコンテナ内ではなくホスト側でコーディングしています。
-→Dockerは環境の再現のみという位置づけ
-
-## 私が別PCで実行した手順
-```
-git clone -b <ブランチ名> <URL>
-(backendの `.env` とfrontendの `.env.local` に必要な環境変数を入力しておく)
-cd frontend
-npm install
-cd ../
-docker compose down -v (明示的に)
-docker compose up --build
-```
-
----
-
-以下詳細説明
-
-## 1. 事前準備
-
-以下のツールがインストールされている必要があります。
-
--   **Git**
--   **Docker Desktop** (Mac/Windows) または **Docker Engine + Docker Compose** (Linux)
--   **Google Gemini API Key** (Google AI Studio で取得可能)
-
-## 2. リポジトリのクローン
-
-ターミナル（コマンドプロンプト/PowerShell）を開き、任意のディレクトリで以下を実行します。
-
-```bash
-git clone -b Hirano <リポジトリのURL>
-cd Patent_Survey_APP
-```
-
-## 3. 環境変数の設定
-
-バックエンド用に環境変数を設定します。
-機密情報（API キー）を含むため、このファイルは Git に含まれていません。手動で作成してください。
-
-1. `backend` ディレクトリへ移動、またはエディタで開きます。
-2. `.env.example` ファイルをコピーして、`.env` という名前に変更します。
-3. `.env` ファイルを開き、コメントアウトに沿って書き換えます。
-
-## 4. アプリケーションの起動 (Docker)
-
-プロジェクトのルートディレクトリ（`docker-compose.yml`がある場所）で、以下のコマンドを実行します。
-
-```bash
-docker compose up --build
-```
-
-## 5. ブラウザでのアクセス
-
-起動が完了したら、ブラウザで以下にアクセスしてください。
-
--   **アプリ画面:** [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
--   **API ドキュメント:** [http://localhost:8000/docs](https://www.google.com/search?q=http://localhost:8000/docs) (Backend の動作確認用)
-
-## 6. 開発を終了する場合
-
-ターミナルで `Ctrl + C` を押して停止します。
-コンテナを完全に削除し、一時ファイルをクリアしたい場合は以下を実行してください。
-
-```bash
-# -v オプションをつけることで、作成されたボリュームも削除され、クリーンな状態に戻ります
-docker compose down -v
-```
-
----
-
-### トラブルシューティング（共有用メモ）
-
-もし `Error: Cannot find module ... lightningcss ...` というエラーが出た場合：
-ホスト側の `node_modules` やキャッシュが悪さをしている可能性があります。以下の手順でリセットしてください。
-
-1. `docker compose down -v` を実行（ボリュームを完全削除）
-2. `frontend/.next` フォルダを削除
-3. 再度 `docker compose up --build` を実行
-
----
-
-## その他共有事項
-
-### レスポンス型定義ファイルの自動生成（必要に応じて）
-
-```
-# FastAPIサーバーを起動した状態で実行してください。
-npm run api:gen
-```
-
-### LLM向けコードレポート生成
-
-```
-npx repomix
-```
-
-→生成されたXMLファイルのテキスト全文をLLMのプロンプトにコピー＆ペースト
-</file>
 
 </files>

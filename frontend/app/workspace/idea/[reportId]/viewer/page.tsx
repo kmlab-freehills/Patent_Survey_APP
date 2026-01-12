@@ -1,3 +1,5 @@
+// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/viewer/page.tsx
+
 "use client";
 
 import { CopyButton } from "@/components/ui/CopyButton";

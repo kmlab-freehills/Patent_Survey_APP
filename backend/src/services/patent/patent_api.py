@@ -79,7 +79,7 @@ async def upload_and_analyze_patent(report_type: str, report_id: str, file: Uplo
     # 「特許データを持っています」というフラグや、基本情報を記録
     report.content["patent_info"] = {
         "filename": file.filename,
-        "patent_id": report_id,  # 現時点でレポートIDと特許IDを同一視（別途管理も可）
+        "patent_id": report_id,  # 現在はレポートIDと特許IDを同一視（別途管理も可）
         "has_patent": True,
         "image_count": len(saved_images),
     }

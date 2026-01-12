@@ -61,7 +61,7 @@ export default function IdeaUploadPage() {
     };
 
     // ------------------------------------------------------------
-    // 送信ハンドラ (実装)
+    // 送信ハンドラ 
     // ------------------------------------------------------------
     const handleUpload = async () => {
         if (!selectedFile || !currentReport) return;
@@ -87,7 +87,7 @@ export default function IdeaUploadPage() {
             }
 
             // 成功したら次のステップ（解析確認画面）へ遷移
-            // ※本来はContextの更新などを行いますが、まずは遷移を優先
+            // ※後にContextの更新などを記述
             console.log("Upload success!");
             router.push(`/workspace/idea/${reportId}/viewer`);
         } catch (error) {

@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useReport } from "@/hooks/useReport"; // フックをインポート
+import { useReport } from "@/hooks/useReport";
 import { ArrowRight, Building2, FileJson, Lightbulb, Loader2, Search, Upload } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
