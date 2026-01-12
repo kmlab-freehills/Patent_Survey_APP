@@ -1,3 +1,5 @@
+// Patent_Survey_APP/frontend/components/ui/ImageModal.tsx
+
 "use client";
 
 import { RotateCcw, RotateCw, X, ZoomIn, ZoomOut } from "lucide-react";

@@ -85,7 +85,7 @@ export default function IdeaReportDashboard() {
             </div>
 
             {/* メインアクションエリア（Next Action） */}
-            <section className="bg-gradient-to-br from-white to-slate-50 border border-slate-200/60 rounded-3xl p-8 shadow-sm">
+            <section className="bg-liner-to-br from-white to-slate-50 border border-slate-200/60 rounded-3xl p-8 shadow-sm">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div className="space-y-3 max-w-2xl">
                         <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">

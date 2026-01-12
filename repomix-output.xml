@@ -100,7 +100,8 @@ from fastapi import FastAPI, Request  # アプリ本体
 from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
 from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 from src.services.report import report_api  # レポート管理
-from src.core.config import STATIC_BASE_PATH, FRONTEND_URL
+from src.core.config import STATIC_BASE_PATH, FRONTEND_URL # 環境変数やパス等
+from src.services.patent import patent_api # 特許解析
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -163,6 +164,7 @@ app.add_middleware(
 # ============================================================
 
 app.include_router(report_api.router) # レポート管理
+app.include_router(patent_api.router) # 特許解析
 
 # ============================================================
 # エンドポイント（テスト用）
@@ -181,6 +183,11 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     print(f"[Response] {response.status_code}")
     return response
+
+# メモ
+# 1. 304 Not Modified について
+# これはブラウザのキャッシュ機能によるもので、正常な挙動。
+# 「前回アクセスした時からファイル（data.json）に変更はないので、ブラウザが持っているキャッシュを使ってください」というサーバーからのレスポンス。
 
 # 実行コマンド:
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -259,6 +266,719 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 # 静的ファイル
 STATIC_BASE_PATH = PROJECT_ROOT / "storage"
 STATIC_BASE_URL = "/static"
+</file>
+
+<file path="backend/src/services/patent/__init__.py">
+
+</file>
+
+<file path="backend/src/services/patent/functions.py">
+# Patent_Survey_APP/backend/src/services/patent/functions.py
+
+from src.services.patent.supports.patent_parser import parse_patent
+from src.services.patent.supports.patent_text import PatentDocument, parse_patent_text, patent_text_cleanup
+
+
+def extract_patent_with_docling(pdf_bytes: bytes) -> PatentDocument:
+    """
+    Doclingで抽出したplaintextを既存の正規表現で処理し、
+    PatentDocumentオブジェクトを返す
+    """
+    # 1. Doclingでplaintextと画像を抽出
+    result = parse_patent(pdf_bytes)
+    raw_text = result["plaintext"]
+    images = result["images"]
+
+    # 2. 正規表現処理を適用
+    cleaned_text = patent_text_cleanup(raw_text)
+
+    # 3. PatentDocumentに変換
+    patent_doc = parse_patent_text(cleaned_text)
+
+    # 4. 存在しないセクションの抽出
+    missing_sections = patent_doc.get_missing_sections()
+    if missing_sections:
+        print("以下のセクションはこの文書に含まれていませんでした:")
+        for section in missing_sections:
+            print(f"- {section}")
+    else:
+        print("定義されたすべてのセクションが存在します。")
+
+    return patent_doc, images
+</file>
+
+<file path="backend/src/services/patent/patent_api.py">
+import json
+import shutil
+from typing import List
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from src.core.config import STATIC_BASE_URL
+from src.services.patent.functions import extract_patent_with_docling
+from src.services.patent.schemas import PatentImage, PatentUploadResponse
+from src.services.report.store import report_store
+
+# ルーター
+router = APIRouter(prefix="/reports", tags=["特許解析"])
+
+
+# エンドポイント
+@router.post("/{report_type}/{report_id}/patent", response_model=PatentUploadResponse)
+async def upload_and_analyze_patent(report_type: str, report_id: str, file: UploadFile = File(...)):
+    """
+    特許PDFをアップロード・解析し、レポート配下に保存する
+    このAPIが「特許ディレクトリの作成」「画像の保存」「JSONの保存」の責任を持つ
+    - data.json: テキストデータ
+    - images.json: 画像メタデータリスト
+    """
+    # --- 1. レポートが存在するか確認 ---
+    report = report_store.load_report(report_type, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # --- 2. PDF読み込み & Docling解析 ---
+    try:
+        pdf_bytes = await file.read()
+        # extract_patent_with_docling は (PatentDocument, List[PIL.Image]) を返す
+        patent_doc, pil_images = extract_patent_with_docling(pdf_bytes)
+    except Exception as e:
+        print(f"Analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Patent analysis failed: {str(e)}")
+
+    # --- 3. 保存先ディレクトリの準備 ---
+    # storage/reports/{type}/{id}/patent/
+    report_dir = report_store.get_report_dir(report_type, report_id)
+    patent_dir = report_dir / "patent"
+    figures_dir = patent_dir / "figures"
+
+    # 既存があれば削除して作り直す（再アップロード対応）
+    if patent_dir.exists():
+        shutil.rmtree(patent_dir)
+
+    patent_dir.mkdir(parents=True, exist_ok=True)
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    # --- 4. 画像の保存 ---
+    saved_images: List[PatentImage] = []
+
+    for idx, img in enumerate(pil_images, start=1):
+        filename = f"fig_{idx:03d}.png"
+        save_path = figures_dir / filename
+        img.save(save_path, format="PNG")
+
+        url = f"{STATIC_BASE_URL}/reports/{report_type}/{report_id}/patent/figures/{filename}"
+        saved_images.append(PatentImage(id=f"fig_{idx:03d}", label=f"図{idx}", url=url))
+
+    # images.json 保存
+    images_json_path = patent_dir / "images.json"
+    with open(images_json_path, "w", encoding="utf-8") as f:
+        # Pydanticモデルのリストをdictのリストに変換
+        json.dump([img.model_dump() for img in saved_images], f, ensure_ascii=False, indent=2)
+
+    # --- 5. テキストデータの保存 (data.json) ---
+    # PatentContentスキーマ (pydantic) を辞書化して保存
+    patent_data_dict = patent_doc.to_dict()
+
+    # JSONファイルパス（storage/reports/{type}/{id}/patent/data.json）
+    json_path = patent_dir / "data.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(patent_data_dict, f, ensure_ascii=False, indent=2)
+
+    # --- 6. レポート本体 (report.json) の更新 ---
+    # 「特許データを持っています」というフラグや、基本情報を記録
+    report.content["patent_info"] = {
+        "filename": file.filename,
+        "patent_id": report_id,  # 現時点でレポートIDと特許IDを同一視（別途管理も可）
+        "has_patent": True,
+        "image_count": len(saved_images),
+    }
+
+    # レポートの保存
+    report_store.save_report(report)
+
+    # --- 7. フロントエンドへのレスポンス ---
+    # PatentUploadResponse の形式に合わせて返す
+    return {"filename": file.filename, "patent_id": report_id, "patent_data": patent_data_dict, "images": saved_images}
+</file>
+
+<file path="backend/src/services/patent/schemas.py">
+# Patent_Survey_APP/backend/src/services/patent/schemas.py
+
+from typing import Dict, List
+
+from pydantic import BaseModel, Field
+
+# ============================================================
+# 特許PDF処理時に使用するスキーマ
+# ============================================================
+
+
+# 特許文書の中身そのもののスキーマ
+class PatentContent(BaseModel):
+    abstract: str = Field(..., description="要約")
+    claims: str = Field(..., description="特許請求の範囲")
+    tech_field: str = Field("", description="技術分野")
+    background: str = Field("", description="背景技術")
+    problem_to_solve: str = Field("", description="解決しようとする課題")
+    means_to_solve: str = Field("", description="解決手段")
+    effect: str = Field("", description="発明の効果")
+    drawings_desc: str = Field("", description="図面の簡単な説明")
+    embodiments: str = Field("", description="実施形態")
+    symbols_desc: str = Field("", description="符号の説明")
+    industrial_applicability: str = Field("", description="産業上の利用可能性")
+    others: Dict[str, str] = Field(default_factory=dict, description="その他のセクション")
+
+
+# 特許文書から抽出した図のスキーマ
+class PatentImage(BaseModel):
+    id: str  # 参照用
+    label: str  # 図1（表示用）
+    url: str  # フロントエンドからアクセス(GET)するためのURL
+
+# 画像リストスキーマ (images.json用)
+class PatentImagesList(BaseModel):
+    images: List[PatentImage]
+
+# APIが返す全体のレスポンススキーマ
+class PatentUploadResponse(BaseModel):
+    filename: str
+    patent_id: str
+    patent_data: PatentContent  # ここで上記のクラスをネストする
+    images: List[PatentImage]
+</file>
+
+<file path="backend/src/services/patent/supports/patent_parser.py">
+# Patent_Survey_APP/backend/src/services/patent/supports/patent_parser.py
+
+import torch
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.document import PictureItem, TableItem, TextItem
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
+
+# グローバルでコンバーターを保持（起動時のオーバーヘッド削減）
+_converter = None
+
+
+def get_patent_converter() -> DocumentConverter:
+    """Doclingのコンバーターを取得する関数"""
+    global _converter
+    if _converter is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"[PatentTest] Initializing Docling on {device}...")
+
+        pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_ocr = (
+            False  # OCR無効化（日本語対応OCRの環境設定が複雑であり、デフォルトモデルの日本語精度が悪いため）
+        )
+        pipeline_options.do_table_structure = True  # 表構造解析
+        pipeline_options.generate_picture_images = True  # 図抽出
+        pipeline_options.generate_table_images = True  # 表画像抽出
+        pipeline_options.do_formula_enrichment = False  # 数式認識（オフ）
+
+        _converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_options=pipeline_options,
+                )
+            }
+        )
+    return _converter
+
+
+def parse_patent(pdf_bytes: bytes) -> dict:
+    """特許PDFをDoclingで解析"""
+    try:
+        converter = get_patent_converter()
+
+        # メモリ上から直接読み込み
+        import io
+
+        from docling.datamodel.document import DocumentStream
+
+        pdf_stream = io.BytesIO(pdf_bytes)
+        doc_stream = DocumentStream(name="input.pdf", stream=pdf_stream)
+
+        # 変換実行
+        result = converter.convert(doc_stream)
+
+        # plaintextとして抽出（後処理で整形）
+        texts = []
+        # /// テキスト抽出処理 開始 ///
+        for element, _level in result.document.iterate_items():
+            if not isinstance(element, TextItem):
+                continue
+
+            if not element.text:
+                continue
+
+            # bboxを持つ要素
+            bbox = getattr(element, "bbox", None)
+
+            # 右マージン（行番号）除外
+            if bbox and bbox.x0 > 0.98:
+                continue
+
+            # 数字のみ（行番号・ページ内カウンタ）
+            if element.text.strip().isdigit():
+                continue
+
+            # リストに格納
+            texts.append(element.text.strip())
+        # /// テキスト抽出処理 終了 ///
+
+        plain_text = "\n".join(texts)
+
+        # 画像抽出
+        extracted_images = []
+        for element, _level in result.document.iterate_items():
+            if isinstance(element, (PictureItem, TableItem)):
+                if element.image and element.image.pil_image:
+                    extracted_images.append(element.image.pil_image)
+
+        return {"plaintext": plain_text, "images": extracted_images}
+
+    except Exception as e:
+        print(f"[PatentTest] Parsing error: {e}")
+        raise e
+</file>
+
+<file path="backend/src/services/patent/supports/patent_text.py">
+# Patent_Survey_APP/backend/src/services/patent/supports/patent_text.py
+
+import re
+import unicodedata
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+"""
+# J-PlatPat特許広報PDF テキスト整形コード
+
+目的: LLMによる分析で与える際のテキスト処理
+原則: わずかなトークンコストで得られる明確性は、常に優先すべき
+理由: 特許文書という高精度が求められるドメインであるため
+補足: 前処理…J-PlatPatからダウンロードした特許PDFについて、pypdfでテキストを抽出→そのテキストに対する処理/作成中
+"""
+
+# ============================================================
+# [1] 初期整形
+# ============================================================
+
+
+def patent_text_cleanup(text):
+    """PDFから抽出されたテキストを整形・置換するラッパー関数"""
+
+    # ------------------------------------------------------------
+    # 整形メイン関数
+    # ------------------------------------------------------------
+
+    def clean_text(text):
+        """特許テキスト整形関数"""
+
+        ## Step. 0 Unicode正規化（NFKC） ##
+        text = normalize_unicode(text)  # 全角数字・全角英字は半角に変換される
+
+        ## Step.1 PDF特有のレイアウトを除去 ##
+        header_line_pattern = r"JP[\s\xa0]+\d+[\s\xa0]+[A-Z]\d*[\s\xa0]+\d{4}\.\d{1,2}\.\d{1,2}"
+
+        text = re.sub(r"̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶̶", "", text)  # 区切り線を除去
+        text = re.sub(r"フロントページの続き.*", "", text, flags=re.DOTALL)
+        text = re.sub(header_line_pattern, "", text)  # ヘッダーの文書番号を除去
+        text = re.sub(r"\(\d+\)", "", text)  # (50)のような表記を除去
+        text = re.sub(
+            r"[ \t]*\n[ \t]*", "", text
+        )  # 全ての改行と周辺の空白を一旦削除（PDFの幅に合わせて改行されているため）
+
+        ## Step.2 【見出し】の構造化 ##
+        # 先に見出しの前後に改行を入れておくことで、後続の正規表現（範囲指定）を安全にする
+        text = re.sub(r"【", "\n【", text)  # 【見出し】の前に改行を挿入
+        text = re.sub(r"】", "】\n", text)  # 【見出し】の後に改行を挿入
+        text = re.sub(r"\n{2,}", "\n", text)  # 一度、連続する改行を1つにまとめる（直前処理で改行が1～2つ存在するため）
+
+        ## Step.3 【要約】に対する処理 ##
+        text = re.sub(r"【課題】", r"[課題]", text)
+        text = re.sub(r"【解決手段】", r"[解決手段]", text)
+        text = re.sub(r"【選択図】", r"[選択図]", text)
+
+        ## Step.4 【符号の説明】に対する処理 ##
+        text = format_symbol_section_safe(text)  # 当該セクション内のみに限定して置換を行う
+
+        ## Step. 5 【図面の簡単な説明】に対する処理 ##
+        text = format_draw_section(text)
+
+        ## Step.6 【段落番号】などに対する処理 ##
+
+        # [段落: 数字]の形式
+        text = re.sub(r"【(\d{4})】", r"\n[段落: \1]\n", text)  # 【数字4桁】を \n[段落: 数字]\n に変換
+        # [段落: 数字]の形式に合わせる（特許文献/請求項/表）
+        text = re.sub(r"【特許文献(\d)】", r"\n[特許文献: \1]\n", text)
+        text = re.sub(r"【請求項(\d+)】", r"\n[請求項: \1]\n", text)
+        text = re.sub(r"【表(\d+)】", r"\n[表: \1]\n", text)
+
+        ## Step.7 最終レイアウト調整 ##
+        text = re.sub(r"　", "", text)  # すべての全角空白を削除
+        text = re.sub(r"。", "。\n", text)  # 「。」の後に改行を挿入して可読性を向上
+        text = re.sub(r"【", "\n【", text)  # 【見出し】の前に改行を挿入（段落番号の処理で行が詰まった見出しへの対応）
+        text = re.sub(r"\n\n\n", r"\n\n", text)  # 2連続の空白行を1つに
+
+        return text.strip()
+
+    def replacement_cleanup(text):
+        """特許テキスト置換関数"""
+
+        ## Step.1 置換準備 ##
+        def full_number_to_half(match):
+            """全角数字を半角数字に変換する関数（明示的）"""
+            char = match.group(0)  # マッチした全角数字を1文字取得
+            return chr(ord(char) - ord("０") + ord("0"))  # Unicodeの差を利用して半角に変換
+
+        def full_alphabet_to_half(match):
+            """全角英字を半角に変換する関数（明示的）"""
+            char = match.group(0)
+            return chr(ord(char) - ord("Ａ") + ord("A"))
+
+        # 全角記号から半角記号への置換マップ {'全角': '半角'}
+        REPLACE_MAP = {
+            "（": "(",
+            "）": ")",
+            "「": '"',
+            "」": '"',
+            "『": '"',
+            "』": '"',
+            "《": '"',
+            "》": '"',
+            "〈": '"',
+            "〉": '"',
+            "〔": "[",
+            "〕": "]",
+            "［": "[",
+            "］": "]",
+            "｛": "{",
+            "｝": "}",
+            "‘": "`",
+            "’": "`",
+            "“": '"',
+            "”": '"',
+            "′": "`",
+            "．": ".",
+            "／": "/",
+            "：": ":",
+            "；": ";",
+            "＜": "<",
+            "＞": ">",
+            "％": "%",
+        }
+
+        ## Step.2 置換実行 ##
+        # 全角英数を半角に変換（全角英数 ０〜９・Ａ～Ｚ・ａ～ｚ → 半角英数 0〜9・A～Z・a～z）
+        text = re.sub(r"[０-９]", full_number_to_half, text)
+        text = re.sub(r"[Ａ-Ｚ]", full_alphabet_to_half, text)
+        text = re.sub(r"[ａ-ｚ]", full_alphabet_to_half, text)
+
+        # 全角記号や句読点をまとめて置換（REPLACE_MAP参照）
+        for full, half in REPLACE_MAP.items():
+            text = text.replace(full, half)
+
+        ## Step. 3 例外処理 ##
+        text = re.sub(r"【 特 許 請 求 の 範 囲 】", "【特許請求の範囲】", text)
+
+        return text
+
+    # ------------------------------------------------------------
+    # 補助関数
+    # ------------------------------------------------------------
+
+    def format_symbol_section_safe(text):
+        """【符号の説明】セクションの整形"""
+
+        def process(match):
+            header = match.group(1)  # 【符号の説明】＋【0032】
+            content = match.group(2)
+
+            content = re.sub(r"、\s*", "\n", content)
+
+            lines = []
+            for line in content.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+
+                # 子（例: 18 A 絞り部）
+                m_child = re.match(r"^([0-9]+)\s*([A-Z])\s*(.+)$", line)
+                if m_child:
+                    num, alpha, name = m_child.groups()
+                    lines.append(f"  -{num}{alpha}: {name}")
+                    continue
+
+                # 親（例：18 ガス供給用配管）
+                m_parent = re.match(r"^([0-9]+)\s*(.+)$", line)
+                if m_parent:
+                    num, name = m_parent.groups()
+                    lines.append(f"-{num}: {name}")
+                    continue
+
+                lines.append(line)
+
+            return header + "\n".join(lines)
+
+        pattern = r"(【符号の説明】\n(?:【\d+】\n)?)(.*?)(?=\n【|$)"
+        return re.sub(pattern, process, text, flags=re.DOTALL)
+
+    def format_draw_section(text):
+        """【図面の簡単な説明】セクションの整形"""
+
+        def process(match):
+            header = match.group(1)  # 【図面の簡単な説明】＋【0009】
+            content = match.group(2)
+
+            lines = []
+            for line in content.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+
+                # 【図1】 / 【図A】 / 【図1A】 --> [図: 1] など
+                m_fig = re.match(r"^【図\s*([０-９Ａ-Ｚ]+)】$", line)
+                m_fig = re.match(r"^【図\s*([0-9A-Z]+)】$", line)
+                if m_fig:
+                    fig_no = m_fig.group(1)
+                    lines.append(f"[図: {fig_no}]")
+                    continue
+
+                lines.append(line)
+
+            return header + "\n".join(lines)
+
+        pattern = (
+            r"(【(?:図面の簡単な説明|図面の簡単な説明|図面の説明|図面の概略説明)】\n"
+            r"(?:【\d+】\n)?)"
+            r"(.*?)(?=\n【(?!図)[^】]+】|$)"
+        )
+
+        # re.DOTALL: . が改行にもマッチするようにする（改行が含まれていても対応可能に）
+        return re.sub(pattern, process, text, flags=re.DOTALL)
+
+    def normalize_unicode(text):
+        """異字体の正規化関数"""
+
+        # Unicode正規化（NFKC）
+        text = unicodedata.normalize("NFKC", text)
+
+        return text
+
+    # ------------------------------------------------------------
+    # 実行部分
+    # ------------------------------------------------------------
+
+    cleaned_text = clean_text(text)
+    cleaned_text = replacement_cleanup(cleaned_text)
+
+    return cleaned_text
+
+
+# ============================================================
+# [2] クラスオブジェクト化
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. 設定・マッピング定義（クラスより先に定義）
+# ------------------------------------------------------------
+
+
+SECTION_MAPPING = {
+    "abstract": ["要約"],
+    "claims": ["特許請求の範囲", "請求の範囲"],
+    "tech_field": ["技術分野"],
+    "background": ["背景技術", "従来の技術"],
+    "problem_to_solve": ["発明が解決しようとする課題"],
+    "means_to_solve": ["課題を解決するための手段"],
+    "effect": ["発明の効果"],
+    "drawings_desc": ["図面の簡単な説明", "図面の説明"],
+    "embodiments": [
+        "発明を実施するための形態",
+        "発明を実施するための最良の形態",
+        "実施例",
+    ],
+    "symbols_desc": ["符号の説明"],
+    "industrial_applicability": ["産業上の利用可能性"],
+}
+
+# 完全に無視する見出し
+IGNORE_HEADERS = {"特許文献", "先行技術文献", "非特許文献"}
+
+# パース用逆引きマップ（【見出し】 -> 属性）
+HEADER_TO_ATTR = {}
+for attr, headers in SECTION_MAPPING.items():
+    for h in headers:
+        HEADER_TO_ATTR[h] = attr
+
+# 表示・判定用逆引きマップ（属性名 -> 【代表見出し】）
+ATTR_TO_HEADER = {attr: headers[0] for attr, headers in SECTION_MAPPING.items()}
+
+
+# ------------------------------------------------------------
+# 2. データ構造の定義
+# ------------------------------------------------------------
+
+
+@dataclass
+class PatentDocument:
+    """特許文書の構造化データクラス"""
+
+    # 主要セクション
+    abstract: str = ""  # 要約
+    claims: str = ""  # 特許請求の範囲
+    tech_field: str = ""  # 技術分野
+    background: str = ""  # 背景技術
+    problem_to_solve: str = ""  # 発明が解決しようとする課題
+    means_to_solve: str = ""  # 課題を解決するための手段
+    effect: str = ""  # 発明の効果
+    drawings_desc: str = ""  # 図面の簡単な説明
+    embodiments: str = ""  # 発明を実施するための形態
+    symbols_desc: str = ""  # 符号の説明
+    industrial_applicability: str = ""  # 産業上の利用可能性
+
+    # その他（未知のセクション）
+    others: Dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self):
+        # 空文字フィールドもそのまま出力する
+        # これにより Pydantic の Field(...) バリデーションを通過させる
+        return self.__dict__
+
+    def get_text(self, target_sections: Optional[List[str]] = None) -> str:
+        """
+        指定されたセクションを結合してテキストとして返します。
+
+        Args:
+            target_sections (list, optional): 取得したいセクション名のリスト。
+                Noneの場合は「中身が存在する全てのセクション」を結合します。
+                例: ['abstract', 'claims']
+                セクション一覧:
+                'claims'
+                'tech_field'
+                'background'
+                'problem_to_solve'
+                'means_to_solve'
+                'effect'
+                'drawings_desc'
+                'embodiments'
+                'symbols_desc'
+                'industrial_applicability'
+
+        Returns:
+            str: 整形済みの結合テキスト
+        """
+        parts = []
+
+        # 1. 取得対象の決定
+        if target_sections is None:
+            # 全属性を対象にする（othersは後で個別に処理）
+            targets = list(ATTR_TO_HEADER.keys())
+            include_others = True
+        else:
+            targets = target_sections
+            include_others = False  # 明示指定の場合はリストに含まれていれば処理する
+
+        # 2. 標準セクションの結合
+        for attr in targets:
+            # othersに含まれるキーが指定された場合の処理（例: '図1'など）
+            if attr in self.others:
+                header = f"【{attr}】"
+                content = self.others[attr]
+                parts.append(f"{header}\n{content}")
+                continue
+
+            # クラス属性として存在する場合
+            if hasattr(self, attr):
+                content = getattr(self, attr)
+                if content:  # 中身がある場合のみ追加
+                    # 属性名から日本語見出しに変換（見つからなければ属性名をそのまま使う）
+                    header_text = ATTR_TO_HEADER.get(attr, attr)
+                    header = f"【{header_text}】"
+                    parts.append(f"{header}\n{content}")
+            else:
+                # 属性もothersにもない場合（Typoなど）は無視またはWarn
+                pass
+
+        # 3. others（その他）の全結合（target_sectionsがNoneの場合のみ）
+        if include_others and self.others:
+            for header_key, content in self.others.items():
+                header = f"【{header_key}】"
+                parts.append(f"{header}\n{content}")
+
+        return "\n\n".join(parts)
+
+    def get_missing_sections(self) -> List[str]:
+        """
+        データクラスに定義されているが、解析結果に含まれなかった（空の）セクション名のリストを返す。
+
+        Returns:
+            List[str]: 欠損しているセクションの日本語見出しリスト
+            例: ['産業上の利用可能性', '発明の効果']
+        """
+        missing = []
+        # 自身の属性を走査
+        for attr, value in self.__dict__.items():
+            # 'others' は動的辞書なので欠損チェックの対象外
+            if attr == "others":
+                continue
+
+            # 値が空文字の場合、欠損とみなす
+            if not value:
+                # 属性名を日本語の見出しに変換してリストに追加
+                # マップにない場合（まずありえないが）は属性名をそのまま使う
+                header_name = ATTR_TO_HEADER.get(attr, attr)
+                missing.append(header_name)
+
+        return missing
+
+
+# ------------------------------------------------------------
+# 3. パース処理関数
+# ------------------------------------------------------------
+
+
+def parse_patent_text(text: str) -> PatentDocument:
+    """整形済みテキストを解析してPatentDocumentオブジェクトを返す"""
+
+    doc = PatentDocument()
+
+    # 「改行」または「文頭」の直後にある【見出し】で分割する
+    parts = re.split(r"((?:^|\n)【.*?】)", text)
+
+    # parts[0] は最初の見出しより前のテキスト（ゴミ or 書誌情報）のため無視
+    # parts[1]が見出し, parts[2]が中身... の順で処理
+    for i in range(1, len(parts), 2):
+        if i + 1 >= len(parts):
+            break
+
+        header_raw = parts[i].strip()  # 【見出し】
+        content = parts[i + 1].strip()  # 本文
+
+        # 見出しから余計な文字（【】や改行）を除去してキー化
+        header_key = re.sub(r"[【】\n]", "", header_raw)
+
+        # 中身が空の場合はスキップ（例: 【発明の詳細な説明】の直後に【技術分野】が来る場合など）
+        if not content:
+            continue
+
+        # 除外リストに含まれるかチェック（保存せずにスキップ）
+        if header_key in IGNORE_HEADERS:
+            continue
+
+        # マッピング処理
+        if header_key in HEADER_TO_ATTR:
+            attr_name = HEADER_TO_ATTR[header_key]
+            current_val = getattr(doc, attr_name)
+            # 同じセクションが分散している場合は結合
+            new_val = (current_val + "\n\n" + content).strip() if current_val else content
+            setattr(doc, attr_name, new_val)
+        else:
+            doc.others[header_key] = content
+
+    return doc
 </file>
 
 <file path="backend/src/services/report/__init__.py">
@@ -400,9 +1120,9 @@ class CreateReportRequest(BaseModel):
 import json
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
-from src.core.config import STATIC_BASE_PATH, STATIC_BASE_URL
+from src.core.config import STATIC_BASE_PATH
 
 from .schemas import ReportDocument
 
@@ -414,14 +1134,14 @@ class ReportStore:
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     # report_type を受け取って階層を下げる
-    def _get_report_dir(self, report_type: str, report_id: str) -> Path:
+    def get_report_dir(self, report_type: str, report_id: str) -> Path:
         """レポートのディレクトリを取得"""
         # backend/storage/{report_type}/{report_id}
         return self.base_path / report_type / report_id
 
     def _get_json_path(self, report_type: str, report_id: str) -> Path:
         """レポートファイル(JSON)のパスを取得"""
-        return self._get_report_dir(report_type, report_id) / "report.json"
+        return self.get_report_dir(report_type, report_id) / "report.json"
 
     # ---------------------------------------------------------
     # 基本操作 (CRUD)
@@ -433,7 +1153,7 @@ class ReportStore:
         report_id = report.metadata.report_id
 
         # ディレクトリ作成: storage/reports/{type}/{id}
-        report_dir = self._get_report_dir(report_type, report_id)
+        report_dir = self.get_report_dir(report_type, report_id)
         report_dir.mkdir(parents=True, exist_ok=True)
 
         # JSON保存
@@ -441,7 +1161,6 @@ class ReportStore:
         with open(json_path, "w", encoding="utf-8") as f:
             # 日本語文字化け防止のため ensure_ascii=False
             json.dump(report.model_dump(), f, ensure_ascii=False, indent=2)
-
         return report_id
 
     def load_report(self, report_type: str, report_id: str) -> Optional[ReportDocument]:
@@ -460,41 +1179,13 @@ class ReportStore:
 
     def delete_report(self, report_type: str, report_id: str) -> bool:
         """レポート（ディレクトリごと）削除"""
-        report_dir = self._get_report_dir(report_type, report_id)
+        report_dir = self.get_report_dir(report_type, report_id)
         if report_dir.exists():
             shutil.rmtree(report_dir)
             return True
         return False
 
-    # ---------------------------------------------------------
-    # アセット（画像等）管理
-    # ---------------------------------------------------------
-
-    def save_assets(self, report_type: str, report_id: str, files: List[tuple[str, bytes]]) -> List[str]:
-        """
-        画像などのバイナリデータを保存する
-        files: [(filename, bytes), ...]
-        URL: /static/reports/{type}/{id}/assets/{filename}
-        戻り値: 保存されたファイルへのアクセスURLリスト
-        """
-        # ディレクトリ作成
-        assets_dir = self._get_report_dir(report_type, report_id) / "assets"
-        assets_dir.mkdir(parents=True, exist_ok=True)
-
-        saved_urls = []
-        for filename, content in files:
-            file_path = assets_dir / filename
-            with open(file_path, "wb") as f:
-                f.write(content)
-
-            # URL生成: staticマウント設定に依存しますが、階層を合わせます
-            # URL: http://localhost:8000/static/reports/{report_type}/{uuid}/assets/fig.png
-            url = f"{STATIC_BASE_URL}/reports/{report_type}/{report_id}/assets/{filename}"
-            saved_urls.append(url)
-
-        return saved_urls
-
-
+# インスタンス化
 report_store = ReportStore()
 </file>
 
@@ -850,51 +1541,56 @@ export default function IdeaReportLayout({
 </file>
 
 <file path="frontend/app/workspace/idea/[reportId]/page.tsx">
+// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/page.tsx
+
 "use client";
 
 import { useReport } from "@/hooks/useReport";
 import { ArrowRight, Bot, FileText, Lightbulb, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 export default function IdeaReportDashboard() {
     const { currentReport } = useReport();
 
     if (!currentReport) return null;
 
-    // データの存在チェック（簡易版）
-    // const hasPatent = !!currentReport.content?.source?.patent_text;
-    // const hasAnalysis = !!currentReport.content?.results?.analysis;
-    // const hasIdeas = !!currentReport.content?.results?.ideas;
-    const hasPatent = false
-    const hasAnalysis = false
-    const hasIdeas = false
+    // TODO: バックエンドと接続後に正規の判定ロジックに置き換え
+    const hasPatent = false;
+    const hasAnalysis = false;
+    const hasIdeas = false;
 
     // ベースパス
     const basePath = `/workspace/idea/${currentReport.metadata.report_id}`;
 
     return (
-        <div className="p-8 max-w-5xl mx-auto space-y-8">
+        <div className="p-8 lg:p-12 max-w-6xl mx-auto space-y-12">
             {/* ヘッダーセクション */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800 mb-2">アイデア生成レポート</h1>
-                <p className="text-slate-600">
-                    特許技術を解析し、ビジネスアイデアを創出・検討するためのワークスペースです。
-                    <br />
-                    以下のステップに従って進めてください。
-                </p>
+            <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-1 bg-blue-600 rounded-full" />
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            アイデア生成レポート
+                        </h1>
+                        <p className="text-slate-500 text-sm mt-1">
+                            特許技術を解析し、ビジネスアイデアを創出・検討します。
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {/* ステップ進行状況カード */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Step 1: 特許登録 */}
                 <StatusCard
                     step="01"
                     title="特許登録"
                     icon={FileText}
                     status={hasPatent ? "completed" : "active"}
-                    description="解析対象の特許PDFを登録します。"
+                    description="解析対象の特許PDFを登録・テキスト化します。"
                     actionLink={`${basePath}/upload`}
-                    actionLabel={hasPatent ? "確認する" : "登録する"}
+                    actionLabel={hasPatent ? "ファイルを確認" : "PDFを登録"}
                 />
 
                 {/* Step 2: AI解析 */}
@@ -903,9 +1599,9 @@ export default function IdeaReportDashboard() {
                     title="構造化解析"
                     icon={Bot}
                     status={hasAnalysis ? "completed" : hasPatent ? "ready" : "locked"}
-                    description="AIが特許文書を読み込み、技術要素を構造化します。"
+                    description="AIが文書を読み込み、技術要素（課題・解決手段など）を抽出します。"
                     actionLink={`${basePath}/analysis`}
-                    actionLabel={hasAnalysis ? "確認する" : "解析する"}
+                    actionLabel={hasAnalysis ? "解析結果を見る" : "解析を開始"}
                 />
 
                 {/* Step 3: アイデア */}
@@ -914,9 +1610,9 @@ export default function IdeaReportDashboard() {
                     title="アイデア生成"
                     icon={Lightbulb}
                     status={hasIdeas ? "completed" : hasAnalysis ? "ready" : "locked"}
-                    description="技術を応用したビジネスアイデアを創出します。"
+                    description="抽出された技術を応用し、具体的なビジネスアイデアを創出します。"
                     actionLink={`${basePath}/ideas`}
-                    actionLabel={hasIdeas ? "確認する" : "生成する"}
+                    actionLabel={hasIdeas ? "アイデアを見る" : "アイデア生成"}
                 />
 
                 {/* Step 4: 対話 */}
@@ -925,81 +1621,70 @@ export default function IdeaReportDashboard() {
                     title="対話モード"
                     icon={MessageSquare}
                     status={hasIdeas ? "ready" : "locked"}
-                    description="AIアシスタントと対話して理解を深めます。"
+                    description="AIアシスタントとの対話を通じて、技術やアイデアを深掘りします。"
                     actionLink={`${basePath}/chat`}
-                    actionLabel="対話する"
+                    actionLabel="対話ルームへ"
                 />
             </div>
 
-            {/* メインアクションエリア（現在すべきこと） */}
-            <div className="bg-white border border-slate-200 rounded-xl p-8 shadow-sm mt-8">
-                <h2 className="text-lg font-bold text-slate-800 mb-4">Next Action</h2>
-
-                {!hasPatent && (
-                    <div className="flex flex-col items-start gap-4">
-                        <p className="text-slate-600">
-                            まずは解析対象となる特許PDFをアップロードしてください。
-                            J-PlatPatからダウンロードした形式に対応しています。
+            {/* メインアクションエリア（Next Action） */}
+            <section className="bg-liner-to-br from-white to-slate-50 border border-slate-200/60 rounded-3xl p-8 shadow-sm">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div className="space-y-3 max-w-2xl">
+                        <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                            NEXT ACTION
+                        </span>
+                        <h2 className="text-xl font-bold text-slate-800">
+                            {!hasPatent && "まずは特許PDFを登録しましょう"}
+                            {hasPatent && !hasAnalysis && "AIによる構造化解析を実行できます"}
+                            {hasAnalysis && !hasIdeas && "技術を活用したアイデアを出してみましょう"}
+                            {hasIdeas && "分析は完了しています。対話でさらに深めましょう"}
+                        </h2>
+                        <p className="text-slate-600 leading-relaxed">
+                            {!hasPatent &&
+                                "J-PlatPatからダウンロードした特許公報PDFに対応しています。ドラッグ＆ドロップで簡単に取り込めます。"}
+                            {hasPatent && !hasAnalysis &&
+                                "特許文書特有のノイズを除去し、課題・解決手段・技術構成などを明確に構造化します。"}
+                            {hasAnalysis && !hasIdeas &&
+                                "ターゲット市場や解決すべき課題を設定し、AIにブレインストーミングさせることができます。"}
+                            {hasIdeas &&
+                                "生成されたアイデアについて、「実現可能性は？」「競合は？」など、気になる点をAIに質問してみましょう。"}
                         </p>
-                        <Link
-                            href={`${basePath}/upload`}
-                            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">
-                            特許PDFをアップロード
-                            <ArrowRight size={20} />
-                        </Link>
                     </div>
-                )}
 
-                {hasPatent && !hasAnalysis && (
-                    <div className="flex flex-col items-start gap-4">
-                        <p className="text-slate-600">
-                            特許データの準備ができました。AIによる構造化解析を開始しましょう。
-                        </p>
-                        <Link
-                            href={`${basePath}/analysis`}
-                            className="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-emerald-700 transition-colors">
-                            解析を開始する
-                            <Bot size={20} />
-                        </Link>
+                    {/* アクションボタン */}
+                    <div className="shrink-0">
+                        {!hasPatent && (
+                            <PrimaryLink href={`${basePath}/upload`}>
+                                特許PDFを登録する
+                            </PrimaryLink>
+                        )}
+                        {hasPatent && !hasAnalysis && (
+                            <PrimaryLink href={`${basePath}/analysis`}>
+                                解析を開始する
+                            </PrimaryLink>
+                        )}
+                        {hasAnalysis && !hasIdeas && (
+                            <PrimaryLink href={`${basePath}/ideas`}>
+                                アイデアを生成する
+                            </PrimaryLink>
+                        )}
+                        {hasIdeas && (
+                            <PrimaryLink href={`${basePath}/chat`}>
+                                対話モードを開く
+                            </PrimaryLink>
+                        )}
                     </div>
-                )}
-
-                {hasAnalysis && !hasIdeas && (
-                    <div className="flex flex-col items-start gap-4">
-                        <p className="text-slate-600">
-                            解析が完了しました。この技術を活用したビジネスアイデアを生成します。
-                        </p>
-                        <Link
-                            href={`${basePath}/ideas`}
-                            className="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-emerald-700 transition-colors">
-                            アイデアを生成する
-                            <Lightbulb size={20} />
-                        </Link>
-                    </div>
-                )}
-
-                {hasIdeas && (
-                    <div className="flex flex-col items-start gap-4">
-                        <p className="text-slate-600">
-                            一通りの解析が完了しています。
-                            AIとのチャットでさらに深掘りするか、結果をエクスポートしてください。
-                        </p>
-                        <div className="flex gap-4">
-                            <Link
-                                href={`${basePath}/chat`}
-                                className="inline-flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-purple-700 transition-colors">
-                                チャットを開く
-                                <MessageSquare size={20} />
-                            </Link>
-                        </div>
-                    </div>
-                )}
-            </div>
+                </div>
+            </section>
         </div>
     );
 }
 
-// サブコンポーネント: ステータスカード
+// ------------------------------------------------------------
+// サブコンポーネント
+// ------------------------------------------------------------
+
 type Status = "locked" | "active" | "ready" | "completed";
 
 const StatusCard = ({
@@ -1013,7 +1698,7 @@ const StatusCard = ({
 }: {
     step: string;
     title: string;
-    icon: any;
+    icon: React.ElementType;
     status: Status;
     description: string;
     actionLink: string;
@@ -1021,57 +1706,314 @@ const StatusCard = ({
 }) => {
     const isLocked = status === "locked";
     const isCompleted = status === "completed";
-    const isActive = status === "active"; // 現在進行中
+    const isActive = status === "active"; // 現在進行中（次にやるべきこと）
 
-    // 色設定
-    let borderColor = "border-slate-200";
-    let iconColor = "text-slate-400 bg-slate-100";
-    let textColor = "text-slate-500";
+    // スタイル定義
+    const baseStyle = "relative p-6 rounded-2xl border transition-all duration-300 flex flex-col h-full";
+    
+    let containerStyle = "bg-white border-slate-100 shadow-sm hover:shadow-md";
+    let iconStyle = "text-slate-400 bg-slate-50";
+    let titleStyle = "text-slate-500";
+    let stepStyle = "text-slate-300";
 
     if (isActive || status === "ready") {
-        borderColor = "border-blue-300 ring-1 ring-blue-100";
-        iconColor = "text-blue-600 bg-blue-50";
-        textColor = "text-slate-800";
+        containerStyle = "bg-white border-blue-200 ring-4 ring-blue-50/50 shadow-md";
+        iconStyle = "text-blue-600 bg-blue-50";
+        titleStyle = "text-slate-800";
+        stepStyle = "text-blue-300";
     } else if (isCompleted) {
-        borderColor = "border-emerald-200 bg-emerald-50/30";
-        iconColor = "text-emerald-600 bg-emerald-100";
-        textColor = "text-slate-800";
+        containerStyle = "bg-slate-50/50 border-slate-200";
+        iconStyle = "text-emerald-600 bg-emerald-50";
+        titleStyle = "text-slate-700";
+        stepStyle = "text-emerald-300";
+    }
+
+    if (isLocked) {
+        containerStyle = "bg-slate-50 border-slate-100 opacity-70";
     }
 
     return (
-        <div
-            className={`relative p-5 rounded-xl border ${borderColor} flex flex-col h-full bg-white transition-all`}>
-            <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-lg ${iconColor}`}>
-                    <Icon size={24} />
+        <div className={`${baseStyle} ${containerStyle}`}>
+            <div className="flex justify-between items-start mb-5">
+                <div className={`p-3.5 rounded-xl ${iconStyle}`}>
+                    <Icon size={24} strokeWidth={1.5} />
                 </div>
-                <span className="text-xs font-bold text-slate-300">STEP {step}</span>
+                <span className={`text-xs font-bold tracking-wider ${stepStyle}`}>STEP {step}</span>
             </div>
 
-            <h3 className={`font-bold mb-2 ${textColor}`}>{title}</h3>
-            <p className="text-xs text-slate-500 leading-relaxed mb-4 flex-1">{description}</p>
+            <h3 className={`font-bold text-lg mb-3 ${titleStyle}`}>{title}</h3>
+            <p className="text-sm text-slate-500 leading-relaxed mb-6 flex-1">
+                {description}
+            </p>
 
             {isLocked ? (
-                <div className="mt-auto text-xs text-slate-400 font-medium bg-slate-100 py-2 px-3 rounded text-center">
+                <div className="mt-auto w-full py-2.5 text-xs text-slate-400 font-medium bg-slate-100 rounded-lg text-center select-none">
                     未到達
                 </div>
             ) : (
                 <Link
                     href={actionLink}
-                    className={`mt-auto text-xs font-bold py-2 px-3 rounded text-center transition-colors flex items-center justify-center gap-1
-            ${
-                isCompleted
-                    ? "text-emerald-700 bg-emerald-100 hover:bg-emerald-200"
-                    : "text-white bg-blue-600 hover:bg-blue-700"
-            }
-          `}>
+                    className={`
+                        mt-auto w-full py-2.5 px-4 rounded-lg text-sm font-bold text-center transition-colors flex items-center justify-center gap-2
+                        ${
+                            isCompleted
+                                ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow"
+                        }
+                    `}
+                >
                     {actionLabel}
-                    <ArrowRight size={12} />
+                    {!isCompleted && <ArrowRight size={14} />}
                 </Link>
             )}
         </div>
     );
 };
+
+const PrimaryLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <Link
+        href={href}
+        className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all hover:shadow-lg hover:-translate-y-0.5"
+    >
+        {children}
+        <ArrowRight size={18} />
+    </Link>
+);
+</file>
+
+<file path="frontend/app/workspace/idea/[reportId]/upload/page.tsx">
+// frontend/app/workspace/idea/[reportId]/upload/page.tsx
+
+"use client";
+
+import { useReport } from "@/hooks/useReport";
+import { ArrowRight, CheckCircle2, FileText, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
+
+// 環境変数 or デフォルト
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export default function IdeaUploadPage() {
+    const { currentReport } = useReport();
+    const router = useRouter();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // UI状態管理
+    const [isDragging, setIsDragging] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false); // アップロード中のローディング状態
+
+    // ------------------------------------------------------------
+    // ドラッグ＆ドロップなどのイベントハンドラ
+    // ------------------------------------------------------------
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            validateAndSetFile(e.dataTransfer.files[0]);
+        }
+    }, []);
+
+    const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            validateAndSetFile(e.target.files[0]);
+        }
+        e.target.value = "";
+    };
+
+    const validateAndSetFile = (file: File) => {
+        if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+            alert("PDFファイルのみアップロード可能です。");
+            return;
+        }
+        setSelectedFile(file);
+    };
+
+    const handleRemoveFile = () => {
+        setSelectedFile(null);
+    };
+
+    // ------------------------------------------------------------
+    // 送信ハンドラ (実装)
+    // ------------------------------------------------------------
+    const handleUpload = async () => {
+        if (!selectedFile || !currentReport) return;
+
+        setIsUploading(true);
+
+        try {
+            const reportId = currentReport.metadata.report_id;
+            const reportType = currentReport.metadata.report_type;
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            // APIコール: /reports/{type}/{id}/patent
+            const res = await fetch(`${API_BASE}/reports/${reportType}/${reportId}/patent`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || "アップロードに失敗しました");
+            }
+
+            // 成功したら次のステップ（解析確認画面）へ遷移
+            // ※本来はContextの更新などを行いますが、まずは遷移を優先
+            console.log("Upload success!");
+            router.push(`/workspace/idea/${reportId}/viewer`);
+        } catch (error) {
+            console.error("Upload Error:", error);
+            alert("アップロード中にエラーが発生しました。");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // ------------------------------------------------------------
+    // レンダリング
+    // ------------------------------------------------------------
+    return (
+        <div className="p-8 max-w-4xl mx-auto space-y-8 relative">
+            {/* ローディングオーバーレイ */}
+            {isUploading && (
+                <div className="absolute inset-0 bg-white/80 z-50 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl">
+                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+                    <p className="text-lg font-bold text-slate-700">解析を実行中...</p>
+                    <p className="text-sm text-slate-500">テキスト抽出と画像の保存を行っています</p>
+                </div>
+            )}
+
+            {/* ヘッダー */}
+            <div>
+                <h1 className="text-2xl font-bold text-slate-800 mb-2">特許PDFの登録</h1>
+                <p className="text-slate-600">
+                    解析対象となる特許公報（PDF）をアップロードしてください。
+                    <br />
+                    J-PlatPatからダウンロードした形式に対応しています。
+                </p>
+            </div>
+
+            {/* アップロードエリア */}
+            {!selectedFile ? (
+                <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    className={`
+                        relative group cursor-pointer
+                        border-2 border-dashed rounded-xl p-12
+                        flex flex-col items-center justify-center gap-4
+                        transition-all duration-200 ease-in-out
+                        ${
+                            isDragging
+                                ? "border-blue-500 bg-blue-50/50 scale-[1.01]"
+                                : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50/50"
+                        }
+                    `}>
+                    <div
+                        className={`p-4 rounded-full transition-colors ${
+                            isDragging
+                                ? "bg-blue-100 text-blue-600"
+                                : "bg-slate-100 text-slate-400 group-hover:bg-white group-hover:shadow-md"
+                        }`}>
+                        <UploadCloud size={32} />
+                    </div>
+
+                    <div className="text-center space-y-1">
+                        <p className="text-lg font-medium text-slate-700">クリックしてPDFを選択</p>
+                        <p className="text-sm text-slate-400">
+                            またはドラッグ＆ドロップ (最大50MB)
+                        </p>
+                    </div>
+
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={handleFileInput}
+                        disabled={isUploading}
+                    />
+                </div>
+            ) : (
+                /* ファイル選択後のプレビュー表示 */
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                    <div className="p-6 flex items-center gap-5">
+                        <div className="w-12 h-12 bg-red-50 text-red-500 rounded-lg flex items-center justify-center shrink-0">
+                            <FileText size={24} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-800 truncate text-lg">
+                                {selectedFile.name}
+                            </p>
+                            <p className="text-sm text-slate-500 mt-1">
+                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleRemoveFile}
+                            disabled={isUploading}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                            title="ファイルを削除">
+                            <Trash2 size={20} />
+                        </button>
+                    </div>
+                    <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium">
+                            <CheckCircle2 size={16} />
+                            <span>アップロード準備完了</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* アクションボタンエリア */}
+            <div className="flex justify-end pt-4">
+                <button
+                    onClick={handleUpload}
+                    disabled={!selectedFile || isUploading}
+                    className={`
+                        flex items-center gap-2 px-8 py-3 rounded-lg font-bold text-white transition-all shadow-md
+                        ${
+                            selectedFile && !isUploading
+                                ? "bg-blue-600 hover:bg-blue-700 hover:-translate-y-0.5"
+                                : "bg-slate-300 cursor-not-allowed"
+                        }
+                    `}>
+                    {isUploading ? (
+                        <>
+                            <Loader2 className="animate-spin" size={20} />
+                            <span>処理中...</span>
+                        </>
+                    ) : (
+                        <>
+                            <span>解析を開始する</span>
+                            <ArrowRight size={20} />
+                        </>
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+}
+</file>
+
+<file path="frontend/app/workspace/idea/[reportId]/viewer/page.tsx">
+
 </file>
 
 <file path="frontend/app/workspace/layout.tsx">
@@ -1111,7 +2053,7 @@ import React from "react";
 const LayoutContent = ({ children }: { children: React.ReactNode }) => {
     return (
         // 画面全体: 縦方向のFlex
-        <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
+        <div className="flex flex-col h-screen bg-slate-50 text-slate-800 overflow-hidden">
             {/* 1行目: ヘッダー (全幅) */}
             <Header />
 
@@ -1786,6 +2728,8 @@ export const RightSidebar = () => {
 </file>
 
 <file path="frontend/components/ui/CopyButton.tsx">
+// Patent_Survey_APP/frontend/components/ui/CopyButton.tsx
+
 "use client";
 
 import { Check, Copy } from "lucide-react";
@@ -1872,6 +2816,8 @@ export const SmallCopyButton = ({ text }: { text: string }) => {
 </file>
 
 <file path="frontend/components/ui/ImageModal.tsx">
+// Patent_Survey_APP/frontend/components/ui/ImageModal.tsx
+
 "use client";
 
 import { RotateCcw, RotateCw, X, ZoomIn, ZoomOut } from "lucide-react";
@@ -2760,6 +3706,7 @@ export const useReport = <T = Record<string, unknown>,>() => {
         "@ai-sdk/react": "^3.0.3",
         "@types/react-syntax-highlighter": "^15.5.13",
         "lucide-react": "^0.562.0",
+        "mermaid": "^11.12.2",
         "next": "16.1.1",
         "react": "19.2.3",
         "react-dom": "19.2.3",
@@ -2775,6 +3722,7 @@ export const useReport = <T = Record<string, unknown>,>() => {
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4",
+        "@types/geojson": "^7946.0.16",
         "@types/node": "^20",
         "@types/react": "^19",
         "@types/react-dom": "^19",
@@ -2915,6 +3863,22 @@ textarea::-webkit-scrollbar-thumb:hover {
     opacity: 1;
     color: #2563eb; /* blue-600 */
 }
+</file>
+
+<file path="frontend/tailwind.config.js">
+// tailwind.config.js
+/** @type {import('tailwindcss').Config} */
+export default {
+    content: [
+        "./app/**/*.{js,ts,jsx,tsx}",
+        "./components/**/*.{js,ts,jsx,tsx}",
+        "./hooks/**/*.{js,ts,jsx,tsx}",
+    ],
+    theme: {
+        extend: {},
+    },
+    plugins: [],
+};
 </file>
 
 <file path="README.md">
@@ -3071,6 +4035,14 @@ Patent_Survey_APP
 │  │  │  ├─ client.py
 │  │  │  └─ config.py
 │  │  └─ services
+│  │     ├─ patent
+│  │     │  ├─ functions.py
+│  │     │  ├─ patent_api.py
+│  │     │  ├─ schemas.py
+│  │     │  ├─ supports
+│  │     │  │  ├─ patent_parser.py
+│  │     │  │  └─ patent_text.py
+│  │     │  └─ __init__.py
 │  │     └─ report
 │  │        ├─ report_api.py
 │  │        ├─ schemas.py
@@ -3089,7 +4061,10 @@ Patent_Survey_APP
 │  │     │  └─ [reportId]
 │  │     │     ├─ IdeaSidebar.tsx
 │  │     │     ├─ layout.tsx
-│  │     │     └─ page.tsx
+│  │     │     ├─ page.tsx
+│  │     │     ├─ upload
+│  │     │     │  └─ page.tsx
+│  │     │     └─ viewer
 │  │     ├─ layout.tsx
 │  │     ├─ MainLayout.tsx
 │  │     └─ page.tsx
@@ -3115,6 +4090,7 @@ Patent_Survey_APP
 │  ├─ styles
 │  │  ├─ chat_input_style.css
 │  │  └─ markdown_style.css
+│  ├─ tailwind.config.js
 │  ├─ tsconfig.json
 │  └─ types
 │     └─ schema.ts

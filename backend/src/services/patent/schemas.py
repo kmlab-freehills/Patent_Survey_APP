@@ -1,6 +1,6 @@
 # Patent_Survey_APP/backend/src/services/patent/schemas.py
 
-from typing import Dict
+from typing import Dict, List
 
 from pydantic import BaseModel, Field
 
@@ -31,10 +31,13 @@ class PatentImage(BaseModel):
     label: str  # 図1（表示用）
     url: str  # フロントエンドからアクセス(GET)するためのURL
 
+# 画像リストスキーマ (images.json用)
+class PatentImagesList(BaseModel):
+    images: List[PatentImage]
 
 # APIが返す全体のレスポンススキーマ
 class PatentUploadResponse(BaseModel):
     filename: str
     patent_id: str
     patent_data: PatentContent  # ここで上記のクラスをネストする
-    images: list[PatentImage]
+    images: List[PatentImage]

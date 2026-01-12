@@ -1,3 +1,5 @@
+// Patent_Survey_APP/frontend/components/ui/CopyButton.tsx
+
 "use client";
 
 import { Check, Copy } from "lucide-react";

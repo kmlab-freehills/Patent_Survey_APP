@@ -7,7 +7,8 @@ from fastapi import FastAPI, Request  # アプリ本体
 from fastapi.staticfiles import StaticFiles  # 静的ファイルのマウント
 from starlette.middleware.cors import CORSMiddleware  # ルーター登録用
 from src.services.report import report_api  # レポート管理
-from src.core.config import STATIC_BASE_PATH, FRONTEND_URL
+from src.core.config import STATIC_BASE_PATH, FRONTEND_URL # 環境変数やパス等
+from src.services.patent import patent_api # 特許解析
 
 # ============================================================
 # ライフサイクルイベント（起動・終了時の処理）
@@ -70,6 +71,7 @@ app.add_middleware(
 # ============================================================
 
 app.include_router(report_api.router) # レポート管理
+app.include_router(patent_api.router) # 特許解析
 
 # ============================================================
 # エンドポイント（テスト用）
@@ -88,6 +90,11 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     print(f"[Response] {response.status_code}")
     return response
+
+# メモ
+# 1. 304 Not Modified について
+# これはブラウザのキャッシュ機能によるもので、正常な挙動。
+# 「前回アクセスした時からファイル（data.json）に変更はないので、ブラウザが持っているキャッシュを使ってください」というサーバーからのレスポンス。
 
 # 実行コマンド:
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload

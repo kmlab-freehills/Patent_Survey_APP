@@ -296,7 +296,9 @@ class PatentDocument:
     others: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self):
-        return {k: v for k, v in self.__dict__.items() if v}
+        # 空文字フィールドもそのまま出力する
+        # これにより Pydantic の Field(...) バリデーションを通過させる
+        return self.__dict__
 
     def get_text(self, target_sections: Optional[List[str]] = None) -> str:
         """

@@ -6,18 +6,21 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from src.core.config import STATIC_BASE_URL
 from src.services.patent.functions import extract_patent_with_docling
-from src.services.patent.schemas import PatentImage
+from src.services.patent.schemas import PatentImage, PatentUploadResponse
 from src.services.report.store import report_store
 
 # ルーター
 router = APIRouter(prefix="/reports", tags=["特許解析"])
 
+
 # エンドポイント
-@router.post("/{report_type}/{report_id}/patent")
+@router.post("/{report_type}/{report_id}/patent", response_model=PatentUploadResponse)
 async def upload_and_analyze_patent(report_type: str, report_id: str, file: UploadFile = File(...)):
     """
     特許PDFをアップロード・解析し、レポート配下に保存する
     このAPIが「特許ディレクトリの作成」「画像の保存」「JSONの保存」の責任を持つ
+    - data.json: テキストデータ
+    - images.json: 画像メタデータリスト
     """
     # --- 1. レポートが存在するか確認 ---
     report = report_store.load_report(report_type, report_id)
@@ -27,7 +30,7 @@ async def upload_and_analyze_patent(report_type: str, report_id: str, file: Uplo
     # --- 2. PDF読み込み & Docling解析 ---
     try:
         pdf_bytes = await file.read()
-        # extract_patent_with_docling は (PatentDocument, List[PIL.Image]) を返す想定
+        # extract_patent_with_docling は (PatentDocument, List[PIL.Image]) を返す
         patent_doc, pil_images = extract_patent_with_docling(pdf_bytes)
     except Exception as e:
         print(f"Analysis failed: {e}")
@@ -50,22 +53,21 @@ async def upload_and_analyze_patent(report_type: str, report_id: str, file: Uplo
     saved_images: List[PatentImage] = []
 
     for idx, img in enumerate(pil_images, start=1):
-        # ファイル名: fig_001.png
         filename = f"fig_{idx:03d}.png"
         save_path = figures_dir / filename
-
-        # 保存
         img.save(save_path, format="PNG")
 
-        # URL生成: /static/reports/{type}/{id}/patent/figures/{filename}
         url = f"{STATIC_BASE_URL}/reports/{report_type}/{report_id}/patent/figures/{filename}"
-
         saved_images.append(PatentImage(id=f"fig_{idx:03d}", label=f"図{idx}", url=url))
+
+    # images.json 保存
+    images_json_path = patent_dir / "images.json"
+    with open(images_json_path, "w", encoding="utf-8") as f:
+        # Pydanticモデルのリストをdictのリストに変換
+        json.dump([img.model_dump() for img in saved_images], f, ensure_ascii=False, indent=2)
 
     # --- 5. テキストデータの保存 (data.json) ---
     # PatentContentスキーマ (pydantic) を辞書化して保存
-    # patent_doc は dataclass なので asdict または .to_dict() が必要
-    # ※ patent_schemas.py の PatentContent に合わせるため、ここでは dataclass -> dict 変換を行う
     patent_data_dict = patent_doc.to_dict()
 
     # JSONファイルパス（storage/reports/{type}/{id}/patent/data.json）

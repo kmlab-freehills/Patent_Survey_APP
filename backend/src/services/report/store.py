@@ -15,17 +15,14 @@ class ReportStore:
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     # report_type を受け取って階層を下げる
-    def _get_report_dir(self, report_type: str, report_id: str) -> Path:
-        """
-        レポートのルートディレクトリを取得（存在しない場合は作成しない）
-        各機能（PatentServiceなど）が保存先を知るために使用
-        """
+    def get_report_dir(self, report_type: str, report_id: str) -> Path:
+        """レポートのディレクトリを取得"""
         # backend/storage/{report_type}/{report_id}
         return self.base_path / report_type / report_id
 
     def _get_json_path(self, report_type: str, report_id: str) -> Path:
-        """レポート本体ファイル(JSON)のパスを取得"""
-        return self._get_report_dir(report_type, report_id) / "report.json"
+        """レポートファイル(JSON)のパスを取得"""
+        return self.get_report_dir(report_type, report_id) / "report.json"
 
     # ---------------------------------------------------------
     # 基本操作 (CRUD)
@@ -37,7 +34,7 @@ class ReportStore:
         report_id = report.metadata.report_id
 
         # ディレクトリ作成: storage/reports/{type}/{id}
-        report_dir = self._get_report_dir(report_type, report_id)
+        report_dir = self.get_report_dir(report_type, report_id)
         report_dir.mkdir(parents=True, exist_ok=True)
 
         # JSON保存
@@ -63,7 +60,7 @@ class ReportStore:
 
     def delete_report(self, report_type: str, report_id: str) -> bool:
         """レポート（ディレクトリごと）削除"""
-        report_dir = self._get_report_dir(report_type, report_id)
+        report_dir = self.get_report_dir(report_type, report_id)
         if report_dir.exists():
             shutil.rmtree(report_dir)
             return True

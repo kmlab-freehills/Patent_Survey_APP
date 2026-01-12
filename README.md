@@ -151,6 +151,14 @@ Patent_Survey_APP
 │  │  │  ├─ client.py
 │  │  │  └─ config.py
 │  │  └─ services
+│  │     ├─ patent
+│  │     │  ├─ functions.py
+│  │     │  ├─ patent_api.py
+│  │     │  ├─ schemas.py
+│  │     │  ├─ supports
+│  │     │  │  ├─ patent_parser.py
+│  │     │  │  └─ patent_text.py
+│  │     │  └─ __init__.py
 │  │     └─ report
 │  │        ├─ report_api.py
 │  │        ├─ schemas.py
@@ -169,7 +177,10 @@ Patent_Survey_APP
 │  │     │  └─ [reportId]
 │  │     │     ├─ IdeaSidebar.tsx
 │  │     │     ├─ layout.tsx
-│  │     │     └─ page.tsx
+│  │     │     ├─ page.tsx
+│  │     │     ├─ upload
+│  │     │     │  └─ page.tsx
+│  │     │     └─ viewer
 │  │     ├─ layout.tsx
 │  │     ├─ MainLayout.tsx
 │  │     └─ page.tsx
@@ -195,6 +206,7 @@ Patent_Survey_APP
 │  ├─ styles
 │  │  ├─ chat_input_style.css
 │  │  └─ markdown_style.css
+│  ├─ tailwind.config.js
 │  ├─ tsconfig.json
 │  └─ types
 │     └─ schema.ts
