@@ -31,4 +31,6 @@ def convert_messages_to_gemini_contents(messages):
     contents = []
     for msg in messages:
         contents.append({"role": msg.role, "parts": [{"text": msg.content}]})
+    
+    print(contents)
     return contents

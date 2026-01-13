@@ -1,4 +1,4 @@
-// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/analysis/page.tsx
+// Patent_Survey_APP/frontend/app/workspace/idea/[reportId]/ideas/page.tsx
 
 "use client";
 
@@ -9,14 +9,13 @@ import { useIdeaReportStatus } from "@/hooks/useIdeaReportStatus";
 import { useReport } from "@/hooks/useReport";
 import {
     AlertCircle,
-    Bot,
     CheckCircle2,
     Lightbulb,
     Loader2,
-    Play,
+    MessageSquare,
     RefreshCw,
     Sparkles,
-    Upload,
+    Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -25,45 +24,48 @@ import { IdeaReportContent } from "../ideaReportType";
 // 環境変数
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export default function AnalysisPage() {
+export default function IdeasPage() {
     const { currentReport, loadReportFromApi } = useReport<IdeaReportContent>();
     const status = useIdeaReportStatus();
     const { output, isGenerating, error, generate } = useGeminiSingleShot();
 
-    // レポートから解析結果を取得
-    const savedAnalysisContent =
-        currentReport?.content.generated?.artifacts?.patent_summary?.output || null;
+    // レポートから保存済みのアイデアを取得
+    const savedIdeasContent =
+        currentReport?.content.generated?.artifacts?.idea_generation?.output || null;
 
-    // 特許テキストの取得状態
+    // 特許テキストと解析結果の取得状態
     const [patentText, setPatentText] = useState<string | null>(null);
-    const [isLoadingPatent, setIsLoadingPatent] = useState(false);
-    const [patentError, setPatentError] = useState<string | null>(null);
+    const [analysisText, setAnalysisText] = useState<string | null>(null);
+    const [isLoadingContext, setIsLoadingContext] = useState(false);
+    const [contextError, setContextError] = useState<string | null>(null);
 
     // 表示用のコンテンツ（生成中はストリーミング、完了後は保存済み）
-    const displayContent = isGenerating ? output : savedAnalysisContent;
+    const displayContent = isGenerating ? output : savedIdeasContent;
 
     // ------------------------------------------------------------
-    // 特許テキストの取得
+    // 特許テキスト + 解析結果の取得
     // ------------------------------------------------------------
     useEffect(() => {
-        const fetchPatentText = async () => {
+        const fetchContext = async () => {
             if (!currentReport) return;
 
-            setIsLoadingPatent(true);
-            setPatentError(null);
+            setIsLoadingContext(true);
+            setContextError(null);
 
             try {
                 const { report_type, report_id } = currentReport.metadata;
-                const res = await fetch(
+
+                // 1. 特許テキストを取得
+                const patentRes = await fetch(
                     `${API_BASE}/static/reports/${report_type}/${report_id}/patent/data.json`
                 );
 
-                if (!res.ok) throw new Error("特許データの取得に失敗しました");
+                if (!patentRes.ok) throw new Error("特許データの取得に失敗しました");
 
-                const patentData = await res.json();
+                const patentData = await patentRes.json();
 
-                // 特許テキスト全文結合
-                const fullText = Object.entries(patentData)
+                // 全文結合
+                const fullPatentText = Object.entries(patentData)
                     .map(([key, content]) => {
                         if (key === "others" && typeof content === "object") {
                             return Object.entries(content as Record<string, string>)
@@ -78,33 +80,47 @@ export default function AnalysisPage() {
                     .filter(Boolean)
                     .join("\n\n");
 
-                setPatentText(fullText);
+                setPatentText(fullPatentText);
+
+                // 2. 解析結果をレポートから取得
+                const analysis =
+                    currentReport.content.generated?.artifacts?.patent_summary?.output || null;
+
+                if (!analysis) {
+                    throw new Error("解析結果が見つかりません。先に解析を実行してください。");
+                }
+
+                setAnalysisText(analysis);
             } catch (err) {
-                console.error("Patent fetch error:", err);
-                setPatentError("特許テキストの読み込みに失敗しました");
+                console.error("Context fetch error:", err);
+                setContextError(
+                    err instanceof Error ? err.message : "データの読み込みに失敗しました"
+                );
             } finally {
-                setIsLoadingPatent(false);
+                setIsLoadingContext(false);
             }
         };
 
-        fetchPatentText();
+        fetchContext();
     }, [currentReport]);
+
     // ------------------------------------------------------------
-    // 解析実行ハンドラ
+    // アイデア生成実行ハンドラ
     // ------------------------------------------------------------
-    const handleStartAnalysis = async () => {
-        if (!currentReport || !patentText) return;
+    const handleStartGeneration = async () => {
+        if (!currentReport || !patentText || !analysisText) return;
 
         try {
             // LLM実行
             await generate({
                 reportType: currentReport.metadata.report_type,
                 reportId: currentReport.metadata.report_id,
-                artifactName: "patent_summary",
-                promptType: "analysis",
+                artifactName: "idea_generation",
+                promptType: "idea",
                 systemPromptType: "patent",
                 context: {
                     patent_text: patentText,
+                    analysis_text: analysisText,
                 },
             });
 
@@ -114,9 +130,9 @@ export default function AnalysisPage() {
                 currentReport.metadata.report_type
             );
 
-            console.log("[Analysis] Completed and report reloaded");
+            console.log("[Ideas] Completed and report reloaded");
         } catch (err) {
-            console.error("[Analysis] Error:", err);
+            console.error("[Ideas] Error:", err);
         }
     };
 
@@ -124,22 +140,21 @@ export default function AnalysisPage() {
     // 再生成ハンドラ
     // ------------------------------------------------------------
     const handleRegenerate = async () => {
-        if (!currentReport || !patentText) return;
+        if (!currentReport || !patentText || !analysisText) return;
 
-        // 確認ダイアログ
         const confirmed = window.confirm(
-            "解析を再実行すると、現在の結果が上書きされます。よろしいですか？"
+            "アイデアを再生成すると、現在の結果が上書きされます。よろしいですか？"
         );
         if (!confirmed) return;
 
-        await handleStartAnalysis();
+        await handleStartGeneration();
     };
 
     // ------------------------------------------------------------
     // エラー / ローディング状態
     // ------------------------------------------------------------
 
-    // 1. レポート読み込み中（必須）
+    // 1. レポート読み込み中
     if (!currentReport) {
         return (
             <div className="flex h-full items-center justify-center bg-slate-50">
@@ -151,32 +166,31 @@ export default function AnalysisPage() {
         );
     }
 
-    // 2. 特許テキスト取得中（必須）
-    if (isLoadingPatent) {
+    // 2. コンテキスト取得中
+    if (isLoadingContext) {
         return (
             <div className="flex h-full items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-3 text-slate-500">
                     <Loader2 className="animate-spin" size={32} />
-                    <span>特許データを読み込んでいます...</span>
+                    <span>データを読み込んでいます...</span>
                 </div>
             </div>
         );
     }
 
-    // 3. 特許テキスト取得エラー（必須）
-    if (patentError || !patentText) {
+    // 3. コンテキスト取得エラー
+    if (contextError || !patentText || !analysisText) {
         return (
             <div className="flex h-full items-center justify-center bg-white p-8">
                 <div className="text-center max-w-md">
                     <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
                     <h3 className="text-xl font-bold text-slate-800 mb-2">
-                        特許データの読み込みエラー
+                        データの読み込みエラー
                     </h3>
                     <p className="text-slate-600 mb-6">
-                        {patentError || "特許テキストが見つかりません"}
+                        {contextError || "必要なデータが見つかりません"}
                     </p>
 
-                    {/* 複数の対処方法を提示 */}
                     <div className="flex flex-col gap-3">
                         <button
                             onClick={() => window.location.reload()}
@@ -185,12 +199,14 @@ export default function AnalysisPage() {
                             ページを再読み込み
                         </button>
 
-                        <Link
-                            href={`/workspace/idea/${currentReport.metadata.report_id}/upload`}
-                            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">
-                            <Upload size={20} />
-                            特許を再アップロード
-                        </Link>
+                        {!analysisText && (
+                            <Link
+                                href={`/workspace/idea/${currentReport.metadata.report_id}/analysis`}
+                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">
+                                <Zap size={20} />
+                                解析を実行する
+                            </Link>
+                        )}
                     </div>
                 </div>
             </div>
@@ -206,20 +222,20 @@ export default function AnalysisPage() {
             <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
                 {/* 左側: タイトル */}
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg">
-                        <Bot size={20} strokeWidth={2.5} />
-                        <span className="text-sm font-bold">AI構造化解析</span>
+                    <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
+                        <Lightbulb size={20} strokeWidth={2.5} />
+                        <span className="text-sm font-bold">アイデア生成</span>
                     </div>
-                    <span className="text-slate-400 text-xs font-medium">Step 2 / 4</span>
+                    <span className="text-slate-400 text-xs font-medium">Step 3 / 4</span>
                 </div>
 
                 {/* 右側: アクションボタン */}
                 <div className="flex items-center gap-3">
-                    {/* 解析完了後に表示 */}
-                    {savedAnalysisContent && !isGenerating && (
+                    {/* 生成完了後に表示 */}
+                    {savedIdeasContent && !isGenerating && (
                         <>
                             {/* コピーボタン */}
-                            <CopyButton text={savedAnalysisContent} label="結果をコピー" />
+                            <CopyButton text={savedIdeasContent} label="アイデアをコピー" />
 
                             {/* 再生成ボタン */}
                             <button
@@ -235,12 +251,12 @@ export default function AnalysisPage() {
 
                             {/* 次のステップへ */}
                             <Link
-                                href={`/workspace/idea/${currentReport?.metadata.report_id}/ideas`}
-                                className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg 
-                                    hover:bg-emerald-700 hover:shadow-md hover:-translate-y-0.5 
+                                href={`/workspace/idea/${currentReport.metadata.report_id}/chat`}
+                                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg 
+                                    hover:bg-blue-700 hover:shadow-md hover:-translate-y-0.5 
                                     transition-all shadow-sm">
-                                <Lightbulb size={18} />
-                                <span>アイデア生成へ</span>
+                                <MessageSquare size={18} />
+                                <span>対話モードへ</span>
                             </Link>
                         </>
                     )}
@@ -257,43 +273,47 @@ export default function AnalysisPage() {
                         <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-in fade-in zoom-in-95 duration-500">
                             {/* アイコン */}
                             <div className="relative mb-8">
-                                <div className="w-24 h-24 bg-linear-to-br from-indigo-50 to-indigo-100 rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Bot size={48} className="text-indigo-600" strokeWidth={2} />
+                                <div className="w-24 h-24 bg-linear-to-br from-emerald-50 to-emerald-100 rounded-2xl flex items-center justify-center shadow-lg">
+                                    <Lightbulb
+                                        size={48}
+                                        className="text-emerald-600"
+                                        strokeWidth={2}
+                                    />
                                 </div>
-                                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center shadow-md">
+                                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
                                     <Sparkles size={20} className="text-white" />
                                 </div>
                             </div>
 
                             {/* タイトル */}
                             <h2 className="text-3xl font-bold text-slate-800 mb-4">
-                                特許文書の構造化解析
+                                ビジネスアイデアの生成
                             </h2>
 
                             {/* 説明 */}
                             <p className="text-slate-600 max-w-xl leading-relaxed mb-3">
-                                AIが特許テキストを読み込み、技術要素を体系的に整理します。
+                                解析された特許技術を基に、具体的なビジネスアイデアをAIが創出します。
                             </p>
                             <ul className="text-sm text-slate-500 space-y-1 mb-10">
-                                <li>✓ 技術的構成（部材・材料・構造）</li>
-                                <li>✓ 機能的構成（要素技術・動作フロー）</li>
-                                <li>✓ 定量データ・仕様情報</li>
+                                <li>✓ ターゲット市場の特定</li>
+                                <li>✓ 解決できる課題の提示</li>
+                                <li>✓ 実装上の検討事項</li>
                             </ul>
 
                             {/* 実行ボタン */}
                             <button
-                                onClick={handleStartAnalysis}
-                                disabled={isGenerating || !patentText}
+                                onClick={handleStartGeneration}
+                                disabled={isGenerating || !patentText || !analysisText}
                                 className="group relative flex items-center gap-3 px-10 py-4 
-                                    bg-linear-to-r from-indigo-600 to-indigo-700 
+                                    bg-linear-to-r from-emerald-600 to-emerald-700 
                                     text-white text-lg font-bold rounded-xl 
                                     shadow-lg hover:shadow-xl 
                                     hover:-translate-y-1 
                                     active:translate-y-0
                                     transition-all duration-200
                                     disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0">
-                                <Play size={24} className="fill-white/20" />
-                                <span>解析を開始する</span>
+                                <Lightbulb size={24} className="fill-white/20" />
+                                <span>アイデアを生成する</span>
                                 <Sparkles
                                     size={20}
                                     className="opacity-60 group-hover:opacity-100 transition-opacity"
@@ -302,7 +322,7 @@ export default function AnalysisPage() {
 
                             {/* 補足情報 */}
                             <p className="text-xs text-slate-400 mt-6">
-                                解析には 30秒〜1分程度かかります
+                                生成には 1〜2分程度かかります
                             </p>
                         </div>
                     )}
@@ -314,16 +334,16 @@ export default function AnalysisPage() {
                         <div className="space-y-6">
                             {/* ステータスバー（生成中のみ） */}
                             {isGenerating && (
-                                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
                                     <Loader2
-                                        className="animate-spin text-indigo-600 shrink-0"
+                                        className="animate-spin text-emerald-600 shrink-0"
                                         size={24}
                                     />
                                     <div className="flex-1">
-                                        <p className="text-sm font-bold text-indigo-900">
-                                            AIが特許文書を解析しています...
+                                        <p className="text-sm font-bold text-emerald-900">
+                                            AIがアイデアを生成しています...
                                         </p>
-                                        <p className="text-xs text-indigo-600 mt-1">
+                                        <p className="text-xs text-emerald-600 mt-1">
                                             リアルタイムで結果が表示されます
                                         </p>
                                     </div>
@@ -331,12 +351,12 @@ export default function AnalysisPage() {
                             )}
 
                             {/* 完了通知（生成完了直後のみ） */}
-                            {!isGenerating && savedAnalysisContent && output && (
+                            {!isGenerating && savedIdeasContent && output && (
                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
                                     <CheckCircle2 className="text-emerald-600 shrink-0" size={24} />
                                     <div className="flex-1">
                                         <p className="text-sm font-bold text-emerald-900">
-                                            解析が完了しました
+                                            アイデア生成が完了しました
                                         </p>
                                         <p className="text-xs text-emerald-600 mt-1">
                                             結果は自動保存されています

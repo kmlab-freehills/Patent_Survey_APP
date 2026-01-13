@@ -2,6 +2,7 @@
 
 "use client";
 
+import { useIdeaReportStatus } from "@/hooks/useIdeaReportStatus";
 import { useReport } from "@/hooks/useReport";
 import { ArrowRight, Bot, FileText, Lightbulb, MessageSquare } from "lucide-react";
 import Link from "next/link";
@@ -9,15 +10,11 @@ import React from "react";
 
 export default function IdeaReportDashboard() {
     const { currentReport } = useReport();
+    const status = useIdeaReportStatus();
 
-    if (!currentReport) return null;
+    if (!currentReport || !status) return null;
 
-    // TODO: バックエンドと接続後に正規の判定ロジックに置き換え
-    const hasPatent = false;
-    const hasAnalysis = false;
-    const hasIdeas = false;
-
-    // ベースパス
+    // ベースパス取得
     const basePath = `/workspace/idea/${currentReport.metadata.report_id}`;
 
     return (
@@ -42,12 +39,12 @@ export default function IdeaReportDashboard() {
                 {/* Step 1: 特許登録 */}
                 <StatusCard
                     step="01"
-                    title="特許登録"
+                    title="特許登録/閲覧"
                     icon={FileText}
-                    status={hasPatent ? "completed" : "active"}
+                    status={status.hasPatent ? "completed" : "active"}
                     description="解析対象の特許PDFを登録・テキスト化します。"
-                    actionLink={`${basePath}/upload`}
-                    actionLabel={hasPatent ? "ファイルを確認" : "PDFを登録"}
+                    actionLink={status.hasPatent ? `${basePath}/viewer` : `${basePath}/upload`}
+                    actionLabel={status.hasPatent ? "特許を確認" : "PDFを登録"}
                 />
 
                 {/* Step 2: AI解析 */}
@@ -55,10 +52,12 @@ export default function IdeaReportDashboard() {
                     step="02"
                     title="構造化解析"
                     icon={Bot}
-                    status={hasAnalysis ? "completed" : hasPatent ? "ready" : "locked"}
+                    status={
+                        status?.hasAnalysis ? "completed" : status?.hasPatent ? "ready" : "locked"
+                    }
                     description="AIが文書を読み込み、技術要素（課題・解決手段など）を抽出します。"
                     actionLink={`${basePath}/analysis`}
-                    actionLabel={hasAnalysis ? "解析結果を見る" : "解析を開始"}
+                    actionLabel={status?.hasAnalysis ? "解析結果を見る" : "解析を開始"}
                 />
 
                 {/* Step 3: アイデア */}
@@ -66,10 +65,12 @@ export default function IdeaReportDashboard() {
                     step="03"
                     title="アイデア生成"
                     icon={Lightbulb}
-                    status={hasIdeas ? "completed" : hasAnalysis ? "ready" : "locked"}
+                    status={
+                        status?.hasIdeas ? "completed" : status?.hasAnalysis ? "ready" : "locked"
+                    }
                     description="抽出された技術を応用し、具体的なビジネスアイデアを創出します。"
                     actionLink={`${basePath}/ideas`}
-                    actionLabel={hasIdeas ? "アイデアを見る" : "アイデア生成"}
+                    actionLabel={status?.hasIdeas ? "アイデアを見る" : "アイデア生成"}
                 />
 
                 {/* Step 4: 対話 */}
@@ -77,14 +78,14 @@ export default function IdeaReportDashboard() {
                     step="04"
                     title="対話モード"
                     icon={MessageSquare}
-                    status={hasIdeas ? "ready" : "locked"}
+                    status={status?.hasIdeas ? "ready" : "locked"}
                     description="AIアシスタントとの対話を通じて、技術やアイデアを深掘りします。"
                     actionLink={`${basePath}/chat`}
                     actionLabel="対話ルームへ"
                 />
             </div>
 
-            {/* メインアクションエリア（Next Action） */}
+            {/* Next Action エリア */}
             <section className="bg-liner-to-br from-white to-slate-50 border border-slate-200/60 rounded-3xl p-8 shadow-sm">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div className="space-y-3 max-w-2xl">
@@ -92,44 +93,41 @@ export default function IdeaReportDashboard() {
                             NEXT ACTION
                         </span>
                         <h2 className="text-xl font-bold text-slate-800">
-                            {!hasPatent && "まずは特許PDFを登録しましょう"}
-                            {hasPatent && !hasAnalysis && "AIによる構造化解析を実行できます"}
-                            {hasAnalysis && !hasIdeas && "技術を活用したアイデアを出してみましょう"}
-                            {hasIdeas && "分析は完了しています。対話でさらに深めましょう"}
+                            {!status.hasPatent && "まずは特許PDFを登録しましょう"}
+                            {status.hasPatent &&
+                                !status.hasAnalysis &&
+                                "AIによる構造化解析を実行できます"}
+                            {status.hasAnalysis &&
+                                !status.hasIdeas &&
+                                "技術を活用したアイデアを出してみましょう"}
+                            {status.hasIdeas && "分析は完了しています。対話でさらに深めましょう"}
                         </h2>
                         <p className="text-slate-600 leading-relaxed">
-                            {!hasPatent &&
-                                "J-PlatPatからダウンロードした特許公報PDFに対応しています。ドラッグ＆ドロップで簡単に取り込めます。"}
-                            {hasPatent && !hasAnalysis &&
-                                "特許文書特有のノイズを除去し、課題・解決手段・技術構成などを明確に構造化します。"}
-                            {hasAnalysis && !hasIdeas &&
-                                "ターゲット市場や解決すべき課題を設定し、AIにブレインストーミングさせることができます。"}
-                            {hasIdeas &&
-                                "生成されたアイデアについて、「実現可能性は？」「競合は？」など、気になる点をAIに質問してみましょう。"}
+                            {!status.hasPatent &&
+                                "J-PlatPatからダウンロードした特許公報PDFに対応しています。"}
+                            {status.hasPatent &&
+                                !status.hasAnalysis &&
+                                "特許文書を課題・解決手段・技術構成などに構造化します。"}
+                            {status.hasAnalysis &&
+                                !status.hasIdeas &&
+                                "AIにブレインストーミングさせることができます。"}
+                            {status.hasIdeas && "気になる点をAIに質問してみましょう。"}
                         </p>
                     </div>
 
-                    {/* アクションボタン */}
+                    {/* Next Action ボタン */}
                     <div className="shrink-0">
-                        {!hasPatent && (
-                            <PrimaryLink href={`${basePath}/upload`}>
-                                特許PDFを登録する
-                            </PrimaryLink>
+                        {!status.hasPatent && (
+                            <PrimaryLink href={`${basePath}/upload`}>特許PDFを登録する</PrimaryLink>
                         )}
-                        {hasPatent && !hasAnalysis && (
-                            <PrimaryLink href={`${basePath}/analysis`}>
-                                解析を開始する
-                            </PrimaryLink>
+                        {status.hasPatent && !status.hasAnalysis && (
+                            <PrimaryLink href={`${basePath}/analysis`}>解析を開始する</PrimaryLink>
                         )}
-                        {hasAnalysis && !hasIdeas && (
-                            <PrimaryLink href={`${basePath}/ideas`}>
-                                アイデアを生成する
-                            </PrimaryLink>
+                        {status.hasAnalysis && !status.hasIdeas && (
+                            <PrimaryLink href={`${basePath}/ideas`}>アイデアを生成する</PrimaryLink>
                         )}
-                        {hasIdeas && (
-                            <PrimaryLink href={`${basePath}/chat`}>
-                                対話モードを開く
-                            </PrimaryLink>
+                        {status.hasIdeas && (
+                            <PrimaryLink href={`${basePath}/chat`}>対話モードを開く</PrimaryLink>
                         )}
                     </div>
                 </div>
@@ -166,8 +164,9 @@ const StatusCard = ({
     const isActive = status === "active"; // 現在進行中（次にやるべきこと）
 
     // スタイル定義
-    const baseStyle = "relative p-6 rounded-2xl border transition-all duration-300 flex flex-col h-full";
-    
+    const baseStyle =
+        "relative p-6 rounded-2xl border transition-all duration-300 flex flex-col h-full";
+
     let containerStyle = "bg-white border-slate-100 shadow-sm hover:shadow-md";
     let iconStyle = "text-slate-400 bg-slate-50";
     let titleStyle = "text-slate-500";
@@ -199,9 +198,7 @@ const StatusCard = ({
             </div>
 
             <h3 className={`font-bold text-lg mb-3 ${titleStyle}`}>{title}</h3>
-            <p className="text-sm text-slate-500 leading-relaxed mb-6 flex-1">
-                {description}
-            </p>
+            <p className="text-sm text-slate-500 leading-relaxed mb-6 flex-1">{description}</p>
 
             {isLocked ? (
                 <div className="mt-auto w-full py-2.5 text-xs text-slate-400 font-medium bg-slate-100 rounded-lg text-center select-none">
@@ -217,8 +214,7 @@ const StatusCard = ({
                                 ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                                 : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow"
                         }
-                    `}
-                >
+                    `}>
                     {actionLabel}
                     {!isCompleted && <ArrowRight size={14} />}
                 </Link>
@@ -230,8 +226,7 @@ const StatusCard = ({
 const PrimaryLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
     <Link
         href={href}
-        className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all hover:shadow-lg hover:-translate-y-0.5"
-    >
+        className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all hover:shadow-lg hover:-translate-y-0.5">
         {children}
         <ArrowRight size={18} />
     </Link>

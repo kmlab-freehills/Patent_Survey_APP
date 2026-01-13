@@ -313,6 +313,7 @@ Patent_Survey_APP
 │  │  │  └─ readSSE.ts
 │  │  ├─ useGeminiMultiTurn.ts
 │  │  ├─ useGeminiSingleShot.ts
+│  │  ├─ useIdeaReportStatus.ts
 │  │  ├─ useLayoutState.tsx
 │  │  └─ useReport.tsx
 │  ├─ next.config.ts

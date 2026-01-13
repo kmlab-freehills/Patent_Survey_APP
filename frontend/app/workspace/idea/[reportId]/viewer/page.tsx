@@ -5,20 +5,22 @@
 import { CopyButton } from "@/components/ui/CopyButton";
 import { ImageModal } from "@/components/ui/ImageModal";
 import MarkdownViewer from "@/components/ui/MarkdownViewer";
+import { useIdeaReportStatus } from "@/hooks/useIdeaReportStatus";
 import { useReport } from "@/hooks/useReport";
 import { components } from "@/types/schema";
 import {
     AlertCircle,
+    ArrowRight,
+    Bot,
     FileText,
     Image as ImageIcon,
     Loader2,
     PanelRightClose,
     PanelRightOpen,
-    Bot,
-    ArrowRight,
+    Upload,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { IdeaReportContent } from "../ideaReportType"; // 型定義をインポート
 
 // ------------------------------------------------------------
@@ -48,6 +50,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export default function PatentViewerPage() {
     // Contextから現在のレポート情報を取得（型安全にアクセス）
     const { currentReport } = useReport<IdeaReportContent>();
+    const status = useIdeaReportStatus();
 
     // Local State
     const [patentData, setPatentData] = useState<PatentContent | null>(null);
@@ -131,6 +134,7 @@ export default function PatentViewerPage() {
     // ------------------------------------------------------------
     // ローディング / エラー表示
     // ------------------------------------------------------------
+
     if (isLoading) {
         return (
             <div className="flex h-full items-center justify-center bg-white text-slate-500 gap-2">
@@ -186,6 +190,16 @@ export default function PatentViewerPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {/* 再アップロードボタン */}
+                    <Link href={`/workspace/idea/${currentReport?.metadata.report_id}/upload`}>
+                        <button
+                            className="flex items-center gap-2 px-3 py-1.5
+                                    text-xs font-medium rounded-md border border-slate-200
+                                    bg-white text-slate-600
+                                    hover:bg-slate-50 hover:text-slate-800 transition-colors">
+                            別の特許を登録する
+                        </button>
+                    </Link>
                     <CopyButton text={fullText} label="全文をコピー" />
 
                     {hasImages && (
@@ -206,14 +220,13 @@ export default function PatentViewerPage() {
                         </button>
                     )}
                     {/* 次のステップへの遷移ボタン */}
-          <Link
-            href={`/workspace/idea/${currentReport?.metadata.report_id}/analysis`}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm ml-2"
-          >
-            <Bot size={18} />
-            <span>AI解析に進む</span>
-            <ArrowRight size={16} />
-          </Link>
+                    <Link
+                        href={`/workspace/idea/${currentReport?.metadata.report_id}/analysis`}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm ml-2">
+                        <Bot size={18} />
+                        <span>AI解析に進む</span>
+                        <ArrowRight size={16} />
+                    </Link>
                 </div>
             </div>
 

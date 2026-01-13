@@ -2,7 +2,7 @@
 
 export interface UIMessage {
     id: string;
-    role: "user" | "assistant";
+    role: "user" | "model";
     content: string;
 }
 

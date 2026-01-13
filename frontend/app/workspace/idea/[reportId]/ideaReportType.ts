@@ -15,22 +15,9 @@
 
 
 export interface IdeaReportContent {
-    // ============================================================
-    // 【レポートの進行状況】
-    //  UI の状態管理（どのステップにいるか）を目的とした最小構成。
-    //  ステップ詳細や履歴管理が必要になった場合は、ここを拡張する。
-    // ============================================================
-
-    progress?: {
-        // 現在のステップ（例: "upload" | "analysis" | "ideas" | "chat"）
-        current_step: string;
-
-        // レポート全体の状態（例: "draft" | "in_progress" | "completed" | "error"）
-        status: string;
-    };
 
     // ============================================================
-    // 【Step 1: 特許登録情報】
+    // 【特許PDF登録情報】
     //  バックエンド: backend/src/services/patent/patent_api.py
     //  特許ファイルがアップロードされた時点で保存される。
     // ============================================================
@@ -79,7 +66,7 @@ export interface IdeaReportContent {
 
             // チャットメッセージの履歴
             messages: {
-                role: "user" | "assistant";
+                role: "user" | "model";
                 content: string;
             }[];
 
@@ -141,10 +128,6 @@ export interface GeneratedMeta {
 //         "updated_at": "2026-01-12T13:17:23.287704Z"
 //     },
 //     "content": {
-//         "progress": {
-//             "current_step": "chat",
-//             "status": "completed"
-//         },
 //         "patent_info": {
 //             "filename": "JPB 007501936-000000.pdf",
 //             "patent_id": "0b4348df-cf8d-41f5-8cde-f4f949902127",
@@ -188,7 +171,7 @@ export interface GeneratedMeta {
 //                         "content": "このアイデアをさらに具体化して"
 //                     },
 //                     {
-//                         "role": "assistant",
+//                         "role": "model",
 //                         "content": "はい、以下のように..."
 //                     }
 //                 ],

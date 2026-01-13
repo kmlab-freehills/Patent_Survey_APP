@@ -3,6 +3,9 @@
 import { useCallback, useState } from "react";
 import { readSSE } from "./internal/readSSE";
 
+// 環境変数を定義（これを追加）
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface SingleShotParams {
     reportType: string;
     reportId: string;
@@ -24,7 +27,7 @@ export const useGeminiSingleShot = () => {
         setError(null);
 
         try {
-            const response = await fetch("/generate/single-shot", {
+            const response = await fetch(`${API_BASE}/generate/single-shot`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -37,6 +40,11 @@ export const useGeminiSingleShot = () => {
                 }),
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API Error: ${response.status} ${errorText}`);
+            }
+
             await readSSE(response, (event) => {
                 if (event.type === "content_delta") {
                     setOutput((prev) => prev + event.data.chunk);
@@ -46,6 +54,7 @@ export const useGeminiSingleShot = () => {
                 }
             });
         } catch (e) {
+            console.error(e);
             setError(e instanceof Error ? e.message : "Unknown error");
         } finally {
             setIsGenerating(false);

@@ -86,7 +86,7 @@ async def generate_single_shot_content(request: GenerateSingleShotRequest):
             artifact = GeneratedArtifact(
                 system_prompt_type=request.system_prompt_type or "",
                 prompt_type=request.prompt_type,
-                input=list(request.context.values()),
+                input=list(request.context.keys()),
                 output=full_response_text,
                 meta=GeneratedMeta(
                     model=model,
@@ -169,7 +169,7 @@ async def generate_multi_turn_content(request: GenerateMultiTurnRequest):
             # 5. 会話を保存（assistantを追加）
             # --------------------------------------------------
             messages = [m.model_dump() for m in request.messages]
-            messages.append({"role": "assistant", "content": assistant_text})
+            messages.append({"role": "model", "content": assistant_text})
 
             report.content.setdefault("generated", {})
             report.content["generated"]["conversation"] = {

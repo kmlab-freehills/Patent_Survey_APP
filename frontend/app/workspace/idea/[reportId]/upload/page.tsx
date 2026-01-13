@@ -61,7 +61,7 @@ export default function IdeaUploadPage() {
     };
 
     // ------------------------------------------------------------
-    // 送信ハンドラ 
+    // 送信ハンドラ
     // ------------------------------------------------------------
     const handleUpload = async () => {
         if (!selectedFile || !currentReport) return;

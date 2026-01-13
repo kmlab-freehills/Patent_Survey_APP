@@ -97,6 +97,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/generate/single-shot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Single Shot Content
+         * @description シングルショット生成エンドポイント
+         */
+        post: operations["generate_single_shot_content_generate_single_shot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/generate/multi-turn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Multi Turn Content
+         * @description マルチターン生成エンドポイント
+         */
+        post: operations["generate_multi_turn_content_generate_multi_turn_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -147,10 +187,91 @@ export interface components {
              */
             report_type: string;
         };
+        /**
+         * GenerateMultiTurnRequest
+         * @description マルチターン生成（対話等）のリクエスト
+         */
+        GenerateMultiTurnRequest: {
+            /**
+             * Messages
+             * @description 今回の user メッセージを含む完全な会話履歴
+             */
+            messages: components["schemas"]["Message"][];
+            /**
+             * System Prompt Type
+             * @description 使用するシステムプロンプトの識別子（任意）
+             */
+            system_prompt_type?: string | null;
+            /**
+             * Context
+             * @description プロンプトに埋め込むためのコンテキスト情報
+             */
+            context?: {
+                [key: string]: string;
+            };
+            /**
+             * Report Type
+             * @description レポートの種類
+             */
+            report_type: string;
+            /**
+             * Report Id
+             * @description レポートID
+             */
+            report_id: string;
+        };
+        /**
+         * GenerateSingleShotRequest
+         * @description シングルショット生成のリクエスト
+         */
+        GenerateSingleShotRequest: {
+            /**
+             * Prompt Type
+             * @description 使用するプロンプトの識別子（必須）
+             */
+            prompt_type: string;
+            /**
+             * System Prompt Type
+             * @description 使用するシステムプロンプトの識別子（任意）
+             */
+            system_prompt_type?: string | null;
+            /**
+             * Context
+             * @description プロンプトに埋め込むためのコンテキスト情報
+             */
+            context?: {
+                [key: string]: string;
+            };
+            /**
+             * Report Type
+             * @description レポートの種類
+             */
+            report_type: string;
+            /**
+             * Report Id
+             * @description レポートID
+             */
+            report_id: string;
+            /**
+             * Artifact Name
+             * @description 生成物の名称
+             */
+            artifact_name: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Message */
+        Message: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
         };
         /** PatentContent */
         PatentContent: {
@@ -501,6 +622,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PatentUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_single_shot_content_generate_single_shot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateSingleShotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_multi_turn_content_generate_multi_turn_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateMultiTurnRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

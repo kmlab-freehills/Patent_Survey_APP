@@ -4,6 +4,9 @@ import { UIMessage } from "@/types/gemini";
 import { useCallback, useState } from "react";
 import { readSSE } from "./internal/readSSE";
 
+// 環境変数を定義
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface MultiTurnParams {
     reportType: string;
     reportId: string;
@@ -29,14 +32,14 @@ export const useGeminiMultiTurn = () => {
 
             const assistantMsg: UIMessage = {
                 id: crypto.randomUUID(),
-                role: "assistant",
+                role: "model",
                 content: "",
             };
 
             setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
             try {
-                const response = await fetch("/generate/multi-turn", {
+                const response = await fetch(`${API_BASE}/generate/multi-turn`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -50,6 +53,11 @@ export const useGeminiMultiTurn = () => {
                         })),
                     }),
                 });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error: ${response.status} ${errorText}`);
+                }
 
                 await readSSE(response, (event) => {
                     if (event.type === "content_delta") {
@@ -68,6 +76,7 @@ export const useGeminiMultiTurn = () => {
                     }
                 });
             } catch (e) {
+                console.log(e)
                 setError(e instanceof Error ? e.message : "Unknown error");
             } finally {
                 setIsGenerating(false);

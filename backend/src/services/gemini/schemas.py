@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field
 
 class Message(BaseModel):
     # systemはgeminiの場合、messagesに含めなくていい（引数で直接挿入）、tool等は今は不要
-    role: Literal["user", "assistant"]
+    role: Literal["user", "model"]
     content: str
 
 

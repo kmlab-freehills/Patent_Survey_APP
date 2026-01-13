@@ -1,5 +1,6 @@
 "use client";
 
+import { useIdeaReportStatus } from "@/hooks/useIdeaReportStatus";
 import { useReport } from "@/hooks/useReport";
 import {
     Bot,
@@ -14,35 +15,33 @@ import { usePathname } from "next/navigation";
 
 export const IdeaSidebar = () => {
     const { currentReport } = useReport();
+    const status = useIdeaReportStatus();
     const pathname = usePathname();
 
-    // URLからベースパスを抽出 (/workspace/idea/[id])
     const basePath = currentReport ? `/workspace/idea/${currentReport.metadata.report_id}` : "#";
 
-    // レポートの中身をチェックして進捗判定（仮の判定ロジック）
-    // ※ 型定義がまだanyなので安全にアクセス
-    // const hasPatent = !!currentReport?.content?.source?.patent_text;
-    // const hasAnalysis = !!currentReport?.content?.results?.analysis;
-    // const hasIdeas = !!currentReport?.content?.results?.ideas;
-    const hasPatent = false
-    const hasAnalysis = false
-    const hasIdeas = false
+    // フックから取得
+    if (!status) {
+        return <div>Loading...</div>;
+    }
 
     const navItems = [
         {
             id: "dashboard",
             label: "ダッシュボード",
-            href: basePath, // トップ
+            href: basePath,
             icon: LayoutDashboard,
-            completed: true, // 常にアクセス可
+            completed: true,
             disabled: false,
         },
         {
-            id: "upload",
-            label: "特許登録",
-            href: `${basePath}/upload`,
+            id: "patent",
+            label: "特許登録/閲覧", // 統合
+            href: status.hasPatent
+                ? `${basePath}/viewer` // 登録済み → 閲覧
+                : `${basePath}/upload`, // 未登録 → アップロード
             icon: FileText,
-            completed: hasPatent,
+            completed: status.hasPatent,
             disabled: false,
         },
         {
@@ -50,24 +49,24 @@ export const IdeaSidebar = () => {
             label: "AI解析",
             href: `${basePath}/analysis`,
             icon: Bot,
-            completed: hasAnalysis,
-            disabled: !hasPatent, // 特許がないと進めない
+            completed: status?.hasAnalysis,
+            disabled: !status?.hasPatent, // 特許PDFが登録されていないと進めない
         },
         {
             id: "ideas",
             label: "アイデア生成",
             href: `${basePath}/ideas`,
             icon: Lightbulb,
-            completed: hasIdeas,
-            disabled: !hasAnalysis, // 解析していないと進めない
+            completed: status?.hasIdeas,
+            disabled: !status?.hasAnalysis, // 特許解析結果がないと進めない
         },
         {
             id: "chat",
             label: "対話モード",
             href: `${basePath}/chat`,
             icon: MessageSquare,
-            completed: false,
-            disabled: !hasIdeas, // アイデアがないと進めない
+            completed: false, // チャットは「完了」という概念がない
+            disabled: !status?.hasIdeas, // アイデア生成結果がないと進めない
         },
     ];
 
@@ -111,7 +110,7 @@ export const IdeaSidebar = () => {
                             ? "bg-blue-600 text-white border-r-4 border-blue-300"
                             : "hover:bg-slate-800 hover:text-white"
                     }
-                  `}>
+                    `}>
                                     <div className="flex items-center gap-3">
                                         <item.icon
                                             size={20}
