@@ -144,8 +144,7 @@ AI の回答には、以下の形式で出典が付与されます：
 
 ## デモ / スクリーンショット
 
-<img width="1919" height="989" alt="特許応用アイデア生成デモ画面" src="https://github.com/user-attachments/assets/1e12d57d-1b27-4d4b-9ea1-684b36d3c8e5" />
-
+<img width="1919" height="985" alt="特許応用アイデア生成デモ画面" src="https://github.com/user-attachments/assets/186f0a95-a78a-47b9-8ea9-f43858f3b944" />
 ---
 
 ## アーキテクチャ
