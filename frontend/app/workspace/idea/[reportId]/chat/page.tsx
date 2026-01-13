@@ -3,9 +3,10 @@
 "use client";
 
 import { CopyButton } from "@/components/ui/CopyButton";
-import MarkdownViewer from "@/components/ui/MarkdownViewer";
+import { MarkdownRenderer } from "../source-sidebar/IdeaMarkdownRenderer";
+import { useLayoutState } from "@/hooks/useLayoutState";
 import { useGeminiMultiTurn } from "@/hooks/useGeminiMultiTurn";
-import { useIdeaReportStatus } from "@/hooks/useIdeaReportStatus";
+import { useIdeaReport } from "../IdeaReportContext";
 import { useReport } from "@/hooks/useReport";
 import { UIMessage } from "@/types/gemini";
 import {
@@ -28,7 +29,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function ChatPage() {
     const { currentReport, loadReportFromApi } = useReport<IdeaReportContent>();
-    const status = useIdeaReportStatus();
     const { messages, isGenerating, error, sendMessage, setMessages } = useGeminiMultiTurn();
 
     // コンテキスト（特許原文・解析結果・アイデア）
@@ -402,6 +402,15 @@ export default function ChatPage() {
 // メッセージバブル（サブコンポーネント）
 // ------------------------------------------------------------
 const MessageBubble = ({ message }: { message: UIMessage }) => {
+    // 原文参照サイドバー関連
+    const { setIsRightSidebarOpen } = useLayoutState();
+    const { setActiveParagraphId } = useIdeaReport();
+
+    const handleParagraphClick = (id: string) => {
+        setActiveParagraphId(id);
+        setIsRightSidebarOpen(true);
+    };
+
     const isUser = message.role === "user";
 
     return (
@@ -455,7 +464,10 @@ const MessageBubble = ({ message }: { message: UIMessage }) => {
                     ) : (
                         // アシスタントメッセージ（Markdown）
                         <div className="prose prose-slate prose-sm max-w-none">
-                            <MarkdownViewer content={message.content} />
+                            <MarkdownRenderer
+                                content={message.content || ""}
+                                onClickParagraph={handleParagraphClick}
+                            />
                         </div>
                     )}
                 </div>

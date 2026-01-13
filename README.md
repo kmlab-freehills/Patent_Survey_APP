@@ -233,7 +233,6 @@ updateContent(path, value);
 ## ディレクトリ構造
 
 
-
 ```
 Patent_Survey_APP
 ├─ backend
@@ -285,10 +284,20 @@ Patent_Survey_APP
 │  │     │  └─ [reportId]
 │  │     │     ├─ analysis
 │  │     │     │  └─ page.tsx
+│  │     │     ├─ chat
+│  │     │     │  └─ page.tsx
+│  │     │     ├─ IdeaLeftSidebar.tsx
+│  │     │     ├─ IdeaReportContext.tsx
 │  │     │     ├─ ideaReportType.ts
-│  │     │     ├─ IdeaSidebar.tsx
+│  │     │     ├─ ideas
+│  │     │     │  └─ page.tsx
 │  │     │     ├─ layout.tsx
 │  │     │     ├─ page.tsx
+│  │     │     ├─ source-sidebar
+│  │     │     │  ├─ FigureList.tsx
+│  │     │     │  ├─ IdeaMarkdownRenderer.tsx
+│  │     │     │  ├─ sourcePatentTextProcess.ts
+│  │     │     │  └─ SourceSidebar.tsx
 │  │     │     ├─ upload
 │  │     │     │  └─ page.tsx
 │  │     │     └─ viewer

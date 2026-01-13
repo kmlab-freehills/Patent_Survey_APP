@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export const IdeaSidebar = () => {
+export const IdeaLeftSidebar = () => {
     const { currentReport } = useReport();
     const status = useIdeaReportStatus();
     const pathname = usePathname();

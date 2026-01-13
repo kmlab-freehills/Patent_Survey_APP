@@ -3,9 +3,9 @@
 "use client";
 
 import { CopyButton } from "@/components/ui/CopyButton";
-import MarkdownViewer from "@/components/ui/MarkdownViewer";
 import { useGeminiSingleShot } from "@/hooks/useGeminiSingleShot";
-import { useIdeaReportStatus } from "@/hooks/useIdeaReportStatus";
+import { useLayoutState } from "@/hooks/useLayoutState";
+import { useIdeaReport } from "../IdeaReportContext";
 import { useReport } from "@/hooks/useReport";
 import {
     AlertCircle,
@@ -21,13 +21,13 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { IdeaReportContent } from "../ideaReportType";
+import { MarkdownRenderer } from "../source-sidebar/IdeaMarkdownRenderer";
 
 // 環境変数
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function AnalysisPage() {
     const { currentReport, loadReportFromApi } = useReport<IdeaReportContent>();
-    const status = useIdeaReportStatus();
     const { output, isGenerating, error, generate } = useGeminiSingleShot();
 
     // レポートから解析結果を取得
@@ -41,6 +41,15 @@ export default function AnalysisPage() {
 
     // 表示用のコンテンツ（生成中はストリーミング、完了後は保存済み）
     const displayContent = isGenerating ? output : savedAnalysisContent;
+
+    // 原文参照サイドバー関連
+    const { setIsRightSidebarOpen } = useLayoutState();
+    const { setActiveParagraphId } = useIdeaReport();
+
+    const handleParagraphClick = (id: string) => {
+        setActiveParagraphId(id);
+        setIsRightSidebarOpen(true);
+    };
 
     // ------------------------------------------------------------
     // 特許テキストの取得
@@ -367,9 +376,9 @@ export default function AnalysisPage() {
                             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                                 <div className="p-8 lg:p-12">
                                     <div className="prose prose-slate prose-lg max-w-none">
-                                        <MarkdownViewer
+                                        <MarkdownRenderer
                                             content={displayContent || ""}
-                                            className="leading-relaxed"
+                                            onClickParagraph={handleParagraphClick}
                                         />
                                     </div>
                                 </div>
