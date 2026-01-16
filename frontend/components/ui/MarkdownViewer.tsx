@@ -12,7 +12,6 @@ import ReactMarkdown from "react-markdown"; // Markdownレンダリング
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"; // コードハイライト
 import { vs } from "react-syntax-highlighter/dist/esm/styles/prism"; // VSコード風のスタイル
 import rehypeKatex from "rehype-katex"; // 数式描画ライブラリを利用してHTML化
-import rehypeRaw from "rehype-raw"; // HTMLのレンダリング
 import remarkBreaks from "remark-breaks"; // 改行を<br>として扱う
 import remarkGfm from "remark-gfm"; // GitHub Flavored Markdown (GFM) の記法を適用
 import { remarkAlert } from "remark-github-blockquote-alert"; // GitHubスタイルの警告表示適用
@@ -86,7 +85,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className }) =
         <div className={`markdown ${className || ""}`}>
             <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkBreaks, remarkMath, remarkAlert]}
-                rehypePlugins={[rehypeRaw, rehypeKatex]}
+                rehypePlugins={[rehypeKatex]}
                 components={{
                     // pタグをdivタグに置き換えて、Hydrationエラーを回避（pタグの中にdiv(コードブロック)が入るのを防ぐため）
                     p: ({ children }) => <div className="mb-4 leading-relaxed">{children}</div>,
@@ -103,7 +102,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className }) =
                             {...props}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline cursor-pointer"
+                            className="text-blue-600 cursor-pointer hover:underline"
                         />
                     ),
                 }}>
@@ -157,7 +156,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
     // 3. シンタックスハイライト（ヘッダー付きブロック）
     if (match) {
         return (
-            <div className="my-4 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+            <div className="my-4 overflow-hidden border border-gray-200 rounded-lg bg-gray-50">
                 {/* ヘッダー部分 */}
                 <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200">
                     <span className="text-xs font-medium text-gray-600 select-none">{lang}</span>
@@ -168,7 +167,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
                         {isCopied ? (
                             <>
                                 <Check size={14} className="text-green-600" />
-                                <span className="text-green-600 font-medium">Copied!</span>
+                                <span className="font-medium text-green-600">Copied!</span>
                             </>
                         ) : (
                             <>
@@ -192,7 +191,10 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
                         border: "none",
                     }}
                     codeTagProps={{
-                        style: { backgroundColor: "transparent" },
+                        style: {
+                            backgroundColor: "transparent",
+                            padding: 0, // CSS側のパディングを打ち消す
+                        },
                     }}>
                     {codeString}
                 </SyntaxHighlighter>
@@ -203,7 +205,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
     // 4. 言語指定なしのブロックコード（フォールバック）
     // ここに来るのは「言語指定はないが、複数行ある」場合
     return (
-        <pre className="p-4 my-4 rounded-lg bg-gray-100 overflow-auto border border-gray-200 text-sm font-mono">
+        <pre className="p-4 my-4 overflow-auto font-mono text-sm bg-gray-100 border border-gray-200 rounded-lg">
             <code className={className} {...props}>
                 {children}
             </code>
